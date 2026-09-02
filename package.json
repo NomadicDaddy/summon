@@ -1,0 +1,29 @@
+{
+	"name": "summon",
+	"version": "0.1.0",
+	"description": "Open named Codex or Claude Code sessions in a fresh terminal window.",
+	"type": "module",
+	"bin": {
+		"summon": "./src/cli.ts"
+	},
+	"scripts": {
+		"preinstall": "bun scripts/require-bun.ts",
+		"typecheck": "tsc --noEmit",
+		"lint": "eslint . --max-warnings 0",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"test": "bun test",
+		"smoke:qc": "bun run typecheck && bun run lint && bun run format:check && bun test"
+	},
+	"devDependencies": {
+		"@eslint/js": "10.0.1",
+		"@types/bun": "1.4.0",
+		"eslint": "10.8.1",
+		"prettier": "3.9.6",
+		"typescript": "6.0.3",
+		"typescript-eslint": "8.67.0"
+	},
+	"engines": {
+		"bun": "1.4.0"
+	}
+}
