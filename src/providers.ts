@@ -1,4 +1,4 @@
-import type { AgentRecord, Provider } from './store.ts';
+import type { AgentRecord } from './store.ts';
 
 export function sessionPrompt(record: AgentRecord): string {
 	const notes = record.notes.trim() || '(No persistent notes yet.)';
@@ -12,13 +12,9 @@ export function sessionPrompt(record: AgentRecord): string {
 	].join('\n');
 }
 
-export function providerCommand(
-	provider: Provider,
-	record: AgentRecord,
-	sessionId: string | undefined,
-): string[] {
+export function providerCommand(record: AgentRecord, sessionId: string | undefined): string[] {
 	const prompt = sessionPrompt(record);
-	if (provider === 'codex') {
+	if (record.provider === 'codex') {
 		return sessionId
 			? ['codex', 'resume', '-C', record.cwd, sessionId, prompt]
 			: ['codex', '-C', record.cwd, prompt];
@@ -26,7 +22,7 @@ export function providerCommand(
 
 	if (!sessionId) throw new Error('Claude sessions must have an ID before launch.');
 	const common = ['--name', record.name, '--append-system-prompt', prompt];
-	return latestClaudeCommand(sessionId, record.sessions.claude.length, common);
+	return latestClaudeCommand(sessionId, record.sessions.length, common);
 }
 
 function latestClaudeCommand(sessionId: string, sessionCount: number, common: string[]): string[] {

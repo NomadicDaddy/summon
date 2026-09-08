@@ -7,7 +7,7 @@ import {
 	appendNote,
 	loadAgent,
 	newRecord,
-	providers,
+	isProvider,
 	saveAgent,
 	slugFor,
 	type Provider,
@@ -16,7 +16,7 @@ import { openTerminal, terminalCommand } from './terminal.ts';
 
 interface Options {
 	name: string;
-	provider: Provider;
+	provider?: Provider;
 	notes: string[];
 	cwd?: string;
 	sameWindow: boolean;
@@ -27,7 +27,7 @@ const HELP = `summon <name> [options]
 Open a named coding-agent session in a new terminal window.
 
 Options:
-  --using <claude|codex>  Agent CLI to use (default: claude)
+  --using <claude|codex>  CLI for a new name (default: claude; saved for later calls)
   --note <text>           Append a persistent note before opening
   --cwd <path>            Set or replace the session working directory
   --same-window           Run here instead of opening a new window
@@ -35,17 +35,16 @@ Options:
 
 Examples:
   summon carl
-  summon carl --using claude
+  summon auden --using codex
   summon carl --note "Owns the release checklist" --cwd ./my-project
 
-Records are stored as JSON files in ~/.agent.`;
+Each name uses its registered CLI. --using cannot switch an existing name.\nRecords are stored as JSON files in ~/.agent.`;
 
 async function main(args: string[]): Promise<void> {
 	if (args[0] === '__session') {
 		const slug = args[1];
-		const provider = args[2];
-		if (!slug || !isProvider(provider)) throw new Error('Invalid internal session command.');
-		process.exitCode = await runSession(slug, provider);
+		if (!slug || args.length !== 2) throw new Error('Invalid internal session command.');
+		process.exitCode = await runSession(slugFor(slug));
 		return;
 	}
 
@@ -57,10 +56,15 @@ async function main(args: string[]): Promise<void> {
 	const options = parseOptions(args);
 	const slug = slugFor(options.name);
 	const existing = await loadAgent(slug);
+	if (existing && options.provider && options.provider !== existing.provider) {
+		throw new Error(
+			`${existing.name} is registered with ${existing.provider}. Omit --using, or register a different name for ${options.provider}.`,
+		);
+	}
 	const cwd = options.cwd ? resolve(options.cwd) : (existing?.cwd ?? process.cwd());
 	await assertDirectory(cwd);
 
-	const record = existing ?? newRecord(options.name, cwd);
+	const record = existing ?? newRecord(options.name, cwd, options.provider ?? 'claude');
 	record.cwd = cwd;
 	for (const note of options.notes) {
 		appendNote(record, note);
@@ -68,24 +72,24 @@ async function main(args: string[]): Promise<void> {
 	await saveAgent(slug, record);
 
 	if (options.sameWindow) {
-		process.exitCode = await runSession(slug, options.provider);
+		process.exitCode = await runSession(slug);
 		return;
 	}
 
-	const command = terminalCommand(import.meta.path, slug, options.provider, record.cwd);
+	const command = terminalCommand(import.meta.path, slug, record.provider, record.cwd);
 	if (!command) {
 		console.warn('No supported terminal launcher found; opening the session here.');
-		process.exitCode = await runSession(slug, options.provider);
+		process.exitCode = await runSession(slug);
 		return;
 	}
 	openTerminal(command);
-	console.log(`Summoned ${record.name} with ${options.provider}.`);
+	console.log(`Summoned ${record.name} with ${record.provider}.`);
 }
 
 function parseOptions(args: string[]): Options {
 	const name = args[0];
 	if (!name || name.startsWith('-')) throw new Error(`A name is required.\n\n${HELP}`);
-	const result: Options = { name, provider: 'claude', notes: [], sameWindow: false };
+	const result: Options = { name, notes: [], sameWindow: false };
 
 	for (let index = 1; index < args.length; index += 1) {
 		const argument = args[index];
@@ -114,10 +118,6 @@ function parseOptions(args: string[]): Options {
 		throw new Error(`Unknown option: ${argument}`);
 	}
 	return result;
-}
-
-function isProvider(value: string | undefined): value is Provider {
-	return value !== undefined && providers.some((provider) => provider === value);
 }
 
 async function assertDirectory(path: string): Promise<void> {

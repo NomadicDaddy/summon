@@ -12,13 +12,14 @@ export interface SessionRef {
 }
 
 export interface AgentRecord {
-	version: 1;
+	version: 2;
 	name: string;
 	notes: string;
 	cwd: string;
 	createdAt: string;
 	updatedAt: string;
-	sessions: Record<Provider, SessionRef[]>;
+	provider: Provider;
+	sessions: SessionRef[];
 }
 
 export function storageRoot(): string {
@@ -46,16 +47,17 @@ export function recordPath(slug: string): string {
 	return join(storageRoot(), `${slug}.json`);
 }
 
-export function newRecord(name: string, cwd: string): AgentRecord {
+export function newRecord(name: string, cwd: string, provider: Provider): AgentRecord {
 	const now = new Date().toISOString();
 	return {
-		version: 1,
+		version: 2,
 		name,
 		notes: '',
 		cwd,
 		createdAt: now,
 		updatedAt: now,
-		sessions: { codex: [], claude: [] },
+		provider,
+		sessions: [],
 	};
 }
 
@@ -63,7 +65,9 @@ export async function loadAgent(slug: string): Promise<AgentRecord | undefined> 
 	try {
 		const parsed: unknown = JSON.parse(await readFile(recordPath(slug), 'utf8'));
 		if (!isAgentRecord(parsed)) {
-			throw new Error(`Invalid agent record: ${recordPath(slug)}`);
+			throw new Error(
+				`Invalid agent record: ${recordPath(slug)}. Expected version 2 with a registered provider and a session list.`,
+			);
 		}
 		return parsed;
 	} catch (error: unknown) {
@@ -86,26 +90,23 @@ export async function saveAgent(slug: string, record: AgentRecord): Promise<void
 	}
 }
 
-export function latestSession(record: AgentRecord, provider: Provider): SessionRef | undefined {
-	return record.sessions[provider].at(-1);
+export function latestSession(record: AgentRecord): SessionRef | undefined {
+	return record.sessions.at(-1);
 }
 
-export function rememberSession(record: AgentRecord, provider: Provider, id: string): void {
+export function rememberSession(record: AgentRecord, id: string): void {
 	const now = new Date().toISOString();
-	const existing = record.sessions[provider].find((session) => session.id === id);
+	const existing = record.sessions.find((session) => session.id === id);
 	if (existing) {
 		existing.lastUsedAt = now;
-		record.sessions[provider] = [
-			...record.sessions[provider].filter((session) => session.id !== id),
-			existing,
-		];
+		record.sessions = [...record.sessions.filter((session) => session.id !== id), existing];
 		return;
 	}
-	record.sessions[provider].push({ id, createdAt: now, lastUsedAt: now });
+	record.sessions.push({ id, createdAt: now, lastUsedAt: now });
 }
 
-export function forgetSession(record: AgentRecord, provider: Provider, id: string): void {
-	record.sessions[provider] = record.sessions[provider].filter((session) => session.id !== id);
+export function forgetSession(record: AgentRecord, id: string): void {
+	record.sessions = record.sessions.filter((session) => session.id !== id);
 }
 
 function isAgentRecord(value: unknown): value is AgentRecord {
@@ -113,22 +114,20 @@ function isAgentRecord(value: unknown): value is AgentRecord {
 	const candidate = value as Record<string, unknown>;
 	const sessions = candidate.sessions;
 	return (
-		candidate.version === 1 &&
+		candidate.version === 2 &&
 		typeof candidate.name === 'string' &&
 		typeof candidate.notes === 'string' &&
 		typeof candidate.cwd === 'string' &&
 		typeof candidate.createdAt === 'string' &&
 		typeof candidate.updatedAt === 'string' &&
-		isSessionMap(sessions)
+		isProvider(candidate.provider) &&
+		Array.isArray(sessions) &&
+		sessions.every(isSessionRef)
 	);
 }
 
-function isSessionMap(value: unknown): value is Record<Provider, SessionRef[]> {
-	if (!value || typeof value !== 'object') return false;
-	const candidate = value as Record<string, unknown>;
-	return providers.every(
-		(provider) => Array.isArray(candidate[provider]) && candidate[provider].every(isSessionRef),
-	);
+export function isProvider(value: unknown): value is Provider {
+	return value === 'codex' || value === 'claude';
 }
 
 function isSessionRef(value: unknown): value is SessionRef {

@@ -7,7 +7,7 @@ export function terminalCommand(
 	provider: Provider,
 	cwd: string,
 ): string[] | undefined {
-	const runner = [process.execPath, cliPath, '__session', slug, provider];
+	const runner = [process.execPath, cliPath, '__session', slug];
 	if (platform() === 'win32') {
 		return [
 			'wt.exe',
