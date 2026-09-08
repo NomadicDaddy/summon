@@ -1,6 +1,6 @@
 {
 	"name": "summon",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Open named Codex or Claude Code sessions in a fresh terminal window.",
 	"type": "module",
 	"bin": {
@@ -17,11 +17,11 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "10.0.1",
-		"@types/bun": "1.4.0",
-		"eslint": "10.8.1",
+		"@types/bun": "1.4.2",
+		"eslint": "10.10.0",
 		"prettier": "3.9.6",
 		"typescript": "6.0.3",
-		"typescript-eslint": "8.67.0"
+		"typescript-eslint": "8.70.0"
 	},
 	"engines": {
 		"bun": "1.4.0"
