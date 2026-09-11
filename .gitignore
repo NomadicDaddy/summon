@@ -1,5 +1,5 @@
-node_modules/
-*.tsbuildinfo
+.aidd/
 *.tgz
+*.tsbuildinfo
 AGENTS.md
-.aidd\iterations
+node_modules/
