@@ -6,6 +6,12 @@
 	"bin": {
 		"summon": "./src/cli.ts"
 	},
+	"files": [
+		"src/*.ts",
+		"scripts/require-bun.ts",
+		"README.md",
+		"CHANGELOG.md"
+	],
 	"scripts": {
 		"preinstall": "bun scripts/require-bun.ts",
 		"typecheck": "tsc --noEmit",
@@ -13,7 +19,8 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"test": "bun test",
-		"smoke:qc": "bun run typecheck && bun run lint && bun run format:check && bun test"
+		"smoke:qc": "bun run typecheck && bun run lint && bun run format:check && bun test",
+		"release:check": "bun run smoke:qc && bun pm pack --dry-run"
 	},
 	"devDependencies": {
 		"@eslint/js": "10.0.1",

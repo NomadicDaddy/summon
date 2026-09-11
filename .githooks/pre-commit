@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Leak-guard-only pre-commit, for repositories that cannot satisfy the full hook's script-name
+# contract.
+#
+# The canonical .githooks/pre-commit runs `bun run smoke:qc:fast`, and `bun run check:licenses` when
+# a dependency manifest is staged. Those names are a contract, not an implementation: a carrier is
+# free to define them however it likes. But a hook that calls a script the repository does not
+# define fails EVERY commit instead of guarding it, and a hook that fails every commit gets
+# uninstalled rather than fixed — taking the leak guard with it.
+#
+# So repositories with no package.json, or with no qc chain behind those two names, get this file
+# instead. The security tier is identical: the same .githooks/leak-guard.sh, byte-identical to every
+# other carrier's, scanning the same staged index diff. Only the static checks are absent, and those
+# were never the reason this hook exists.
+#
+# Installed by aidd/scripts/install-leak-guard.ts, which picks between the two hooks by reading the
+# target's package.json. Once a repository defines both names, re-running the installer replaces
+# this file with the full hook.
+#
+# Keep this file byte-identical across every repository that carries it.
+
+set -euo pipefail
+
+echo "pre-commit: leak-guard"
+bash .githooks/leak-guard.sh
+
+echo "pre-commit: passed"

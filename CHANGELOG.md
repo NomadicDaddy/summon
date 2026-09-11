@@ -2,6 +2,17 @@
 
 Notable changes to summon are recorded here using Keep a Changelog categories and semantic versions.
 
+## [Unreleased]
+
+### Security
+
+- Restrict package contents to runtime source and public documentation, excluding internal agent
+  records, run logs, workspace instructions, hooks, tests, and compiler caches.
+
+### Added
+
+- Release validation command and installation, terminal, and local data requirements in the README.
+
 ## [0.2.0] - 2026-09-08
 
 ### Added
