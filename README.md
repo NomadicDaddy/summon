@@ -76,6 +76,10 @@ split them into separately named records before converting; do not discard eithe
 bun run smoke:qc
 ```
 
+This checkout uses the hooks in `.githooks`. Commits scan staged additions for likely secrets and
+private paths. Pushes prevent publishing aidd history to a configured remote and check screenshot
+evidence for tagged releases when the tagged tree opts into that requirement.
+
 Before packaging, run `bun run release:check`. Create the archive with `bun pm pack`; it contains
 the TypeScript runtime, Bun installation guard, and public documentation. Bun is required at runtime.
 The archive can be installed with `bun add -g ./summon-0.2.0.tgz`.
