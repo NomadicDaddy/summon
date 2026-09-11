@@ -13,7 +13,9 @@
 		"CHANGELOG.md"
 	],
 	"scripts": {
+		"check:leak-guard": "bun ./scripts/run-bash.ts scripts/check-leak-guard.sh",
 		"preinstall": "bun scripts/require-bun.ts",
+		"prepare": "bun ./scripts/run-bash.ts .githooks/leak-guard-setup.sh",
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint . --max-warnings 0",
 		"format": "prettier --write .",
