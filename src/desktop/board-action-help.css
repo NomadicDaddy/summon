@@ -1,0 +1,78 @@
+.board-lane-help {
+	background: none;
+	border: 0;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+	letter-spacing: inherit;
+	text-align: left;
+	text-transform: inherit;
+}
+.board-lane-help:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 3px;
+}
+.board-action-dialog {
+	max-height: 80vh;
+	max-width: min(600px, 90vw);
+	overflow-y: auto;
+}
+.board-action-dialog::backdrop {
+	background: var(--scrim);
+}
+.board-action-dialog p {
+	font-size: 13px;
+	line-height: 1.5;
+	overflow-wrap: anywhere;
+}
+.board-action-dialog h2 {
+	margin-top: 0;
+}
+/*
+ * L9: the action subheads were 15px at the browser default weight 700 against an 18px/600 dialog
+ * title, so a subhead inside the dialog carried more weight than the dialog's own name. They now
+ * sit below the title and group with the description that follows them rather than competing.
+ */
+.board-action-dialog h3 {
+	font-size: 13px;
+	font-weight: 600;
+	margin: 18px 0 4px;
+	overflow-wrap: anywhere;
+}
+
+/* L10: notes about the lane rather than about the action above them. */
+.board-action-notes {
+	border-top: 1px solid var(--line);
+	margin-top: 16px;
+	padding-top: 12px;
+}
+
+/*
+ * L16: the control was the heading text itself, so its hit area was the 15px line box - under the
+ * 24px minimum board.css already applies to .board-card-action, on a control that is the only route
+ * to the lane's explanation.
+ */
+.board-lane-help {
+	align-items: center;
+	display: inline-flex;
+	min-height: 24px;
+	padding-inline: 2px;
+}
+.board-action-dialog .board-card-actions {
+	gap: 8px;
+	justify-content: flex-end;
+	margin-top: 16px;
+}
+
+/* Change owner: the one Board dialog that asks a question, so its field reads as a form row. */
+.board-owner-choice {
+	display: grid;
+	gap: 6px;
+	margin-top: 12px;
+	font-size: 13px;
+	font-weight: 600;
+}
+.board-owner-choice select {
+	width: min(100%, 280px);
+	font-weight: 400;
+}

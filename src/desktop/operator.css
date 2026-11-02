@@ -1,0 +1,84 @@
+body {
+	grid-template-rows: minmax(0, 1fr);
+}
+body.operator-open {
+	grid-template-rows:
+		minmax(0, 1fr)
+		clamp(170px, var(--operator-height, 32vh), max(170px, calc(100vh - 200px)));
+}
+#split-operator {
+	cursor: row-resize;
+	touch-action: none;
+}
+/*
+ * Column 3, not column 2, and the difference is the whole of room #4464.
+ *
+ * style.css gives the body two columns - sidebar and content - and `grid-column: 2` meant content
+ * under that. board.css then inserted a 5px track for the sidebar's drag handle, making three:
+ * 252px, 5px, 1fr. Column 2 stopped being the content and became the handle, so opening the drawer
+ * placed it in a five-pixel sliver and pushed main out of the explicit tracks entirely - main
+ * measured 1979px wide shut and 5px wide open, with the splitter's colour flooding the middle and
+ * the window title breaking one word per line.
+ *
+ * board.css says in as many words what happened: "A track per handle, because a grid with more
+ * children than tracks quietly wraps them into implicit rows - which is how a splitter turns into a
+ * stripe across the middle of the window." The track was added; this number was not moved with it.
+ *
+ * COLUMN 3 BY NUMBER, and the first fix got this wrong in an instructive way. I wrote `-2` to count
+ * from the end, reasoning that a track inserted on the LEFT could not then shift it. The track that
+ * actually gets inserted here is on the RIGHT: opening the room makes the grid
+ * `252px 5px 1fr 5px 38%`, five columns, and `-2` lands on the room's own column - so the drawer
+ * went from a five-pixel sliver to the bottom right corner, which is how Phillip found it at #4503.
+ *
+ * Column 3 is `minmax(0, 1fr)` in BOTH grids, with the room open and shut. It is the content column
+ * by number in either, which is what this needs and what neither clever end-counting gave it.
+ */
+#operator {
+	grid-column: 3;
+	grid-row: 2;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+#operator[hidden] {
+	display: none;
+}
+.operator-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 24px;
+	background: var(--bg-panel);
+}
+.operator-toolbar select {
+	font: inherit;
+	font-size: 12px;
+	max-width: 220px;
+	padding-block: 5px;
+}
+.operator-toolbar button {
+	font-size: 12px;
+	padding: 6px 10px;
+}
+#operator-status {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--muted);
+}
+#operator-terminal {
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+	padding: 6px 12px;
+}
+/*
+ * The pane title sits inline with its controls, so it keeps the h2 weight and drops the document
+ * heading's own spacing.
+ */
+#operator-title {
+	font-size: 15px;
+	margin: 0;
+}

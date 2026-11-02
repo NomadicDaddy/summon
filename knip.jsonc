@@ -1,0 +1,57 @@
+{
+	"$schema": "./node_modules/knip/schema.json",
+	"entry": [
+		// Built from computed paths in src/team-build-options.ts.
+		"src/desktop/main.ts",
+		"src/desktop/preload.ts",
+		"src/desktop/renderer.ts",
+		"src/desktop/theme-boot.ts",
+		// Provider child processes; paths are passed as command arguments.
+		"src/claude-mail-channel.ts",
+		"src/grok-turn-hook.ts",
+		// Operator commands documented in README.md, outside package scripts/bin.
+		"scripts/backfill-diary.ts",
+		"scripts/migrate-checkpoints.ts",
+		// Installed CMD launcher runs this version guard before importing the CLI.
+		"scripts/installed-launch.ts",
+		// Bundled by setup:updater into a standing command outside the checkout.
+		"scripts/update-summon.ts",
+		"scripts/probe-claude-mail.ts",
+		"scripts/probe-codex-mail.ts",
+		"skills/summon-who/scripts/who.ts",
+		// scripts/test.ts invokes Bun's test discovery in an isolated home.
+		"test/**/*.test.ts",
+		// Child-process and Electron entry points assembled by the tests.
+		"test/fixtures/attribute-holder.ts",
+		"test/fixtures/board-card-face-renderer.ts",
+		"test/fixtures/board-lanes-renderer.ts",
+		"test/fixtures/board-ui-electron.ts",
+		"test/fixtures/capture-launch.ts",
+		"test/fixtures/checkpoint-inventory-result.ts",
+		"test/fixtures/checkpoint-offline.ts",
+		"test/fixtures/codex-status-proxy.ts",
+		"test/fixtures/comms-halt-renderer.ts",
+		"test/fixtures/grok-compaction-command.ts",
+		"test/fixtures/grok-hook-owner.ts",
+		"test/fixtures/high-integrity.ts",
+		"test/fixtures/lock-counter.ts",
+		"test/fixtures/maintenance-busy-renderer.ts",
+		"test/fixtures/old-build-delivery.ts",
+		"test/fixtures/owned-command-child.ts",
+		"test/fixtures/page-shift-electron.ts",
+		"test/fixtures/page-shift-renderer.ts",
+		"test/fixtures/provider-filter-dom.ts",
+		"test/fixtures/provider-filter-electron.ts",
+		"test/fixtures/response-watchdog-electron.ts",
+		"test/fixtures/response-watchdog-reload.ts",
+		"test/fixtures/response-watchdog-renderer.ts",
+		"test/fixtures/runtime-fault-writer.ts",
+		"test/fixtures/schedule-dispatch.ts",
+		"test/fixtures/telegram-fetch.ts",
+		"test/fixtures/usage-server.ts",
+		"test/fixtures/window-storage-argv.ts",
+		// Manual interactive Team Window probe; deliberately not a real provider.
+		"test/fixtures/team-terminal.ts",
+	],
+	"ignoreExportsUsedInFile": { "interface": true, "type": true },
+}

@@ -1,0 +1,67 @@
+/*
+ * Questions and approvals in the room, split from room.css so each file stays under 300 lines and sits beside the module that
+ * draws it (room-questions.ts). Linked straight after room.css, so the cascade order is unchanged.
+ */
+/*
+ * Shared shape: a question and an approval are the same KIND of thing - gold, framed, waiting on
+ * the reader - and they should keep reading as a pair rather than as two unrelated cards.
+ */
+.room-message.room-question {
+	border: 2px solid var(--warn-2);
+	background: var(--warn-bg-2);
+	padding: 12px;
+	margin: 8px 0;
+	border-radius: 6px;
+}
+/*
+ * Different weight within that pair, which is what Phillip asked for at #4212: slightly different,
+ * not a second colour scheme.
+ *
+ * The approval keeps the full gold. It gates an action somebody is waiting to take, and saying yes
+ * authorises it - the heavier of the two, so it holds the heavier colour. A question asks which of
+ * several ways to go and nothing is blocked on it in the same way, so it steps back: same hue, less
+ * saturation, a dimmer frame. The reader can now tell a decision from a choice without reading the
+ * heading first, which is the whole point.
+ */
+.room-message.room-question-question {
+	border-color: var(--warn-line);
+	background: var(--warn-bg-3);
+}
+.room-question-question h3 {
+	color: var(--warn-text-2);
+}
+.room-question h3 {
+	margin: 0 0 8px;
+	color: var(--warn-text);
+	font-size: 14px;
+}
+.room-question-controls {
+	border: 0;
+	padding: 8px 0;
+	margin: 0;
+}
+.room-question-controls legend {
+	font-size: 12px;
+}
+.room-question-controls button {
+	margin: 4px 6px 4px 0;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+.room-question-controls form {
+	display: flex;
+	gap: 6px;
+	margin-top: 6px;
+}
+.room-question-controls input {
+	min-width: 0;
+	flex: 1;
+}
+.room-question-status {
+	font-size: 12px;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+.room-question.answered {
+	border-color: var(--sage-line);
+}

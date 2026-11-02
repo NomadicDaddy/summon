@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'"
+		/>
+		<title>summon</title>
+		<!-- Sets data-theme from the stored preference before anything paints; see theme-boot.ts. -->
+		<script src="theme-boot.js"></script>
+		<link rel="stylesheet" href="xterm.css" />
+		<link rel="stylesheet" href="theme.css" />
+		<link rel="stylesheet" href="style.css" />
+		<link rel="stylesheet" href="room.css" />
+		<link rel="stylesheet" href="room-questions.css" />
+		<link rel="stylesheet" href="room-references.css" />
+		<link rel="stylesheet" href="operator.css" />
+		<link rel="stylesheet" href="maintenance.css" />
+		<link rel="stylesheet" href="provider-setup.css" />
+		<link rel="stylesheet" href="board.css" />
+		<link rel="stylesheet" href="diary.css" />
+		<link rel="stylesheet" href="notepad.css" />
+		<link rel="stylesheet" href="shortcuts.css" />
+		<link rel="stylesheet" href="jump.css" />
+		<link rel="stylesheet" href="repos.css" />
+		<link rel="stylesheet" href="schedule-view.css" />
+		<link rel="stylesheet" href="board-action-help.css" />
+		<link rel="stylesheet" href="provider-filters.css" />
+		<link rel="stylesheet" href="hibernation.css" />
+		<link rel="stylesheet" href="rest.css" />
+		<link rel="stylesheet" href="head-down.css" />
+		<link rel="stylesheet" href="letter-sweep.css" />
+		<link rel="stylesheet" href="response-watchdog.css" />
+		<link rel="stylesheet" href="communication-halt.css" />
+	</head>
+	<body>
+		<!--
+			The bell, drawn once and used beside every wordmark: the sidebar masthead and the empty
+			state's greeting (#6030). It is the untiled bell Phillip chose for the masthead (option C)
+			and confirmed as the app icon at #6497, the same drawing as icons/summon.svg, which the
+			.ico, the PNGs and the site favicon are exported from. It is inlined rather than linked
+			because the build packages only summon.ico from icons/.
+
+			The handle, clapper and outline take currentColor, the wordmark's orange, so the bell and
+			the word read as one mark wherever .brand sets the colour; the icon file inks them in the
+			same brass. The viewBox crops to the bell so it fills the box the old tile used to frame.
+		-->
+		<svg aria-hidden="true" hidden>
+			<symbol id="summon-bell-mark" viewBox="14 11.5 100 100">
+				<path
+					d="M46 60 C46 46 82 46 82 60 C82 74 86 84 100 92 Q104 95 103 98 L25 98 Q24 95 28 92 C42 84 46 74 46 60 Z"
+					fill="#87d6b2"
+					stroke="currentColor"
+					stroke-width="5"
+					stroke-linejoin="round"
+				/>
+				<circle cx="64" cy="104" r="6" fill="currentColor" />
+				<rect x="56" y="40" width="16" height="7" rx="2.5" fill="currentColor" />
+				<path
+					d="M58 42 C56 36 55 30 58 24 Q64 18 70 24 C73 30 72 36 70 42 Z"
+					fill="currentColor"
+				/>
+				<circle cx="64" cy="18" r="5" fill="currentColor" />
+			</symbol>
+			<!--
+				The copy mark on every Team Room message (room-copy.ts): two sheets, the front one
+				whole and the back one showing at its top-left. Stroked in currentColor so it takes
+				the action button's resting and hover colours like the text actions beside it.
+			-->
+			<symbol id="copy-mark" viewBox="0 0 16 16">
+				<rect
+					x="5.75"
+					y="5.75"
+					width="8.5"
+					height="8.5"
+					rx="1.75"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.5"
+				/>
+				<path
+					d="M10.25 5.75V3.25a1.5 1.5 0 0 0-1.5-1.5h-5.5a1.5 1.5 0 0 0-1.5 1.5v5.5a1.5 1.5 0 0 0 1.5 1.5h2.5"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.5"
+				/>
+			</symbol>
+		</svg>
+		<aside id="sidebar">
+			<header>
+				<span class="brand"
+					><svg class="brand-icon" aria-hidden="true">
+						<use href="#summon-bell-mark" /></svg
+					><span class="brand-word">summon</span></span
+				>
+				<span id="team-name" class="team-name" hidden></span>
+			</header>
+			<!--
+				The caption is the panel's only clue that it filters anything.
+
+				cc / cx / gk / ki is legible only to somebody who already knows, and the segments were
+				tidy without being explained - a control that looks deliberate and says nothing. The
+				same codes appear as badges on the teammate rows below, so once a reader knows this is
+				a filter the mapping teaches itself; what was missing was the word "filter", not
+				longer labels.
+
+				It is the LABEL rather than a decoration: the two groups point at it with
+				aria-labelledby instead of carrying their own aria-label, so a screen reader and a
+				sighted reader are now told the same thing by the same words. Before this they were
+				told different things - "Show teammates by provider" existed for one of them only.
+			-->
+			<p class="roster-filter-caption" id="roster-filter-caption">Filter</p>
+			<div
+				aria-labelledby="roster-filter-caption"
+				id="provider-filters"
+				role="group"
+				title="Show teammates by provider"
+			></div>
+			<div
+				aria-labelledby="roster-filter-caption"
+				id="presence-filters"
+				role="group"
+				title="Show teammates by online status"
+			></div>
+			<!--
+				The heading sits BELOW the filters and directly above the roster, because that is what
+				it is the heading of. While it sat on top, its underline separated it from the filter
+				panel rather than from the teammates, so it read as a title for the controls - and
+				"8 here" counted people two elements further down the sidebar. A count belongs beside
+				the thing it counts.
+			-->
+			<div class="roster-heading">
+				<h1>TEAM</h1>
+				<span id="count">0 online</span>
+			</div>
+			<div id="roster-coverage" role="group" aria-label="Domain cover"></div>
+			<!--
+				Separate from the cover block above, and not inside it. Room progress is not a coverage
+				fact: it survives a roster where nobody claims a domain, and the Show domain coverage
+				setting must not take it away with the thing it was meant to hide.
+			-->
+			<div id="roster-progress" role="group" aria-label="Room progress"></div>
+			<!--
+				The permanent way to add a teammate, which summon has never had: creation lives inside
+				Team Maintenance, the least inviting of the six tools, which is why a new user cannot
+				find it and an experienced one has to remember where it hides.
+
+				ABOVE the roster, not below it. Below looked right in the markup and was wrong on the
+				screen: the roster absorbs the sidebar's spare height, so an empty one pushed the
+				button to the bottom edge where it sat against Team Room and Board reading as a
+				seventh tool. Above the list it holds its position in both states - with teammates it
+				is "and another", with none it falls directly under the heading.
+
+				renderer.ts owns the label - "Add your first teammate" when empty, "Add teammate"
+				otherwise - so the two states cannot drift apart in markup.
+			-->
+			<div class="roster-entry">
+				<button id="roster-add" type="button">Add teammate</button>
+				<!--
+					Team-wide settings need no teammate, so their way in cannot depend on one being
+					selected or on anyone being registered (card 32f030f9).
+				-->
+				<button id="team-settings" type="button">Team settings</button>
+			</div>
+			<nav id="roster" aria-label="Teammates"></nav>
+			<div class="sidebar-actions" role="group" aria-label="Team tools">
+				<button id="room-toggle" aria-expanded="false">
+					Team Room <span id="room-unread"></span>
+				</button>
+				<button id="board-toggle" aria-pressed="false">Board</button>
+				<button id="diary-toggle" aria-pressed="false">Diary</button>
+				<button id="repos-toggle" aria-pressed="false">Repos</button>
+				<button id="schedules-toggle" aria-pressed="false">Schedules</button>
+				<button id="maintenance-toggle">Maintenance</button>
+				<button id="macros-toggle">Macros</button>
+			</div>
+			<footer>
+				<div id="team-started"></div>
+				<span class="signal"></span> Closing this window stops this team.
+			</footer>
+		</aside>
+		<div id="split-aside" class="splitter"></div>
+		<main>
+			<!--
+				THE ERROR BAR IS ABOVE THE TOOLBAR, and the toolbar is why.
+
+				It began between #split-work and #terminals, which was no place at all: with no work
+				panel open it read as part of the session pane, and with one open it looked like a
+				property of the divider (#4689, #4690). Moving it under the toolbar gave it one home,
+				which was right, and introduced a subtler fault that took a screenshot to see.
+
+				showError writes ONE box for the whole window, with no subject. The toolbar carries
+				the SELECTED TEAMMATE's name, status and buttons. So a window-level alert sitting
+				under it is read as that teammate's, and when the two disagree the contradiction is
+				two adjacent lines: "Morgan - Running here" above "Session not running here", where
+				the error was actually about Edgar's session in another window (#4924).
+
+				Above the toolbar it precedes the teammate rather than following them, so it reads as
+				the window speaking. An error that IS about a particular teammate should say so in
+				its own text; position cannot carry a subject this box does not have.
+
+				It can be dismissed (#5269). The only thing that ever cleared it was the start of the
+				next user action - and showError is also handed to the diary, the repos panel and the
+				board refresh, which run in the background with no user action behind them. An error
+				from one of those had no clearing path at all, and the reader was left under a banner
+				they had not caused and could not remove.
+
+				role="alert" sits on the MESSAGE rather than on this container, so that an error is
+				announced as its own text and not as its text followed by "Dismiss".
+			-->
+			<!--
+				A communications halt is a team-wide state, so it sits in <main> above the toolbar and
+				is on screen from every tab and panel. communication-halt.ts owns it; it is not Hold
+				Interruptions. Proceed posts the operator's own "proceed" to the Room.
+			-->
+			<div id="comms-halt" role="group" aria-label="Communications halted" hidden>
+				<span id="comms-halt-text" role="status"></span>
+				<span id="comms-halt-error" role="alert" hidden></span>
+				<button id="comms-halt-proceed" class="primary" type="button">Proceed</button>
+			</div>
+			<div id="error" hidden>
+				<span id="error-message" role="alert"></span>
+				<button id="error-dismiss" type="button">Dismiss</button>
+			</div>
+			<!--
+				Shown by fault-report.ts when the fault journal does not confirm a write, and hidden
+				again by the next write it confirms. "Could not be confirmed", not "was not saved": an
+				I/O failure can leave the write in either state. Fixed text on purpose: this notice is
+				about the journal, never about the error it concerns, and it is never reported there.
+			-->
+			<p id="fault-notice" role="status" hidden>
+				Saving a diagnostic to the fault journal could not be confirmed. Later ones are
+				still sent.
+			</p>
+			<div class="toolbar">
+				<div>
+					<h2 id="name">
+						<span id="name-text">Your Team Window</span>
+						<span id="name-role" class="role-tag" hidden>Project manager</span>
+						<span id="name-state"
+							><span class="dot"></span><small id="name-state-label"></small
+							><small id="name-state-elapsed" class="launch-elapsed" hidden></small
+						></span>
+					</h2>
+					<p id="detail">Choose a teammate to begin.</p>
+					<p id="header-working" role="status"></p>
+				</div>
+				<div class="actions">
+					<button id="start" class="primary" hidden>Summon</button
+					><button id="stop" class="danger" hidden>Stop Session</button
+					><button id="hibernate" hidden>Hibernate</button
+					><button id="notification-pause" hidden>Pause Notifications</button
+					><button id="head-down-delegate" hidden>Can Approve Heads-down</button>
+				</div>
+			</div>
+			<!--
+				Head-down sits under the toolbar and above everything else in main, because it is a
+				standing condition of the selected teammate rather than one more action to take. The
+				roster says WHICH teammates are in it; this says what this one agreed to and is the
+				only place the operator can end it or answer a request.
+			-->
+			<div id="head-down-bar" hidden>
+				<span id="head-down-goal"></span>
+				<button id="head-down-approve" class="primary" hidden>Approve</button
+				><button id="head-down-decline" hidden>Decline</button
+				><button id="head-down-end" hidden>End head-down</button
+				><input
+					id="head-down-reason"
+					hidden
+					maxlength="200"
+					placeholder="Why is it ending?"
+					aria-label="Reason for ending head-down"
+				/><button id="head-down-end-confirm" class="primary" hidden>Confirm</button
+				><button id="head-down-end-cancel" hidden>Cancel</button>
+			</div>
+			<!--
+				The board sits inside main rather than beside it. #room, #operator and
+				#maintenance are siblings that replace the view; this one shares the panel,
+				because #1093 asked for the top half of the terminal side and #1105 confirmed
+				it is the centre rather than the room. main is already a flex column, so
+				#terminals keeps its own flex below.
+
+				It sits BELOW the toolbar, per #1368: the banner names the window and the selected
+				teammate, so it heads the panel rather than appearing halfway down it.
+			-->
+			<section id="board" aria-label="Team board" hidden></section>
+			<section id="diary" aria-label="Team diary" hidden></section>
+			<section id="repos" aria-label="Repository browser" hidden></section>
+			<section id="schedules" aria-label="Team schedules" hidden></section>
+			<div id="split-work" class="splitter splitter-row" hidden></div>
+			<section id="terminals" aria-label="Agent terminal">
+				<!--
+					The text here is a FALLBACK, not the source. renderer.ts rewrites both the title
+					and the detail on every render, so what ships in this file is only what shows
+					between load and first paint. It previously said something different again from
+					what the runtime sets, which meant anyone editing it to fix the wording saw no
+					change and reasonably concluded the build was stale. Kept aligned with the
+					zero-teammate copy deliberately.
+				-->
+				<div id="empty">
+					<span class="empty-mark brand"
+						><svg class="brand-icon" aria-hidden="true">
+							<use href="#summon-bell-mark" /></svg
+						><span class="brand-word">summon</span></span
+					>
+					<h2 id="empty-title">Your team, where you need them.</h2>
+					<p id="empty-detail">
+						Each teammate is a coding-agent CLI with its own working folder and saved
+						conversation.
+					</p>
+					<p id="empty-cli" role="status" hidden></p>
+					<div class="empty-actions">
+						<button id="empty-start" class="primary" hidden>Summon</button>
+						<button id="empty-setup" type="button" hidden>CLI setup</button>
+					</div>
+				</div>
+			</section>
+			<div
+				id="agent-quick-replies"
+				class="quick-replies"
+				aria-label="Agent Macros"
+				role="group"
+			></div>
+			<div class="statusbar">
+				<span
+					><span id="status">Ready</span
+					><span id="status-elapsed" class="launch-elapsed" hidden></span></span
+				><a id="build-info" href="https://github.com/NomadicDaddy/summon"
+					>__SUMMON_BUILD__</a
+				>
+			</div>
+		</main>
+		<div id="split-room" class="splitter"></div>
+		<section id="room" aria-label="Shared team room" hidden>
+			<div class="room-header">
+				<h2>Team Room</h2>
+				<button id="room-close" aria-label="Close team room">Close</button>
+			</div>
+			<p id="room-state" role="status">Everyone shares this conversation.</p>
+			<div id="room-messages" role="log" aria-label="Conversation"></div>
+			<p id="room-error" role="alert" hidden></p>
+			<form id="room-form">
+				<div id="room-reply" hidden>
+					<span></span><button type="button" id="room-cancel-reply">Cancel Reply</button>
+				</div>
+				<div
+					id="room-quick-replies"
+					class="quick-replies"
+					aria-label="Team Macros"
+					role="group"
+				></div>
+				<textarea
+					id="room-text"
+					aria-label="Message your team"
+					maxlength="4096"
+					rows="3"
+					placeholder="Speak naturally or paste an image. Everyone can read this."
+				></textarea>
+				<div class="room-compose-actions">
+					<span>Enter sends · Shift+Enter newline · halt pauses · proceed resumes</span
+					><button id="room-send" class="primary" type="submit">Send</button>
+				</div>
+			</form>
+		</section>
+		<section id="operator" aria-labelledby="operator-title" hidden>
+			<div id="split-operator" class="splitter splitter-row"></div>
+			<div class="operator-toolbar">
+				<h2 id="operator-title">Terminal</h2>
+				<label for="operator-shell">Shell</label
+				><select id="operator-shell"></select>
+				<button id="operator-start" disabled>Start</button>
+				<button id="operator-stop" disabled>Stop</button>
+				<button
+					id="operator-copy"
+					disabled
+					title="Copy selected text (Ctrl+C / Ctrl+Shift+C)"
+				>
+					Copy Selection
+				</button>
+				<span id="operator-status" role="status">Loading shells…</span>
+				<button id="operator-hide" title="Hide terminal (Ctrl+`)">Hide</button>
+			</div>
+			<div id="operator-terminal"></div>
+		</section>
+		<dialog id="maintenance" aria-labelledby="maint-title">
+			<div class="room-header">
+				<h2 id="maint-title">Team Maintenance</h2>
+				<button id="maint-close">Close</button>
+			</div>
+			<!--
+				Two tabs (card 32f030f9): Person is one teammate's record, Team is what applies to
+				everyone. maintenance-tabs.ts owns the selection and the keys; the markup here only
+				says which panel each tab controls. Nothing in either panel is folded away.
+			-->
+			<div class="maint-tabs" role="tablist" aria-label="Settings for">
+				<button
+					id="maint-tab-person"
+					type="button"
+					role="tab"
+					aria-selected="true"
+					aria-controls="maint-panel-person"
+				>
+					Person
+				</button>
+				<button
+					id="maint-tab-team"
+					type="button"
+					role="tab"
+					aria-selected="false"
+					aria-controls="maint-panel-team"
+					tabindex="-1"
+				>
+					Team
+				</button>
+			</div>
+			<div class="maint-body">
+				<section
+					id="maint-panel-team"
+					class="maint-panel"
+					role="tabpanel"
+					aria-labelledby="maint-tab-team"
+					hidden
+				>
+					<p class="maint-saves">Changes on this tab save immediately.</p>
+					<h3 class="maint-group">Delivery</h3>
+					<label class="maint-setting">
+						<input id="maint-wake-mentions" type="checkbox" />
+						Wake stopped teammates when they are explicitly mentioned
+					</label>
+					<label class="maint-setting">
+						<input
+							id="maint-claude-live"
+							type="checkbox"
+							aria-describedby="maint-claude-live-hint"
+						/>
+						Ask Claude teammates to confirm the development channel at every start
+					</label>
+					<p class="maint-hint" id="maint-claude-live-hint">
+						On, Claude confirms the channel at every start, and notices queue for it
+						while it runs rather than waiting for a checkpoint. Off, there is no prompt
+						and notices are read at startup and at each checkpoint. Neither mode
+						interrupts work already in progress. Either way the change applies the next
+						time a Claude teammate starts, never to a session already running.
+					</p>
+					<h3 class="maint-group">Interruptions</h3>
+					<label class="maint-setting">
+						<input
+							id="maint-auto-hold"
+							type="checkbox"
+							aria-describedby="maint-auto-hold-hint"
+						/>
+						Hold interruptions automatically while I am with a teammate
+					</label>
+					<label class="maint-setting"
+						>Countdown seconds
+						<input
+							id="maint-hold-seconds"
+							type="number"
+							min="5"
+							max="600"
+							step="1"
+							aria-describedby="maint-auto-hold-hint"
+					/></label>
+					<p class="maint-hint" id="maint-auto-hold-hint">
+						On, selecting a running teammate or typing at them holds their automatic
+						interruptions for the countdown, which restarts as you type. Off, nothing is
+						held until you press Hold Interruptions. Switching to another window never
+						starts the countdown.
+					</p>
+					<h3 class="maint-group">Display</h3>
+					<label class="maint-setting">
+						<input id="maint-show-coverage" type="checkbox" checked />
+						Show domain coverage in the sidebar
+					</label>
+					<label class="maint-setting">
+						<input id="maint-show-progress" type="checkbox" checked />
+						Show who is furthest behind the room in the sidebar
+					</label>
+					<label class="maint-setting">
+						<input id="maint-show-delivery" type="checkbox" checked />
+						Show delivery alerts awaiting read confirmation in the sidebar
+					</label>
+					<label class="maint-setting">
+						<input id="maint-light-theme" type="checkbox" />
+						Light theme for this window
+					</label>
+					<!--
+						CLI setup (#5308). The person adding their first teammate is the one who most
+						needs to know what is installed and how to get the rest, so the Team tab is
+						reachable while adding and this section is always open.
+
+						The check runs by itself when the window loads, and its one-line answer sits
+						beside the heading. The body is drawn by provider-setup-view.ts from the
+						catalog; nothing in this markup states a fact about a CLI.
+					-->
+					<section
+						id="maint-cli-setup"
+						class="cli-setup"
+						aria-labelledby="maint-cli-heading"
+					>
+						<h3 id="maint-cli-heading" class="maint-group">
+							CLI setup
+							<span id="maint-cli-summary" class="cli-setup-summary" role="status"
+								>Checking…</span
+							>
+						</h3>
+						<div class="cli-setup-actions">
+							<button id="maint-cli-refresh" type="button">Refresh</button>
+							<span
+								id="maint-cli-problem"
+								class="cli-setup-problem"
+								role="alert"
+								hidden
+							></span>
+						</div>
+						<div id="maint-cli-status"></div>
+					</section>
+				</section>
+				<section
+					id="maint-panel-person"
+					class="maint-panel"
+					role="tabpanel"
+					aria-labelledby="maint-tab-person"
+				>
+					<label data-maintenance-only
+						>Teammate
+						<select id="maint-member">
+							<option value="">Add Teammate</option>
+						</select></label
+					>
+					<!--
+					NOT maintenance-only. This is where "New teammate. Registration does not start a
+					session." is written, which is the line that stops Save looking as though it has
+					failed. I marked it once and had to take the mark off: hiding it would have
+					removed the one sentence the add flow most needs.
+				-->
+					<p id="maint-activity" role="status"></p>
+					<!--
+					Three fields, then everything else under Optional.
+
+					This form asked for ten things in a flat list, and the order put Kilo's model and
+					an LM Studio URL above Working Directory - so somebody registering their first
+					teammate met two optional settings for a CLI they may not use before they reached
+					a field they must fill. The three that are actually required to register anybody
+					are Name, CLI and Working Directory. Everything below them is optional, and
+					optional fields presented at the same weight as required ones read as homework.
+
+					Optional was a closed fold-out called Advanced. It is a plain heading now
+					(card 32f030f9): the required three still come first, and nothing is folded away.
+				-->
+					<form id="maint-form">
+						<label>Name <input id="maint-name" required maxlength="64" /></label>
+						<!--
+						The kind of member is a creation decision: it changes which fields mean
+						anything, so it is read-only once the record exists. The backend refuses a
+						change independently; this agrees with it rather than relying on it.
+					-->
+						<label id="maint-member-type-row"
+							>Member type
+							<select id="maint-member-type">
+								<option value="teammate">Teammate</option>
+								<option value="pm">Project manager</option>
+							</select>
+						</label>
+						<!--
+						Shown for a project manager only. The registered name is the slug - mailbox,
+						Board actor, session record, every room reference - so it never changes. This
+						is the name the roster shows, which nothing is keyed on.
+					-->
+						<label class="maint-setting"
+							><input id="maint-can-stop-resting" type="checkbox" /> Can stop
+							teammates ready to rest</label
+						>
+						<label id="maint-display-name-row" hidden
+							>Display name
+							<input id="maint-display-name" maxlength="64" />
+							<small
+								>The registration name stays fixed, so mail, Board history and
+								session references survive a rename.</small
+							>
+						</label>
+						<label
+							>CLI
+							<select id="maint-provider" required></select
+						></label>
+						<!--
+						Beside the select rather than under the whole form, because this is the thing
+						that makes the four names mean something and it is read while choosing.
+					-->
+						<p id="maint-cli-behaviour" class="maint-cli-behaviour"></p>
+						<!--
+						Its own element rather than the shared error slot, and that IS the fix.
+
+						The slot was carrying this message, and maintenance.ts clears the slot at the
+						start of every action - correctly, because a transient error should not
+						outlive the next thing you do. But this one is not transient: it says why
+						Save is dead. Opening CLI availability and pressing Refresh, which is the
+						first thing somebody stuck would try, erased the only instruction they had
+						and left a disabled button with nothing explaining it. Measured at 16px with
+						the text on open and 0px after that one click.
+
+						Sitting beside the empty CLI field rather than below the optional fields,
+						because that empty field is the thing it explains.
+					-->
+						<p id="maint-no-cli" class="maint-blocker" hidden>
+							No agent CLI was found on PATH, so there is nothing to run a teammate
+							with. Summon supports Claude Code, Codex, Grok and Kilo - install one
+							and sign in, then reopen this dialog. If you installed one while this
+							window was open, reopen the Team Window so it picks up the new PATH.
+						</p>
+						<label
+							>Working Directory
+							<span class="maint-folder">
+								<input
+									id="maint-cwd"
+									required
+									placeholder="Absolute path"
+									spellcheck="false"
+								/>
+								<button id="maint-browse" type="button">Choose…</button>
+							</span>
+						</label>
+						<h3 id="maint-optional" class="maint-group">Optional</h3>
+						<label id="maint-claude-account" hidden>
+							Claude account directory (optional)
+							<span class="maint-folder">
+								<input
+									id="maint-claudeConfigDir"
+									maxlength="2000"
+									spellcheck="false"
+									placeholder="Default Claude account"
+								/>
+								<button id="maint-claude-browse" type="button">Choose…</button>
+							</span>
+							<small
+								>Sign in to this directory manually first. Stop the teammate before
+								switching accounts. Each account keeps its own conversation;
+								switching back restores its saved session.</small
+							>
+						</label>
+						<p data-kilo-field>
+							Kilo is the agent. LM Studio is an optional model server: use an
+							lmstudio/model-name model below and its server URL. Kilo must still be
+							installed.
+						</p>
+						<label data-kilo-field
+							>Kilo model (optional; provider/model)
+							<input
+								id="maint-model"
+								spellcheck="false"
+								maxlength="200"
+								placeholder="lmstudio/google/gemma-4-e4b"
+						/></label>
+						<label data-kilo-field
+							>Reasoning variant (optional; needs a model)
+							<input
+								id="maint-variant"
+								list="maint-variant-names"
+								spellcheck="false"
+								maxlength="64"
+								pattern="[A-Za-z0-9._\-]{1,64}"
+								title="A variant name such as high. Empty uses the stored variant or Kilo's pick."
+								placeholder="Stored variant or Kilo's pick"
+							/>
+							<datalist id="maint-variant-names">
+								<option value="low"></option>
+								<option value="medium"></option>
+								<option value="high"></option>
+							</datalist>
+							<small
+								>For the startup turn at each launch and resume, when supported.
+								Later turns follow Kilo's pick. Empty uses the stored variant or
+								Kilo's pick. These names are suggestions.</small
+							>
+						</label>
+						<label data-kilo-field
+							>LM Studio server URL (optional; for an lmstudio/ model)
+							<input
+								id="maint-lmStudioUrl"
+								type="url"
+								spellcheck="false"
+								maxlength="2000"
+								placeholder="http://127.0.0.1:1234/v1"
+						/></label>
+						<label
+							>Known Session ID (optional for a new teammate)
+							<input id="maint-sessionId" maxlength="200" spellcheck="false"
+						/></label>
+						<label id="maint-expertise-row"
+							>Expertise
+							<textarea id="maint-expertise" maxlength="8000" rows="2"></textarea>
+						</label>
+						<label id="maint-domain-row"
+							>Domain
+							<textarea id="maint-domain" maxlength="8000" rows="2"></textarea>
+						</label>
+						<label
+							>Covered by
+							<select id="maint-backup">
+								<option value="">Nobody</option>
+							</select>
+						</label>
+						<p class="maint-cover-note">
+							The teammate who covers THIS one: the second pair of hands on its
+							domain, and who the roster names when it is unavailable. Cover runs one
+							way — naming someone here does not mean they are covered back. It
+							records cover, not permission: no teammate acts outside its own domain,
+							or starts another's work, without you saying so.
+						</p>
+						<label
+							>Notes
+							<textarea id="maint-notes" rows="4"></textarea>
+						</label>
+						<p>
+							Keep active notes within 16 KiB. Put detailed history in your own
+							scratch archive.
+						</p>
+						<p>
+							Optional icon: &lt;name&gt;.png beside the JSON record, square 32–512px,
+							up to 256 KiB.
+						</p>
+					</form>
+					<!--
+					Hidden while adding, but NOT through data-maintenance-only: maintenance.ts does it
+					on `existing === null`, which is the authoritative check.
+
+					Said here because the absence of the attribute looks like an oversight and is not.
+					I added one, having grepped this file for the attribute and concluded from its
+					absence that the behaviour was missing; it was a layer down the whole time, and
+					two mechanisms for one behaviour is worse than the one that already worked.
+				-->
+					<h3 id="maint-usage-heading" class="maint-group">Provider usage</h3>
+					<button id="maint-usage-refresh" type="button">Read Provider Usage</button>
+					<p id="maint-usage" role="status">
+						Choose a teammate and read provider usage. Account allowances are shared,
+						not per teammate.
+					</p>
+					<section id="maint-removal" hidden>
+						<h3>Remove Teammate</h3>
+						<p>
+							Stop the teammate first. Other teammates' mail and provider conversation
+							history are kept.
+						</p>
+						<label
+							>Action
+							<select id="maint-mode">
+								<option value="archive">Archive summon profile and mail</option>
+								<option value="delete">Permanently delete summon files</option>
+							</select></label
+						>
+						<label
+							>Type the registered name to confirm
+							<input id="maint-confirm" spellcheck="false"
+						/></label>
+						<button id="maint-remove">Remove From Team</button>
+					</section>
+				</section>
+			</div>
+			<!--
+				The result line sits in the footer, beside Save, so it is on screen on either tab
+				and however far the panel is scrolled. It was the last thing in the scrolling body.
+			-->
+			<div class="maint-footer">
+				<p id="maint-error" role="status"></p>
+				<button id="maint-text-stored" type="button" hidden>Show stored text</button>
+				<button id="maint-save" class="primary" type="submit" form="maint-form">
+					Save Teammate
+				</button>
+			</div>
+		</dialog>
+		<script type="module" src="renderer.js"></script>
+	</body>
+</html>

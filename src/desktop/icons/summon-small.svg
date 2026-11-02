@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="8 8 112 112" width="128" height="128">
+	<!-- The Summon app icon at 16 and 24 px: summon.svg with a wider skirt, heavier outline, larger clapper and shorter handle so it reads as a bell at taskbar size (Phillip, room #5916 and #5932, 2026-10-04), now untiled and inked in Summon brass like summon.svg (#6497, 2026-10-05). summon-16.png and summon-24.png are this file exported at those sizes. -->
+	<g transform="translate(0 -4)">
+		<path d="M44 62 C44 44 84 44 84 62 C84 76 92 86 108 92 Q114 95 113 100 L15 100 Q14 95 20 92 C36 86 44 76 44 62 Z" fill="#87d6b2" stroke="#C68F44" stroke-width="8" stroke-linejoin="round"/>
+		<circle cx="64" cy="106" r="9" fill="#C68F44"/>
+		<path d="M57 47 C55 42 56 37 59 33 Q64 28 69 33 C72 37 73 42 71 47 Z" fill="#C68F44"/>
+		<circle cx="64" cy="27" r="6" fill="#C68F44"/>
+	</g>
+</svg>

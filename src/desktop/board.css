@@ -1,0 +1,592 @@
+/*
+ * The board takes the top half of the centre panel, per Phillip's #1093 and Morgan's #1105
+ * clarification that it is the terminal half rather than the room. `main` is already a flex
+ * column, so half is a basis rather than a rewrite, and #terminals keeps `flex: 1` beneath.
+ */
+/*
+ * THE LANES GOT THEIR OWN GRID, and the heading stopped being in it (#4694).
+ *
+ * The heading was a grid item spanning `1 / -1`, which is what a full-width heading has to do -
+ * and it is also what stops `auto-fit` collapsing anything, because a track an item spans is not
+ * an empty track. So the board kept nine 206px tracks for six lanes and left 671px of the panel
+ * dead at 2250x1309. Hiding the heading gave the same six lanes 314px each and 23px of slack, which
+ * is how the cause was found rather than guessed.
+ *
+ * Pinning the count to six would also have fixed it and would have cost the wrapping below, which
+ * is deliberate: six non-empty lanes need 1190px and get 1143px at 1440x900 with the room open, and
+ * a second row is better than a lane nobody scrolls sideways to find.
+ */
+#board {
+	display: flex;
+	flex-direction: column;
+	/*
+	 * `0 1 50%`, not `1 1 50%`. #terminals is `flex: 1`, which is `1 1 0%` - so when the board also
+	 * grows, the two split the free space on top of the board's 50% basis and the board ends up with
+	 * three quarters of the pane. Measured: 424px against 124px in a 600px column, a 77% share, which
+	 * is what "completely covers the console" looked like. Refusing to grow gives the board its 50%
+	 * and leaves the remainder to the terminal, which is the top half #1093 asked for.
+	 */
+	/* The default stays 50%; the divider overwrites it with a pixel height once dragged. */
+	flex: 0 1 var(--board-height, 50%);
+	align-content: start;
+	gap: 10px;
+	min-height: 0;
+	/*
+	 * The lanes WRAP rather than scrolling sideways. Six non-empty lanes need 1190px and get 1143px
+	 * at 1440x900, so DONE was clipped and, with the room open at its default 38%, REVIEW - the lane
+	 * that says something is waiting on you - was entirely off-screen. A horizontal scrollbar hides a
+	 * lane behind a gesture nobody makes on a board they are scanning; a second row does not.
+	 */
+	overflow-x: hidden;
+	overflow-y: auto;
+	padding: 14px 24px 0;
+}
+
+.board-lanes {
+	/*
+	 * Grid rather than wrapping flex. Wrapping fixed the overflow but stretched a lone lane on the
+	 * last row to 1128px against its siblings' 218px, because flex grows the final row to fill it.
+	 * Grid tracks stay equal however many rows the lanes take.
+	 */
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+	/*
+	 * A floor under every row, so a wrapped row cannot be squeezed below one whole card. `minmax(0,
+	 * 1fr)` split the Board's height evenly once the lanes wrapped: at 1440x900 every lane's first
+	 * card was cut off through its actions, by up to 60px with the Room closed and 73px with it open
+	 * (design sweep 20261018-1754, team-board clause 45). The rows still share the height when it is
+	 * there, and one row still fills the Board; when it is not there the rows run past the grid and
+	 * #board, which scrolls, scrolls to them instead of the cards being cut. `min-height: 0` is what
+	 * keeps the rows from growing to their content: without it `1fr` sized every row to its fullest
+	 * lane (432px, measured), so lanes stopped scrolling on their own.
+	 *
+	 * 260px, not the 220px that first passed: at 220 a blocked card with a two-line title cleared its
+	 * lane by 2px, so one more line of title would have cut it again. 260 leaves 42px, about two
+	 * lines. A card taller than that still scrolls inside its lane, as it always has.
+	 */
+	grid-auto-rows: minmax(260px, 1fr);
+	align-content: start;
+	gap: 10px;
+	flex: 1;
+	min-height: 0;
+}
+
+/*
+ * SUPERSEDED 2026-09-30 (remediation-20260930-s7), and the original reasoning is kept below because
+ * it was measured and it was right about its own case. Lanes no longer size to content and empty
+ * ones no longer collapse. What changed is the case: six NON-EMPTY lanes need 1190px and get 1143px
+ * at 1440x900, so DONE was clipped and, with the room open, REVIEW - the lane that says something is
+ * waiting on you - was entirely off-screen. Content-sized lanes cannot fix that, because the content
+ * is what does not fit. Equal tracks that wrap can, and they also stop the board rearranging itself
+ * when one card is expanded.
+ *
+ * The cost is real and is the one the note below predicted: an empty lane now holds a full column
+ * instead of collapsing. That is a visible price for a board whose columns stay where you left them.
+ *
+ * ORIGINAL NOTE, for the case it measured:
+ * Lanes size to content and empty ones collapse. This is measured rather than stylistic: the
+ * first five real cards all sat in `blocked`, and between two domains that lane already held
+ * thirteen while `ready` held none. Equal columns would have spent five sixths of the panel on
+ * emptiness, and titles run to 81 characters, which a sixth of the panel cannot hold.
+ *
+ * THE 190px MINIMUM IS LOAD-BEARING, so read this before changing it. Measured at 1440x900, the
+ * smallest desktop viewport we check: the six lanes come to 1201px inside 1200px of content width.
+ * It fits with nothing to spare. Raising the minimum, adding a seventh lane, or widening the gap
+ * pushes #board into its horizontal scroll at the size most likely to be someone's only screen.
+ * That degrades rather than breaks - overflow-x is `auto` for exactly this - but it is a decision
+ * rather than an accident, and the number above is why.
+ */
+.board-lane {
+	background: var(--bg-app-2);
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	display: flex;
+	/*
+	 * Basis 0, not auto. On auto the lane sized to its longest card, so expanding one card's details
+	 * widened its lane to 552px and reflowed the other five - the board rearranged itself under the
+	 * pointer as a side effect of reading something. On 0 every populated lane takes an equal share
+	 * and content changes nothing about the layout.
+	 */
+	flex: 1 1 0;
+	flex-direction: column;
+	gap: 8px;
+	min-height: 0;
+	min-width: 190px;
+	overflow-y: auto;
+	padding: 10px;
+}
+.board-lane.is-empty {
+	background: none;
+	border-style: dashed;
+	flex: 0 0 auto;
+	min-width: 0;
+}
+/*
+ * Emptiness is the dashed border and a muted heading, not opacity: 0.55 took the heading and its
+ * lane-help button to 4.03:1. #97a8ad is 7.46:1 on the board background.
+ */
+.board-lane.is-empty > h3 {
+	color: var(--muted);
+}
+.board-lane.is-empty .board-lane-count {
+	display: none;
+}
+
+.board-lane > h3 {
+	color: var(--accent);
+	display: flex;
+	font-size: 11px;
+	gap: 8px;
+	justify-content: space-between;
+	letter-spacing: 0.08em;
+	margin: 0;
+	text-transform: uppercase;
+}
+.board-lane-count {
+	color: var(--text-bright);
+	font-variant-numeric: tabular-nums;
+}
+
+/* Who is expected to act, on the heading rather than behind the help control. Review only. */
+.board-lane-actor {
+	margin-left: auto;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.3px;
+	text-transform: none;
+}
+
+/*
+ * A card shows what identifies it and what it is waiting on. Descriptions measured 278-449
+ * characters and evidence lines about 110 each, so neither belongs here - a card carrying them
+ * is a paragraph wearing a border. Both are disclosed on demand instead.
+ */
+.board-card {
+	background: var(--bg-panel);
+	border: 1px solid var(--bg-strong);
+	border-left: 3px solid var(--bg-strong);
+	border-radius: 6px;
+	padding: 8px 10px;
+}
+/*
+ * The left rule now carries state instead of decorating every card identically: question amber
+ * where the operator is the one expected to act, and the blocked red where the card cannot move.
+ * Both colours are borrowed rather than invented - amber from the room's question card, red from
+ * the roster's exited dot.
+ */
+.board-lane[data-state='review'] .board-card {
+	border-left-color: var(--warn-2);
+}
+.board-lane[data-state='blocked'] .board-card {
+	border-left-color: var(--danger);
+}
+.board-card > h4 {
+	color: var(--text-bright);
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 1.3;
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+.board-card-meta {
+	color: var(--muted-3);
+	font-size: 11px;
+	margin: 4px 0 0;
+}
+.board-card-blocked {
+	color: var(--danger-text);
+	font-size: 11px;
+	margin: 4px 0 0;
+}
+.board-card-count {
+	color: var(--muted-3);
+	display: inline-block;
+	font-size: 11px;
+	margin-top: 4px;
+}
+/* Open, the comments themselves are below, so their count on the face says nothing (clause 38).
+ * Keyed to the disclosure's state, which both a click and the Board's redraw restore set. */
+.board-card:has(> h4 > .board-card-disclosure[aria-expanded='true']) > .board-card-count {
+	display: none;
+}
+
+/*
+ * Search (card 150ea87c). The row takes the Diary's shape so the two panels answer a search the
+ * same way: a field the Diary's width, the view controls beside it in the Diary's quiet pill, and
+ * a status line beneath. It sits above the lanes and is never redrawn with them.
+ */
+.board-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0 8px;
+	margin: 12px 0 10px;
+}
+#board-search {
+	width: min(100%, 480px);
+}
+.board-view-toggle {
+	font-size: 12px;
+	padding: 2px 10px;
+}
+.board-view-toggle[aria-pressed='false'] {
+	border-color: var(--info);
+	color: var(--text);
+	background: var(--info-bg);
+}
+.board-status {
+	flex-basis: 100%;
+	margin: 6px 0 0;
+	color: var(--muted);
+	font-size: 12px;
+}
+/* Where a hit is when it is in the text a card keeps folded: the mark's own colour, no fill. */
+.board-card-match {
+	color: var(--warn-4);
+	font-size: 11px;
+	margin: 4px 0 0;
+}
+/*
+ * An archived card is only on the Board because a search found it. It keeps the lane of the state
+ * it finished in, so the tag and the dashed rule are what say it is history rather than work.
+ */
+.board-card.is-archived {
+	border-left-style: dashed;
+	background: transparent;
+}
+.board-card-archived {
+	margin-left: 8px;
+	padding: 0 5px;
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	color: var(--muted-3);
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	vertical-align: 1px;
+}
+
+/*
+ * The three moves from #1146, on the card rather than behind a menu: on a board whose point is
+ * clearing what waits on the operator, a move that costs two clicks to find is a move that does not
+ * get made. They wrap rather than shrink - a lane is 190px at its narrowest and three labels do not
+ * fit on one row there, and a button squeezed under 24px stops being reliably clickable.
+ */
+/*
+ * Sized to fit one row in the narrowest lane the panel actually produces, which is not the same as
+ * the narrowest lane the CSS allows. Measured with the Team Room open at 2559x1440 - the case the
+ * operator runs and the one I had never tested - main is 1335px, lanes land at 190-241px, and a
+ * card has 199px of content. Three buttons came to 65+70+54 plus two 4px gaps: 197 against 199, and
+ * it still wrapped. Two rows cost 52px per card where one costs 24, on every card on the board.
+ *
+ * So the padding and gap come down rather than the labels: a verb the operator can read is worth
+ * more than the four pixels it costs, and at 24px the target still clears the 24px minimum.
+ */
+.board-card-actions {
+	display: flex;
+	flex-wrap: wrap;
+	/*
+	 * 2px, not 3: at a true 1440x900 the six lanes are 217px wide and the action row 161px, where a
+	 * 3px gap pushed one button onto a further row and left the first Blocked card 15px clear of its
+	 * lane, under the 24px the wrapped-lanes test asks for (board-lanes-ui.test.ts).
+	 */
+	gap: 2px;
+	margin-top: 6px;
+}
+.board-card-action {
+	background: var(--bg-app-2);
+	border: 1px solid var(--bg-strong);
+	border-radius: 4px;
+	color: var(--text-bright);
+	cursor: pointer;
+	font-size: 11px;
+	min-height: 24px;
+	padding: 2px 6px;
+}
+.board-card-action:hover:not(:disabled) {
+	background: var(--line);
+	border-color: var(--accent);
+}
+.board-card-action:focus-visible {
+	outline: 2px solid var(--accent);
+	/*
+	 * Inset, as in maintenance.css and schedule-view.css: the action buttons sit 2px apart, so a ring
+	 * drawn outside the button (offset 1px, or even 0) covers or meets the next one.
+	 */
+	outline-offset: -2px;
+}
+.board-card-action[data-board-move='approve'],
+.board-card-action[data-board-move='unblock'] {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+.board-card-action[data-board-move='backlog'],
+.board-card-action[data-board-move='archive'] {
+	color: var(--muted-3);
+}
+/* Disabled for the round trip, so the state has to read as "in flight" rather than as "broken". */
+.board-card-action:disabled {
+	cursor: progress;
+	opacity: 0.5;
+}
+
+/*
+ * An overflowing lane has to SAY it overflows. Measured on the real board at 2250x1309: blocked
+ * held sixteen cards, five were fully visible and 1304px sat below the fold. The content was
+ * reachable the whole time - the lane scrolls - but Chromium draws an overlay scrollbar that is
+ * invisible until you already know to scroll, so a board built to surface what waits on the
+ * operator was hiding eleven of its seventeen waiting items behind no affordance at all.
+ *
+ * Styling the scrollbar is what turns the overlay one into a classic always-drawn one. The lane
+ * heading already carries the count, so the number was never wrong; what was missing was any cue
+ * that the difference between 16 and 5 was reachable rather than lost.
+ */
+/*
+ * The roster cover summary. It lives in board.css rather than style.css because it is the same kind
+ * of thing as the board: a fact derived across the whole team rather than a property of one record.
+ *
+ * Small, quiet, and only present when it has something to say - an empty coverage block would be
+ * the exact failure it exists to report, a field that is there and tells you nothing.
+ */
+#roster-coverage {
+	flex: 0 0 auto;
+	padding: 4px 24px 10px;
+}
+#roster-coverage p {
+	font-size: 11px;
+	line-height: 1.45;
+	margin: 0 0 3px;
+	overflow-wrap: anywhere;
+}
+#roster-coverage strong {
+	font-weight: 600;
+}
+.coverage-heading {
+	color: var(--muted);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+/* The gap and the outage both read as warnings; carrying several is information, not a fault. */
+.coverage-gap,
+.coverage-provider {
+	color: var(--danger-text);
+}
+.coverage-load {
+	color: var(--accent);
+}
+
+/*
+ * Room progress, beside the cover block and styled with it so the two read as one region, but a
+ * separate element: it survives a roster with no claimed domains and the Show domain coverage
+ * setting does not hide it. It has its own switch in Team settings instead (#12987).
+ *
+ * Amber rather than the gap colour. A teammate behind the room is not a fault - no record is
+ * missing and nothing has failed - it is a thing worth knowing before you ask them something. The
+ * red family is spent on the cover gap and on the provider outage, and borrowing it here would put
+ * an ordinary quiet hour in the same register as nobody covering a domain.
+ */
+#roster-progress {
+	flex: 0 0 auto;
+	padding: 0 24px 10px;
+}
+#roster-progress p {
+	font-size: 11px;
+	line-height: 1.45;
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+#roster-progress strong {
+	font-weight: 600;
+}
+.progress-lag {
+	color: var(--warn);
+}
+/* The bound on the line above reads as a caveat, not a second warning, so it takes the muted grey
+   the cover heading uses rather than the amber. */
+.progress-unavailable {
+	color: var(--muted);
+}
+
+/*
+ * The disclosed region. Deliberately plainer than the card face: this is reading material, opened
+ * on purpose, so it gets measure and line height rather than density. The left rule ties it to the
+ * card it belongs to once several are open down a lane.
+ */
+.board-card-disclosure {
+	background: none;
+	border: 0;
+	color: inherit;
+	cursor: pointer;
+	display: block;
+	font: inherit;
+	padding: 0;
+	text-align: left;
+	width: 100%;
+}
+/* A no-break space, so a wrapping title takes its last word down with the caret, never the caret
+ * alone onto a line of its own (team-board clause 43). */
+.board-card-disclosure::after {
+	color: var(--accent);
+	content: '\00a0▾';
+}
+.board-card-disclosure[aria-expanded='true']::after {
+	content: '\00a0▴';
+}
+.board-card-disclosure:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+.board-card-details {
+	border-left: 2px solid var(--line);
+	margin-top: 8px;
+	padding-left: 8px;
+}
+.board-card-details h5 {
+	color: var(--muted-3);
+	font-size: 10px;
+	letter-spacing: 0.08em;
+	margin: 8px 0 3px;
+	text-transform: uppercase;
+}
+.board-card-details p {
+	color: var(--text-2);
+	font-size: 11px;
+	line-height: 1.5;
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+.board-card-reason {
+	color: var(--danger-text);
+}
+/*
+ * A blocker the board can tell is already satisfied. Green rather than the warning colour the
+ * other blocked headings carry, because it is not a warning - it is the card saying it can move.
+ */
+.board-card-waiting-satisfied,
+.board-card-details h5.board-card-waiting-satisfied {
+	color: var(--accent);
+}
+/*
+ * A person's blocker is the operator's to clear (Allow work), so it takes the question amber the
+ * Review lane's "waiting on you" uses; red stays with a card waiting on another card. The opened
+ * card's heading is named with the element so it outranks the muted .board-card-details h5.
+ */
+.board-card-waiting-human,
+.board-card-details h5.board-card-waiting-human,
+.board-card:has(.board-card-waiting-human) .board-card-reason {
+	color: var(--warn-2);
+}
+.board-card-evidence {
+	color: var(--text-2);
+	font-size: 11px;
+	line-height: 1.5;
+	margin: 0;
+	padding-left: 12px;
+}
+@media (max-width: 1500px) {
+	.board-card-details {
+		padding-left: 6px;
+	}
+
+	.board-card-evidence {
+		padding-left: 10px;
+	}
+}
+.board-card-evidence li {
+	margin-bottom: 3px;
+	overflow-wrap: anywhere;
+}
+
+.board-card-comments {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.board-card-comments li {
+	border-top: 1px solid var(--line);
+	margin-top: 6px;
+	padding-top: 6px;
+}
+/*
+ * The byline breaks only between author, time and revision (clause 36). Each is an inline block, so
+ * it moves to the next line whole; one wider than the whole column still wraps inside itself rather
+ * than running out of the card.
+ */
+.board-card-comment-meta {
+	color: var(--muted-3);
+	font-size: 10px;
+}
+.board-card-comment-token {
+	display: inline-block;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+.board-card-comment-body {
+	white-space: pre-wrap;
+}
+
+/*
+ * The draggable dividers, #1367 and #1430. Each one only moves a custom property; the grid and the
+ * flex column below still describe the layout, so there is one place that decides where a region
+ * sits and this is not it.
+ *
+ * A track per handle, because a grid with more children than tracks quietly wraps them into implicit
+ * rows - which is how a splitter turns into a stripe across the middle of the window.
+ */
+body {
+	grid-template-columns: var(--aside-width, 252px) 5px minmax(0, 1fr);
+}
+body.room-open {
+	grid-template-columns:
+		var(--aside-width, 252px) 5px minmax(0, 1fr) 5px
+		var(--room-width, 38%);
+}
+/* No room, no divider for it: a handle that resizes nothing is a handle that confuses. */
+/* Full height, as #split-aside is: the divider runs its own panel's height. */
+#split-room {
+	grid-column: 4;
+	grid-row: 1 / span 2;
+	display: none;
+}
+body.room-open #split-room {
+	display: block;
+}
+.splitter {
+	background: var(--line);
+	cursor: col-resize;
+	touch-action: none;
+}
+.splitter-row {
+	cursor: row-resize;
+	flex: 0 0 5px;
+}
+.splitter:hover,
+.splitter:focus-visible {
+	background: var(--accent);
+	outline: none;
+}
+/*
+ * Held down, the pointer can outrun the handle and land on the text either side of it. Suppressing
+ * selection for the duration keeps a drag from highlighting half the roster on its way past.
+ */
+body.is-splitting {
+	cursor: col-resize;
+	user-select: none;
+}
+
+/*
+ * Under 1100px the room takes the whole centre and `main` is hidden (room.css). Both dividers have
+ * to go with it: the board one is inside the hidden main and vanishes anyway, but the two grid
+ * handles would otherwise stay as children of a two-track grid and wrap into implicit rows. That is
+ * the failure this rule exists to prevent, not a cosmetic one.
+ */
+@media (max-width: 1100px) {
+	body.room-open {
+		grid-template-columns: 210px minmax(0, 1fr);
+	}
+	body.room-open #split-aside,
+	body.room-open #split-room {
+		display: none;
+	}
+}

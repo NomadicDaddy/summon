@@ -1,0 +1,171 @@
+/*
+ * One filter panel, not two groups of loose pills.
+ *
+ * These were two unframed rows of rounded chips floating under the roster heading, so they read as
+ * scattered badges rather than as a control - Phillip's words were "groups of pills". They are one
+ * object now: a single bordered, filled panel on the sidebar's 24px content rail, with the provider
+ * row and the presence row as its two halves, and each button a segment that stretches to fill its
+ * row. A segmented control says "these are filters"; a drift of pills does not say anything.
+ *
+ * Kept as two elements rather than wrapped in a new one, so the markup stays as it is.
+ */
+#provider-filters,
+#presence-filters {
+	display: flex;
+	gap: 3px;
+	/* 24px is the sidebar's content rail - the teammate rows below reach it through 12px of nav
+	   padding plus 12px of their own. The panel sits on that rail by margin now, because a
+	   background has to stop where the rail does. */
+	margin: 0 24px;
+	padding: 3px;
+	background: var(--bg-panel-2);
+	border: 1px solid var(--line);
+}
+/*
+ * The caption sits on the rail with the panel it names, in the roster heading register so the two
+ * read as the same kind of label rather than as two competing voices.
+ */
+.roster-filter-caption {
+	margin: 14px 24px 5px;
+	color: var(--muted-3);
+	font-size: 11px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+/* No caption when there is nothing to filter, for the reason the panel itself goes. */
+#sidebar:has(#roster:empty) .roster-filter-caption {
+	display: none;
+}
+#provider-filters {
+	border-radius: 7px 7px 0 0;
+	border-bottom: 0;
+}
+/*
+ * No filters until there is something to filter.
+ *
+ * At zero teammates these are eight controls over an empty set, sitting in the first place the eye
+ * lands - and the provider row implies four things exist that do not. Driven off the roster being
+ * empty rather than off a state class, so there is no flag for the two of us to keep in step and
+ * nothing to go stale: the filters are present exactly when the list they filter has rows.
+ */
+#sidebar:has(#roster:empty) #provider-filters,
+#sidebar:has(#roster:empty) #presence-filters {
+	display: none;
+}
+#presence-filters {
+	margin-bottom: 12px;
+	border-radius: 0 0 7px 7px;
+}
+/* Segments, not chips: equal shares of the row, so the panel is full across whatever it spans. */
+#provider-filters button,
+#presence-filters button {
+	flex: 1 1 0;
+	min-width: 0;
+	padding: 4px 6px;
+	border: 0;
+	border-radius: 5px;
+	font-size: 11px;
+	min-height: 24px;
+}
+#presence-filters button {
+	min-width: max-content;
+	padding-inline: 1px;
+}
+#provider-filters button[aria-pressed='true'],
+#presence-filters button[aria-pressed='true'] {
+	background: var(--accent-bg);
+	border-color: var(--accent-line);
+	color: var(--accent-text);
+}
+#provider-filters button[aria-pressed='false'],
+#presence-filters button[aria-pressed='false'] {
+	background: transparent;
+	color: var(--muted);
+}
+#provider-filters button:disabled {
+	background: transparent;
+	color: var(--muted);
+	opacity: 0.5;
+	cursor: default;
+}
+.member-identity {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	position: relative;
+}
+/*
+ * The row's ordinal (Phillip #12538): small, muted and out of the grid, so names and states keep
+ * their width. The row's left padding grows by the width it needs, and the number sits on the
+ * avatar's centre line (the avatar is the column's 32px top item).
+ */
+#roster .member {
+	padding-left: 24px;
+}
+.member-ordinal {
+	position: absolute;
+	right: calc(100% + 4px);
+	top: 16px;
+	transform: translateY(-50%);
+	min-width: 12px;
+	text-align: right;
+	font-size: 10px;
+	line-height: 1;
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+	color: var(--muted-2);
+	pointer-events: none;
+}
+.member[aria-current='true'] .member-ordinal {
+	color: var(--text-2c);
+}
+.member .member-provider {
+	font-size: 10px;
+	line-height: 16px;
+	border: 1px solid var(--accent-line-2);
+	border-radius: 999px;
+	padding: 0 4px;
+	color: var(--text-2c);
+}
+.member-heading {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+.member-heading strong {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+/*
+ * The PM role tag, in the roster beside the name and in the session header. It borrows the pressed
+ * filter's fill rather than the provider pill's outline, so the two tags under one name never read
+ * as the same kind of label, and it stays off amber, which the roster spends on needing you.
+ */
+.role-tag {
+	flex-shrink: 0;
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 16px;
+	letter-spacing: 0.04em;
+	padding: 0 5px;
+	border: 1px solid var(--accent-line);
+	border-radius: 4px;
+	background: var(--accent-bg);
+	color: var(--accent-text);
+	text-decoration: none;
+	cursor: default;
+}
+#name-role {
+	margin-left: 10px;
+	font-size: 11px;
+	vertical-align: middle;
+}
+.member-heading .member-badges {
+	flex-shrink: 0;
+	margin-top: 0;
+	gap: 4px;
+}

@@ -1,0 +1,44 @@
+.response-watchdog {
+	min-width: 0;
+	padding: 8px;
+	max-height: min(16vh, 144px);
+	overflow-y: auto;
+	flex-shrink: 0;
+}
+/* Keep teammate selection available while delivery details are expanded. */
+body:not([data-delivery-alerts='off']) #sidebar:has(.response-watchdog:not([hidden])) {
+	overflow-y: auto;
+}
+body:not([data-delivery-alerts='off']) #sidebar:has(.response-watchdog:not([hidden])) #roster {
+	min-height: 132px;
+}
+/* Switched off in Team settings (#12987): the alerts still exist, the sidebar just stops showing them. */
+body[data-delivery-alerts='off'] .response-watchdog {
+	display: none;
+}
+.response-watchdog {
+	color: var(--warn-fill-text);
+}
+.response-watchdog details {
+	min-width: 0;
+	margin-block: 6px;
+	overflow-wrap: anywhere;
+}
+.response-watchdog summary {
+	cursor: pointer;
+	font-size: 12px;
+}
+.response-watchdog p {
+	white-space: pre-line;
+	font-size: 12px;
+}
+.response-watchdog button {
+	margin: 2px;
+}
+.response-announcement {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+}

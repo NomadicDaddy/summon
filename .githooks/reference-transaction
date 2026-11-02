@@ -1,0 +1,7 @@
+#!/bin/sh
+# Local main updates, including fast-forwards, must pass the source version preflight.
+# This is a repository consistency check, not human approval or an OS security boundary.
+if [ "${1:-}" != prepared ]; then
+	exit 0
+fi
+exec bun "$(dirname "$0")/../scripts/check-release-version.ts" --reference-transaction

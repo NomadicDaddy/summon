@@ -1,0 +1,31 @@
+/*
+ * Letters that light up in turn while something is in progress (letter-sweep.ts). Only the colour
+ * changes, so the word keeps its width and nothing beside it moves. Each letter is lit at the start
+ * of its cycle and fades back over the next two letters' time, which is what makes it read as one
+ * highlight travelling along the word rather than letters blinking.
+ *
+ * The lit colour is the Busy word's, --warn-fill-text, not the dot's --warn-fill. The two are the
+ * same amber on the dark theme, but on the light theme's pale rows the dot's amber read as a lit
+ * letter at 1.6-2.62:1 (remediation-20261018-light-letter-sweep-contrast).
+ */
+.letter-sweep > span {
+	animation: letter-sweep var(--sweep-period, 1350ms) linear infinite;
+}
+@keyframes letter-sweep {
+	0% {
+		color: var(--warn-fill-text);
+	}
+	8% {
+		color: var(--warn-fill-text);
+	}
+	20%,
+	100% {
+		color: inherit;
+	}
+}
+/* The word still says what is happening; it just holds still. */
+@media (prefers-reduced-motion: reduce) {
+	.letter-sweep > span {
+		animation: none;
+	}
+}

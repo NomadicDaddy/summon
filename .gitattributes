@@ -1,0 +1,7 @@
+# Match Prettier's endOfLine=lf on checkout, including Windows core.autocrlf=true.
+* text=auto eol=lf
+
+# Hook scripts must keep LF endings: core.autocrlf=true would otherwise check them out as CRLF,
+# and bash cannot run '#!/usr/bin/env bash\r'.
+*.sh text eol=lf
+.githooks/* text eol=lf

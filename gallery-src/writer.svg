@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+	<!-- Summon gallery icon "writer". Drawn for Summon by Vera to Jimmy's brief, 2026-10-04; part of Summon and under its licence. gallery/writer.png is this file exported at 128x128. -->
+	<rect width="128" height="128" rx="36" fill="#0b1220"/>
+	<g transform="rotate(45 64 64)">
+			<g stroke="#87d6b2" fill="none" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M64 96 L44 56 V38 H84 V56 Z"/>
+				<path d="M64 62 V88"/>
+			</g>
+			<circle cx="64" cy="52" r="6" fill="#d9a441" stroke="none"/>
+		</g>
+</svg>

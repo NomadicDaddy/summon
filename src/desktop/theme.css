@@ -1,0 +1,278 @@
+/*
+ * THE TEAM WINDOW'S COLOURS, in one place (card cca8d66e, Phillip #6430/#6431).
+ *
+ * Every colour the window's stylesheets use is one of these tokens, so a theme is a set of values
+ * rather than a hunt through sixteen files. The dark values below are exactly the literals the
+ * stylesheets used before tokens existed - nothing about the dark window changed when they moved
+ * here, and a pixel comparison of the main states proved it.
+ *
+ * Near-duplicates are kept as separate tokens on purpose (seven muted greys, five mint-tinted
+ * surfaces): merging them would have moved dark pixels, and the light theme is where they may
+ * collapse onto one value instead.
+ */
+:root {
+	/* Surfaces, darkest to lightest */
+	--bg-deep: #0b0f11;
+	--bg-app: #101518;
+	--bg-app-2: #10171a;
+	--bg-panel-2: #141b1e;
+	--bg-panel: #161e22;
+	--bg-raised: #182328;
+	--bg-raised-2: #19262a;
+	--bg-raised-3: #1d262a;
+	--bg-hover: #233137;
+	--bg-strong: #304044;
+	--bg-strong-2: #30434a;
+	--bg-strong-3: #3d4d52;
+	--scrim: #0009;
+	--scrim-soft: #05080959;
+	--scrim-strong: rgb(0 0 0 / 60%);
+
+	/* Lines */
+	--line-soft: #263036;
+	--line: #2b3539;
+	--line-strong: #39484e;
+	--line-stronger: #53656c;
+
+	/* Text, brightest to faintest */
+	--text-bright-3: #e8eef0;
+	--text-bright-2: #e3ecee;
+	--text-bright: #e0ebe8;
+	--text: #dce4e4;
+	--text-soft-2: #d6e4e2;
+	--text-soft: #d2dedc;
+	--text-2b: #cbd8dc;
+	--text-2: #c2d2d0;
+	--text-2c: #bed8d0;
+	--text-3b: #a8bbb8;
+	--text-3: #a4b8c2;
+	--muted-2: #98acae;
+	--muted: #97a8ad;
+	--muted-5: #92a5a9;
+	--muted-4: #8ea1a8;
+	--muted-6: #8ca0a7;
+	--muted-3: #8b9ea3;
+	--muted-7: #7d9298;
+	--emboss: rgb(197 214 219 / 7%);
+	--emboss-2: rgb(197 214 219 / 8%);
+
+	/* Mint: the app's accent */
+	--accent: #87d6b2;
+	--accent-fill: #9ce0c1;
+	--accent-text-5: #c9ffe6;
+	--accent-text: #c8efdf;
+	--accent-text-2: #bce8db;
+	--accent-text-4: #a2e8cb;
+	--accent-text-3: #a7cfc1;
+	--accent-line: #608b7b;
+	--accent-line-4: #527b68;
+	--accent-line-2: #41665a;
+	--accent-line-3: #3d6b59;
+	--accent-bg-4: #29483d;
+	--accent-bg: #283c3a;
+	--accent-bg-3: #22352d;
+	--accent-bg-5: #1d2b26;
+	--accent-bg-2: #17251f;
+	--on-accent: #11271e;
+	--primary-hover: #9ce0c1;
+	--primary-hover-text: #11271e;
+
+	/* Stable Room identity entries, also used by already-rendered mentions. */
+	--room-name-0: #a0eec7;
+	--room-name-1: #a0e8ee;
+	--room-name-2: #a0c0ee;
+	--room-name-3: #ada0ee;
+	--room-name-4: #dba0ee;
+	--room-name-5: #eea0d4;
+	--room-name-6: #eec0a0;
+	--room-name-7: #eee8a0;
+	--room-name-8: #63e3a3;
+	--room-name-9: #63d9e3;
+	--room-name-10: #6398e3;
+	--room-name-11: #a597ed;
+	--room-name-12: #cd7de8;
+	--room-name-13: #e363b9;
+	--room-name-14: #e39863;
+	--room-name-15: #e3d963;
+
+	/* Information (blue) */
+	--info: #809fce;
+	--info-bg: #1c2a3c;
+
+	/* Warning (amber) */
+	--warn-text: #ffe19b;
+	--warn-text-2: #e4cfa0;
+	--warn: #e3be7b;
+	--warn-fill: #e3b341;
+	/* --warn-fill where it is read as a word, not seen as a dot: the same amber on dark. */
+	--warn-fill-text: #e3b341;
+	--warn-2: #e1b854;
+	--warn-4: #e0aa63;
+	--warn-3: #d9b45b;
+	--warn-line: #b79a5e;
+	--warn-bg-2: #302b1d;
+	--warn-bg: #2a1d0f;
+	--warn-bg-3: #29261f;
+
+	/* Danger (red) */
+	--danger-text: #ffd1c5;
+	--danger-text-2: #f0cdc2;
+	--danger-2: #f0a0a0;
+	--danger: #f07878;
+	--danger-3: #d2765c;
+	--danger-4: #c4705e;
+	--danger-line: #7a4a44;
+	--danger-bg-5: #6b413c;
+	--danger-bg-4: #5a3632;
+	--danger-bg: #4a2626;
+	--danger-bg-3: #412b29;
+	--danger-bg-2: #3b2523;
+	--danger-bg-6: #2a1d1a;
+
+	/* Other accents */
+	--purple-text: #d9c8f0;
+	--purple: #a99acb;
+	--purple-glow: #a99acb33;
+	--purple-line: #8c79a1;
+	--sage-line: #809575;
+	--brand: #c68f44;
+
+	/* Notepad find (#7628): translucent so the editor's own text stays readable on top. */
+	--find-hit: rgb(227 179 65 / 28%);
+	--find-current: rgb(227 179 65 / 55%);
+}
+
+/*
+ * THE LIGHT THEME (Phillip #6430: soft off-white or warm grey, never stark white or blinding, with
+ * readable contrast and the Summon accents). Surfaces are warm off-whites and greys; no surface is
+ * pure white. Text roles are dark warm greys, and every text colour is checked at 4.5:1 or better
+ * against the surfaces it sits on. The mint accent becomes a deep green so it still reads as text
+ * and outline on a light ground; buttons that were mint with dark text become green with light
+ * text. Near-duplicate dark tokens share one light value where the difference had no meaning.
+ *
+ * The attribute selector outranks the plain :root above, and color-scheme switches the native
+ * scrollbars and form controls with it.
+ */
+:root[data-theme='light'] {
+	color-scheme: light;
+
+	--bg-deep: #d6d0c4;
+	--bg-app: #f3f0ea;
+	--bg-app-2: #f1eee7;
+	--bg-panel-2: #ebe7df;
+	--bg-panel: #e8e3da;
+	--bg-raised: #f8f6f1;
+	--bg-raised-2: #f6f3ed;
+	--bg-raised-3: #f4f1eb;
+	--bg-hover: #e1dbd0;
+	--bg-strong: #d8d1c5;
+	--bg-strong-2: #d4cdc0;
+	--bg-strong-3: #c9c1b3;
+	--scrim: rgb(46 40 30 / 40%);
+	--scrim-soft: rgb(46 40 30 / 22%);
+	--scrim-strong: rgb(46 40 30 / 50%);
+
+	--line-soft: #dcd6cb;
+	--line: #d1cabd;
+	--line-strong: #b9b0a0;
+	--line-stronger: #9c9282;
+
+	--text-bright-3: #151b1d;
+	--text-bright-2: #172022;
+	--text-bright: #182123;
+	--text: #1d2527;
+	--text-soft-2: #252e30;
+	--text-soft: #283133;
+	--text-2b: #353e41;
+	--text-2: #384244;
+	--text-2c: #384244;
+	--text-3b: #475052;
+	--text-3: #465156;
+	--muted-2: #565f61;
+	--muted: #565f61;
+	--muted-5: #565f61;
+	--muted-4: #565f61;
+	--muted-6: #565f61;
+	--muted-3: #565f61;
+	--muted-7: #5f6769;
+	--emboss: rgb(255 255 255 / 55%);
+	--emboss-2: rgb(255 255 255 / 60%);
+
+	--accent: #226449;
+	--accent-fill: #b9e2cf;
+	--accent-text-5: #1f5e44;
+	--accent-text: #22634a;
+	--accent-text-2: #22634a;
+	--accent-text-4: #22634a;
+	--accent-text-3: #2c5f4d;
+	--accent-line: #8dbca6;
+	--accent-line-4: #8dbca6;
+	--accent-line-2: #a3cab7;
+	--accent-line-3: #a3cab7;
+	--accent-bg-4: #cfe7da;
+	--accent-bg: #dcede4;
+	--accent-bg-3: #d6eadf;
+	--accent-bg-5: #e2f1e9;
+	--accent-bg-2: #e6f2eb;
+	--on-accent: #f6fbf8;
+	--primary-hover: #1b543d;
+	--primary-hover-text: #f6fbf8;
+
+	--room-name-0: #136c40;
+	--room-name-1: #13656c;
+	--room-name-2: #13386c;
+	--room-name-3: #22136c;
+	--room-name-4: #56136c;
+	--room-name-5: #6c134f;
+	--room-name-6: #6c3813;
+	--room-name-7: #6c6513;
+	--room-name-8: #0f5733;
+	--room-name-9: #0f5157;
+	--room-name-10: #18488b;
+	--room-name-11: #2c188b;
+	--room-name-12: #6e188b;
+	--room-name-13: #8b1865;
+	--room-name-14: #8b4818;
+	--room-name-15: #57520f;
+
+	--info: #345a94;
+	--info-bg: #e2e9f4;
+
+	--warn-text: #6b4709;
+	--warn-text-2: #6e5524;
+	--warn: #855a12;
+	--warn-fill: #e3b341;
+	/* Darker than the dot here: #e3b341 as text on the pale rows is 1.6:1. */
+	--warn-fill-text: #855a12;
+	--warn-2: #855a12;
+	--warn-4: #8a5419;
+	--warn-3: #855a12;
+	--warn-line: #c9a663;
+	--warn-bg-2: #f4ead3;
+	--warn-bg: #f6e8d0;
+	--warn-bg-3: #f1ebdc;
+
+	--danger-text: #8a2a20;
+	--danger-text-2: #7a3a2f;
+	--danger-2: #a83a33;
+	--danger: #a8322a;
+	--danger-3: #9e3f27;
+	--danger-4: #95412f;
+	--danger-line: #d29a90;
+	--danger-bg-5: #eac2bc;
+	--danger-bg-4: #efcec8;
+	--danger-bg: #f6dcd8;
+	--danger-bg-3: #f3dad6;
+	--danger-bg-2: #f6e1de;
+	--danger-bg-6: #f8e8e5;
+
+	--purple-text: #4c3d70;
+	--purple: #6b5894;
+	--purple-glow: #6b589433;
+	--purple-line: #a491c2;
+	--sage-line: #9aab8f;
+	--brand: #895a1f;
+
+	--find-hit: rgb(227 179 65 / 30%);
+	--find-current: rgb(227 179 65 / 62%);
+}

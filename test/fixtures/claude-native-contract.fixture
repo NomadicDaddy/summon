@@ -1,0 +1,258 @@
+import { expect, test } from 'claude-code/testing';
+
+function controls(on, options = {}) {
+	const events = [];
+	const order = [];
+	let draft = '';
+	let epoch = 0;
+	on('env.get', (_$, e) => ({ value: e.name === 'SUMMON_CLAUDE_TURN_URL'
+		? 'http://127.0.0.1/turn' : 'fixture-key-not-a-credential' }));
+	on('session.id', () => ({ value: 'exact-fixture-thread' }));
+	on('prompt.read', () => ({ value: { text: draft, cursor: draft.length } }));
+	on('http.fetch', (_$, e) => {
+		if (options.failHttp) return { value: { ok: false, status: 503, headers: {}, text: '' } };
+		if (e.url.endsWith('/attach'))
+			return { value: { ok: true, status: 200, headers: {}, text: JSON.stringify({ epoch: ++epoch }) } };
+		const metadata = JSON.parse(e.init.body);
+		events.push(metadata);
+		order.push(metadata.kind);
+		return { value: { ok: true, status: 204, headers: {}, text: '' } };
+	});
+	on('turn.start', (_$, e) => { order.push('core-start'); return { turnId: e.turnId }; });
+	on('turn.complete', () => {
+		if (options.complete) return options.complete();
+		order.push('core-complete'); return { text: 'unchanged' };
+	});
+	return { events, order, setDraft: text => { draft = text; } };
+}
+
+test('actual generated module preserves core and projects metadata only', async ($, on) => {
+	const h = controls(on);
+	await $.turn.start({ turnId: 'one', text: 'PRIVATE_PROMPT' });
+	const result = await $.turn.complete({ turnId: 'one', answer: 'PRIVATE_ANSWER', durationMs: 1,
+		isAborted: false, reason: 'answer' });
+	expect(result).toEqual({ text: 'unchanged' });
+	expect(h.order).toEqual(['start', 'core-start', 'core-complete', 'complete']);
+	expect(h.events).toEqual([
+		{ session: 'exact-fixture-thread', epoch: 1, sequence: 1, kind: 'start', turn: 'one', completed: false, draft: false },
+		{ session: 'exact-fixture-thread', epoch: 1, sequence: 2, kind: 'complete', turn: 'one', completed: true, draft: false },
+	]);
+	expect(JSON.stringify(h.events)).not.toContain('PRIVATE');
+});
+
+test('subagent start and completion, stale turn and duplicate are ignored', async ($, on) => {
+	const h = controls(on);
+	await $.turn.start({ turnId: 'one', text: '' });
+	await $.turn.start({ turnId: 'child', agentId: 'sub', text: '' });
+	await $.turn.complete({ turnId: 'child', agentId: 'sub', answer: '', durationMs: 1,
+		isAborted: false, reason: 'answer' });
+	await $.turn.start({ turnId: 'two', text: '' });
+	await $.turn.complete({ turnId: 'one', answer: '', durationMs: 1,
+		isAborted: false, reason: 'answer' });
+	expect(h.events.map(e => e.kind)).toEqual(['start', 'start']);
+	await $.turn.complete({ turnId: 'two', answer: '', durationMs: 1,
+		isAborted: false, reason: 'answer' });
+	await $.turn.complete({ turnId: 'two', answer: '', durationMs: 1,
+		isAborted: false, reason: 'answer' });
+	expect(h.events.map(e => e.kind)).toEqual(['start', 'start', 'complete']);
+});
+
+test('error and interruption are reported as unverified completion', async ($, on) => {
+	const h = controls(on);
+	for (const reason of ['aborted', 'error', 'refusal']) {
+		await $.turn.start({ turnId: reason, text: '' });
+		await $.turn.complete({ turnId: reason, answer: '', durationMs: 1,
+			isAborted: reason === 'aborted', reason });
+	}
+	expect(h.events.filter(e => e.kind === 'complete').every(e => !e.completed)).toBe(true);
+});
+
+test('native draft observation preserves text and cursor without sending text', async ($, on) => {
+	const h = controls(on);
+	on('prompt.edit', () => ({ text: 'PRIVATE_DRAFT', cursor: 3 }));
+	const result = await $.prompt.edit({ text: '', inputText: 'PRIVATE_DRAFT', cursor: 0,
+		origin: { kind: 'composer' }, start: 0, end: 0 });
+	expect(result).toEqual({ text: 'PRIVATE_DRAFT', cursor: 3 });
+	expect(h.events.at(-1).draft).toBe(true);
+	expect(JSON.stringify(h.events)).not.toContain('PRIVATE');
+});
+
+test('main compaction blocks on entry and restores only after unchanged core completes', async ($, on) => {
+	const h = controls(on);
+	const messages = [{ role: 'user', text: 'PRIVATE_FIXTURE', toolUses: [] }];
+	on('session.compact', () => { h.order.push('core-compact'); return { messages }; });
+	const result = await $.session.compact({ trigger: 'manual', messages });
+	expect(result).toEqual({ messages });
+	expect(h.order).toEqual(['compact-start', 'core-compact', 'compact-end']);
+});
+
+test('unavailable observation cannot block or repeat unchanged native core', async ($, on) => {
+	const h = controls(on, { failHttp: true });
+	const start = await $.turn.start({ turnId: 'one', text: 'PRIVATE_PROMPT' });
+	const result = await $.turn.complete({ turnId: 'one', answer: 'PRIVATE_ANSWER', durationMs: 1,
+		isAborted: false, reason: 'answer' });
+	expect(start).toEqual({ turnId: 'one' });
+	expect(result).toEqual({ text: 'unchanged' });
+	expect(h.order).toEqual(['core-start', 'core-complete']);
+});
+
+test('a newer turn started inside completion core defeats the older completion', async ($, on) => {
+	const h = controls(on, { complete: async () => {
+		await $.turn.start({ turnId: 'new', text: '' });
+		return { text: 'unchanged' };
+	} });
+	await $.turn.start({ turnId: 'old', text: '' });
+	const result = await $.turn.complete({ turnId: 'old', answer: '', durationMs: 1,
+		isAborted: false, reason: 'answer' });
+	expect(result).toEqual({ text: 'unchanged' });
+	expect(h.events.map(e => e.kind)).toEqual(['start', 'start']);
+});
+
+test('failed observation preserves prompt submission core once and unchanged', async ($, on) => {
+	const h = controls(on, { failHttp: true });
+	let calls = 0;
+	on('prompt.submit', (_$, e) => { calls++; return { text: e.text }; });
+	const result = await $.prompt.submit({ text: 'PRIVATE_PROMPT' });
+	expect(result).toEqual({ text: 'PRIVATE_PROMPT' });
+	expect(calls).toBe(1);
+	expect(h.events).toEqual([]);
+});
+
+test('failed observation preserves compaction core once and unchanged', async ($, on) => {
+	const h = controls(on, { failHttp: true });
+	const messages = [{ role: 'user', text: 'PRIVATE_FIXTURE', toolUses: [] }];
+	let calls = 0;
+	on('session.compact', () => { calls++; return { messages }; });
+	const result = await $.session.compact({ trigger: 'manual', messages });
+	expect(result).toEqual({ messages });
+	expect(calls).toBe(1);
+	expect(h.events).toEqual([]);
+});
+
+test('busy submissions retain the root completion without a second native start', async ($, on) => {
+	const h = controls(on);
+	let calls = 0;
+	on('prompt.submit', (_$, e) => { calls++; return { text: e.text }; });
+	await $.turn.start({ turnId: 'running', text: '' });
+	for (let index = 0; index < 2; index++) {
+		const result = await $.prompt.submit({ text: 'PRIVATE_MESSAGE' });
+		expect(result).toEqual({ text: 'PRIVATE_MESSAGE' });
+	}
+	await $.turn.complete({ turnId: 'running', answer: '', durationMs: 1,
+		isAborted: false, reason: 'answer' });
+	expect(calls).toBe(2);
+	expect(h.events.map(e => [e.kind, e.turn])).toEqual([
+		['start', 'running'], ['submit', 'running'], ['submit', 'running'], ['complete', 'running'],
+	]);
+	expect(JSON.stringify(h.events)).not.toContain('PRIVATE');
+});
+
+test('failed compaction next hook balances its observation without repeating core', async ($, on) => {
+	const h = controls(on);
+	const original = new Error('Original compaction failure');
+	let calls = 0;
+	on('session.compact', () => { calls++; h.order.push('core-compact'); throw original; });
+	let caught;
+	try { await $.session.compact({ trigger: 'manual', messages: [{ role: 'user', text: 'Fixture', toolUses: [] }] }); }
+	catch (error) { caught = error; }
+	// The offline engine skips a throwing fixture hook and reports its absent fallback core.
+	expect(String(caught)).toContain('no implementation for session.compact');
+	expect(calls).toBe(1);
+	expect(h.order).toEqual(['compact-start', 'core-compact', 'compact-end']);
+});
+
+test('aborted compaction next hook balances its observation without repeating core', async ($, on) => {
+	const h = controls(on);
+	const original = new Error('Original cancellation');
+	original.name = 'AbortError';
+	let calls = 0;
+	on('session.compact', () => { calls++; throw original; });
+	let caught;
+	try { await $.session.compact({ trigger: 'manual', messages: [{ role: 'user', text: 'Fixture', toolUses: [] }] }); }
+	catch (error) { caught = error; }
+	expect(String(caught)).toContain('no implementation for session.compact');
+	expect(calls).toBe(1);
+	expect(h.events.map(e => e.kind)).toEqual(['compact-start', 'compact-end']);
+});
+
+test('native idle notification reports metadata only and preserves core once', async ($, on) => {
+	const h = controls(on);
+	let calls = 0;
+	on('classic.Notification', () => { calls++; return {}; });
+	await $.classic.Notification({ notification_type: 'idle_prompt', session_id: 'exact-fixture-thread', message: 'PRIVATE_NOTICE' });
+	expect(calls).toBe(1);
+	expect(h.events.map(e => e.kind)).toEqual(['idle']);
+	expect(JSON.stringify(h.events)).not.toContain('PRIVATE');
+});
+
+test('idle notifications reject wrong session, child, other types, draft and active turn', async ($, on) => {
+	const h = controls(on);
+	on('classic.Notification', () => ({}));
+	const idle = { notification_type: 'idle_prompt', session_id: 'exact-fixture-thread', message: '' };
+	await $.classic.Notification({ ...idle, session_id: 'other' });
+	await $.classic.Notification({ ...idle, agent_id: 'child' });
+	await $.classic.Notification({ ...idle, notification_type: 'permission_prompt' });
+	h.setDraft('PRIVATE_DRAFT');
+	await $.classic.Notification(idle);
+	h.setDraft('');
+	await $.turn.start({ turnId: 'running', text: '' });
+	await $.classic.Notification(idle);
+	expect(h.events.map(e => e.kind)).toEqual(['start']);
+});
+
+test('activity during idle notification core invalidates the idle observation', async ($, on) => {
+	const h = controls(on);
+	on('classic.Notification', async () => {
+		await $.turn.start({ turnId: 'new', text: '' });
+		await $.turn.complete({ turnId: 'new', answer: '', durationMs: 1, reason: 'answer', isAborted: false });
+		return {};
+	});
+	await $.classic.Notification({ notification_type: 'idle_prompt', session_id: 'exact-fixture-thread', message: '' });
+	expect(h.events.map(e => e.kind)).toEqual(['start', 'complete']);
+});
+
+test('failed idle report preserves native notification core exactly once', async ($, on) => {
+	const h = controls(on, { failHttp: true });
+	let calls = 0;
+	on('classic.Notification', () => { calls++; return {}; });
+	await $.classic.Notification({ notification_type: 'idle_prompt', session_id: 'exact-fixture-thread', message: 'PRIVATE_NOTICE' });
+	expect(calls).toBe(1);
+	expect(h.events).toEqual([]);
+});
+
+test('native measurement projects capacity and model without usage, cost or content', async ($, on) => {
+	const h = controls(on);
+	on('session.model', () => ({ value: 'native-model' }));
+	on('session.usage', () => ({ value: { context: { window: 200000, tokens: 12345, percent: 6 }, cost: { usd: 99 }, rateLimits: [], startedAt: 1 } }));
+	on('session.measure', (_$, e) => ({ changed: e.changed }));
+	await $.turn.start({ turnId: 'one', text: '' });
+	const result = await $.session.measure({ context: { window: 1 }, rateLimits: [], changed: ['context'] });
+	expect(result).toEqual({ changed: ['context'] });
+	expect(h.events.at(-1)).toEqual({ session: 'exact-fixture-thread', epoch: 1, model: 'native-model', contextWindow: 200000 });
+});
+
+test('model switch during a measurement refuses the mismatched capacity', async ($, on) => {
+	const h = controls(on);
+	let calls = 0;
+	on('session.model', () => ({ value: ++calls === 1 ? 'old' : 'new' }));
+	on('session.usage', () => ({ value: { context: { window: 200000 } } }));
+	on('session.measure', (_$, e) => ({ changed: e.changed }));
+	await $.turn.start({ turnId: 'one', text: '' });
+	await $.session.measure({ context: { window: 1 }, rateLimits: [], changed: ['context'] });
+	expect(h.events.map(e => e.kind)).toEqual(['start']);
+});
+
+for (const command of ['reload-plugins', 'status'])
+test(`local ${command} preserves native result and refreshes only draft metadata`, async ($, on) => {
+	const h = controls(on);
+	let calls = 0;
+	on('command.run', (_$, e) => {
+		calls++;
+		h.setDraft('');
+		return { text: 'Native result' };
+	});
+	const result = await $.command.run({ command, args: '' });
+	expect(result).toEqual({ text: 'Native result' });
+	expect(calls).toBe(1);
+	expect(h.events.map(e => [e.kind, e.draft])).toEqual([['draft', false]]);
+});

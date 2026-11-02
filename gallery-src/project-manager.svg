@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+	<!-- Summon gallery icon "project-manager". Drawn for Summon by Vera to Jimmy's brief, 2026-10-04; part of Summon and under its licence. gallery/project-manager.png is this file exported at 128x128. -->
+	<rect width="128" height="128" rx="36" fill="#0b1220"/>
+	<g stroke="#87d6b2" fill="none" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"><path d="M34 44 H94"/></g>
+		<circle cx="44" cy="72" r="8" fill="#87d6b2" stroke="none"/>
+		<circle cx="64" cy="72" r="8" fill="#d9a441" stroke="none"/>
+		<circle cx="84" cy="72" r="8" fill="#87d6b2" stroke="none"/>
+</svg>

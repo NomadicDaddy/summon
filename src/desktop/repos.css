@@ -1,0 +1,258 @@
+/*
+ * A grid rather than a wrapping flex row, and the difference is not cosmetic.
+ *
+ * caca929 gave this panel a heading and made the row wrap so the heading could take a line of its
+ * own. That worked visually and broke the height: a wrapped flex line sizes to its content, so the
+ * detail column stopped being capped by the panel and ran 592px past the bottom of it, painting over
+ * the pane below. Nothing showed it while the panel was empty, which is how it survived the commit
+ * that caused it - I checked the chrome and never opened a repository.
+ *
+ * Two explicit rows fix it at the source: the heading takes the first, and the second is `1fr`, so
+ * both columns are bounded by the panel whatever is inside them.
+ */
+#repos {
+	display: grid;
+	grid-template-columns: 300px minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
+	flex: 0 1 var(--board-height, 50%);
+	min-height: 0;
+	gap: 0 12px;
+	padding: 14px 24px;
+}
+/*
+ * 300px rather than 240: at one line per repository the name and its branch now share a row, and
+ * at 240 the name was the thing that gave way - "adminware-lic...", "aidd-ui-...". The name is the
+ * only part you navigate by, so it gets the room.
+ */
+.repos-list {
+	min-width: 0;
+	min-height: 0;
+	overflow-y: auto;
+}
+.repos-list input {
+	width: 100%;
+}
+/*
+ * A file-manager row, not a card.
+ *
+ * These were bordered boxes carrying three wrapped lines each - name and branch, then "0 changed",
+ * then "No tracking comparison". At 56 repositories that is roughly six thousand pixels of scroll
+ * to read 56 names, and most of the words say that nothing has happened. One line each, the name
+ * doing the work, and the counts only where there is a count to give.
+ */
+.repos-list nav button.repo-row {
+	display: flex;
+	gap: 8px;
+	align-items: baseline;
+	width: 100%;
+	padding: 3px 8px;
+	margin: 0;
+	text-align: left;
+	white-space: nowrap;
+	background: none;
+	border: 0;
+	border-radius: 4px;
+	font-size: 12px;
+}
+.repos-list nav button.repo-row:hover {
+	background: var(--bg-raised-3);
+}
+.repos-list nav button.repo-row[aria-pressed='true'] {
+	background: var(--accent-bg-3);
+	border: 0;
+}
+/* The name is the row; everything after it is annotation and sits to the right. */
+.repo-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.repo-branch,
+.repo-sync {
+	flex: 0 0 auto;
+	color: var(--muted);
+	font-size: 11px;
+}
+/* A changed-file count, or ! when the status could not be read. Present only when it means something. */
+.repo-flag {
+	flex: 0 0 auto;
+	padding: 0 5px;
+	background: var(--line);
+	color: var(--text);
+	border-radius: 7px;
+	font-size: 10px;
+}
+.repo-flag.repo-error {
+	background: var(--danger-bg);
+	color: var(--danger-2);
+}
+.repos-detail {
+	min-width: 0;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+.repos-detail h3 {
+	margin: 0;
+	color: var(--accent);
+}
+.repos-meta {
+	font-size: 11px;
+	color: var(--muted);
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+	margin: 6px 0;
+}
+.repos-actions {
+	display: flex;
+	gap: 5px;
+	flex-wrap: wrap;
+	margin-bottom: 8px;
+}
+.repos-detail-columns {
+	display: flex;
+	gap: 10px;
+	flex: 1;
+	min-height: 0;
+}
+/*
+ * 320px rather than 220: now that a commit is one line, the subject is what you read and 220 cut it
+ * at about four words ("feat(repos): one li..."). The pane to its right is empty until you pick
+ * something, so the width was going to the panel with nothing in it.
+ */
+.repos-changes {
+	flex: 0 0 320px;
+	overflow: auto;
+	min-width: 0;
+}
+.repos-changes h4 {
+	margin: 8px 0 4px;
+	font-size: 12px;
+}
+/*
+ * Changes and commits as rows, for the reason the repository list is rows.
+ *
+ * These were the same bordered, wrapping cards: a commit subject ran to four lines inside a box, so
+ * twenty commits filled the column and you read the list by scrolling rather than by scanning. The
+ * row keeps its lead - a filename, a short sha - at the left edge and lets the dimmed trail be the
+ * part that gives way.
+ */
+.repos-changes button.detail-row {
+	display: flex;
+	gap: 7px;
+	align-items: baseline;
+	width: 100%;
+	padding: 2px 7px;
+	margin: 0;
+	text-align: left;
+	white-space: nowrap;
+	background: none;
+	border: 0;
+	border-radius: 4px;
+	font-size: 12px;
+}
+.repos-changes button.detail-row:hover {
+	background: var(--bg-raised-3);
+}
+.detail-lead {
+	flex: 0 0 auto;
+	max-width: 60%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+/* The context: a commit subject, or the directory a file sits in. First to give way. */
+.detail-trail {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--muted);
+	text-overflow: ellipsis;
+	font-size: 11px;
+}
+.repos-clean {
+	margin: 6px 0 0;
+	padding: 0 7px;
+	color: var(--muted);
+	font-size: 12px;
+}
+.repos-preview {
+	flex: 1;
+	min-width: 0;
+	overflow: auto;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	font-size: 12px;
+	line-height: 1.5;
+	padding: 10px;
+	background: var(--bg-app-2);
+	margin: 0;
+}
+/*
+ * The narrow breakpoint, rebalanced for rows.
+ *
+ * 190 and 170 were set when both columns held wrapping cards, where a narrow column cost height
+ * rather than content - a card just grew another line. A row cannot do that: it truncates instead,
+ * so at 190 the repository names ellipsised and at 170 a commit subject was cut at about four words.
+ * Most windows are under 1600px, so these are the values nearly everybody sees.
+ */
+@media (max-width: 1600px) {
+	.repos-list {
+		flex-basis: 240px;
+	}
+	.repos-changes {
+		flex-basis: 270px;
+	}
+}
+/* The heading takes the whole first row; the two columns share the second. */
+#repos > .panel-heading {
+	grid-column: 1 / -1;
+}
+
+/*
+ * The reading column: a message that stays put and a diff that scrolls under it.
+ *
+ * Both were one `pre` before, so scrolling to the end of a long diff carried the commit message off
+ * the top - the sentence explaining what you were reading left the screen first.
+ */
+.repos-reading {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	gap: 8px;
+}
+.repos-reading .repos-preview {
+	flex: 1;
+	min-height: 0;
+}
+/*
+ * Boxed, and in the reading face rather than the monospace one. The message is prose somebody wrote
+ * for a person; the diff is output. Setting them in the same type was what made the message
+ * disappear into it.
+ */
+.repos-commit-message {
+	flex-shrink: 0;
+	max-height: 30%;
+	overflow-y: auto;
+	margin: 0;
+	padding: 10px 12px;
+	border-left: 3px solid var(--accent-line);
+	background: var(--bg-raised-2);
+	color: var(--text-soft-2);
+	font-size: 13px;
+	line-height: 1.55;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+/*
+ * The selected row. Without this the panel showed a diff and nothing said which row produced it.
+ */
+.repos-changes button.detail-row.is-selected {
+	background: var(--accent-bg);
+	color: var(--accent-text);
+}
+.repos-changes button.detail-row.is-selected .detail-trail {
+	color: var(--accent-text-3);
+}

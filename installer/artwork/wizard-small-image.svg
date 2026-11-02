@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+	<!-- Inno Setup WizardSmallImageFile for the Summon installer: the small-size bell from src/desktop/icons/summon-small.svg on a full orange square. wizard-small-image-*.png are this file exported at the sizes Hugo confirmed (#5951). -->
+	<rect width="128" height="128" fill="#C68F44"/>
+	<g transform="translate(0 -4)">
+		<path d="M44 62 C44 44 84 44 84 62 C84 76 92 86 108 92 Q114 95 113 100 L15 100 Q14 95 20 92 C36 86 44 76 44 62 Z" fill="#87d6b2" stroke="#141b1f" stroke-width="8" stroke-linejoin="round"/>
+		<circle cx="64" cy="106" r="9" fill="#141b1f"/>
+		<path d="M57 47 C55 42 56 37 59 33 Q64 28 69 33 C72 37 73 42 71 47 Z" fill="#141b1f"/>
+		<circle cx="64" cy="27" r="6" fill="#141b1f"/>
+	</g>
+</svg>

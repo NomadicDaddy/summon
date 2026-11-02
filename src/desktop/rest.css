@@ -1,0 +1,51 @@
+.rest-row {
+	display: block;
+	position: relative;
+}
+.rest-row:has(.member[hidden]) {
+	display: none;
+}
+.rest-row .member {
+	min-width: 0;
+	grid-template-columns: 34px 1fr 30px;
+}
+.rest-row .member .dot {
+	visibility: hidden;
+}
+.rest-row .avatar img {
+	opacity: 0.55;
+}
+.rest-row .member-state {
+	color: var(--purple-text);
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.rest-stop {
+	position: absolute;
+	right: 12px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 30px;
+	min-height: 26px;
+	padding: 4px 0;
+	border: 0;
+	background: transparent;
+	border-radius: 999px;
+	font-size: 11px;
+	line-height: 16px;
+	color: var(--purple-text);
+}
+.rest-stop span {
+	display: block;
+	border: 1px solid var(--purple-line);
+	border-radius: inherit;
+	background: var(--purple-glow);
+}
+.rest-stop:hover {
+	background: transparent;
+}
+.rest-stop:hover span {
+	background: var(--bg-strong-2);
+}

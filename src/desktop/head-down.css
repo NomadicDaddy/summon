@@ -1,0 +1,154 @@
+/*
+ * Head-down is a MODIFIER, never a state, and that is the whole rule here.
+ *
+ * The roster's dot carries four meanings and reserves red for one of them: grey offline on
+ * purpose, green online, amber busy and working, red a session that ended with nobody asking. An
+ * agent in head-down is still one of those underneath, so if head-down took a colour of its own, a
+ * head-down teammate that died would read as head-down rather than dead - the exact failure the
+ * colour scheme was rebuilt to end. A ring around the dot shows both facts at once.
+ */
+.member[data-head-down='active'] .dot {
+	box-shadow:
+		0 0 0 2px var(--bg-panel),
+		0 0 0 4px var(--info);
+}
+/*
+ * Overdue takes the red the roster already has, because it means what red already means: something
+ * you were relying on has stopped reporting. Exited wins when both are true - it is terminal and
+ * overdue is not - so this sits above neither and the status text says which.
+ */
+.member[data-head-down='active'].overdue .dot {
+	background: var(--danger);
+}
+.member[data-head-down='active'].overdue .working-on {
+	color: var(--danger);
+}
+/*
+ * A pending request is NOT a roster state and never touches the dot. It is a question waiting for
+ * an answer, so it reads as one: beside the row, in the gold the window already uses for things
+ * being asked of the reader, and only where the answer can be given.
+ */
+.head-down-row {
+	display: flex;
+	align-items: stretch;
+	gap: 4px;
+}
+.head-down-row:has(.member[hidden]) {
+	display: none;
+}
+.head-down-row > .rest-row,
+.head-down-row > .member {
+	flex: 1;
+	min-width: 0;
+}
+.head-down-row:has(> .rest-row) {
+	flex-wrap: wrap;
+}
+.head-down-row > .rest-row {
+	flex-basis: 150px;
+}
+.head-down-row:has(> .rest-row) > .head-down-ask {
+	margin-left: auto;
+}
+.head-down-ask {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 2px;
+	padding: 0 6px;
+}
+.head-down-ask button {
+	font-size: 11px;
+	padding: 2px 6px;
+	min-width: 34px;
+}
+.head-down-ask button.approve {
+	border-color: var(--warn-3);
+	color: var(--warn-3);
+}
+/* The goal is the thing that was approved, so it reads as a quotation rather than a status. */
+.member[data-head-down='active'] .working-on::before {
+	content: '⌁ ';
+	color: var(--info);
+}
+#head-down-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 24px;
+	background: var(--info-bg);
+	border-bottom: 1px solid var(--line);
+	font-size: 12px;
+}
+#head-down-goal {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+#head-down-bar.overdue #head-down-goal {
+	color: var(--danger);
+}
+#head-down-bar button {
+	font-size: 12px;
+	padding: 4px 10px;
+}
+
+/*
+ * Ending asks for its reason in place rather than in a dialog, because the renderer has no dialog
+ * to ask with: Electron does not implement window.prompt, so the first version of this control
+ * called something that cannot work and could not have worked in any build. The field lives beside
+ * the goal it is ending, which is better anyway - the thing being ended stays on screen while the
+ * reason is written.
+ */
+#head-down-reason {
+	flex: 0 1 280px;
+	min-width: 120px;
+	font: inherit;
+	font-size: 12px;
+	padding: 3px 8px;
+}
+
+/*
+ * The paused state is a standing condition rather than an alarm, so it borrows the window's quiet
+ * blue instead of asking for a colour of its own - the same reasoning as the head-down ring above.
+ * The remaining seconds sit in the button because that is where they were asked for (#4577): the
+ * operator wanted to see the quiet time running down on the control that ends it, not somewhere
+ * else on the screen.
+ */
+#notification-pause.is-paused {
+	border-color: var(--info);
+	color: var(--text);
+	background: var(--info-bg);
+}
+/*
+ * Heads-down owns the answer, so the control is stated rather than offered: the head-down ring's
+ * own blue for the edge, muted text, and no pointer. It is not dimmed to the point of looking
+ * broken, because what it says is true and worth reading.
+ */
+#notification-pause.is-queued {
+	border-color: var(--info);
+	border-style: dashed;
+	color: var(--muted-2);
+	background: transparent;
+	cursor: default;
+}
+.pause-remaining {
+	font-variant-numeric: tabular-nums;
+	color: var(--muted-2);
+}
+#notification-pause.is-paused .pause-remaining {
+	color: var(--info);
+}
+
+/*
+ * The delegation toggle wears the same lit treatment as the paused control and the pressed
+ * thumbs-up, because it is the same kind of thing: a standing state the operator switched on, not
+ * an alarm and not an invitation. Its label never changes, so this is what says whether it is on.
+ */
+#head-down-delegate.is-granted {
+	border-color: var(--info);
+	color: var(--text);
+	background: var(--info-bg);
+}

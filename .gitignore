@@ -1,0 +1,7 @@
+.aidd/
+.env
+*.tgz
+*.tsbuildinfo
+AGENTS.md
+node_modules/
+dist/

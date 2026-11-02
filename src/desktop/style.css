@@ -1,0 +1,760 @@
+:root {
+	color-scheme: dark;
+	accent-color: var(--accent);
+	font:
+		14px 'Segoe UI',
+		sans-serif;
+	background: var(--bg-app);
+	color: var(--text);
+	/*
+	 * Set on the root so body's own overflow stays on body instead of passing to the viewport. On
+	 * the root itself this becomes the viewport's `hidden`; what stops the window scrolling is body
+	 * below, so read that rule before changing this one. Without this rule body's clip goes to the
+	 * viewport as `hidden` and anything outside #terminals can scroll the window again (measured:
+	 * body alone, 1216px; body with this rule, 0).
+	 */
+	overflow: clip;
+}
+* {
+	box-sizing: border-box;
+}
+body {
+	margin: 0;
+	height: 100vh;
+	display: grid;
+	grid-template-columns: 252px minmax(0, 1fr);
+	grid-template-rows: minmax(0, 1fr) auto;
+	/*
+	 * THE WINDOW AS A WHOLE MUST NEVER SCROLL, and this rule with the fixed 100vh height is what
+	 * holds it. `hidden` only stops the user scrolling: focus and scrollIntoView still scroll, and
+	 * with no scrollbar nothing scrolls back. Page Up in a teammate's terminal (#12148) let a
+	 * focused element below the window push every column up into a strip at the top, and only a
+	 * restart recovered it. `clip` is not a scroll container, and with body exactly one viewport
+	 * tall the viewport has nothing to scroll. A min-height or anything taller than 100vh here
+	 * reopens the bug; window-clip-ui.test.ts checks both. Panes that scroll keep their own
+	 * overflow.
+	 */
+	overflow: clip;
+}
+/*
+ * EVERY CHILD OF THIS GRID PINS ITS OWN COLUMN, and that is a rule rather than decoration.
+ *
+ * The body has three columns normally and five with the room open, and children appear and vanish
+ * as panels are toggled. Auto-placement then resolves differently depending on which siblings are
+ * displayed at the time, so a layout verified in one state is not evidence about another: pinning
+ * the room row (#4503) moved main into the room column whenever the drawer was shut, because an
+ * item with a definite row is placed by a different pass than one without.
+ *
+ * 1 aside · 2 its divider · 3 main and the drawer · 4 the room divider · 5 the room.
+ * Columns 4 and 5 exist only while the room is open, and both their children are display:none
+ * otherwise, so naming them costs nothing in the three-column state.
+ */
+aside {
+	grid-column: 1;
+	grid-row: 1 / span 2;
+	background: var(--bg-panel);
+	border-right: 1px solid var(--line);
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+/*
+ * One rail for the whole column. The masthead used a fixed 24px inset, the roster heading used
+ * width:90% with margin auto, and the teammate rows use 12px of nav padding plus 12px of their
+ * own - three insets, one of them proportional. A proportional rail agrees with fixed ones at
+ * exactly one pane width and drifts at every other, so resizing the sidebar pulled the wordmark,
+ * the section label and the rows out of line with each other. 24px is the row content edge, so
+ * everything above now starts where the rows start.
+ */
+header {
+	display: flex;
+	align-items: baseline;
+	gap: 9px;
+	padding: 16px 24px 14px;
+}
+#sidebar > header {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+}
+#sidebar > header .brand {
+	font-size: 22px;
+}
+/*
+ * The caption now opens the sidebar and carries the space this rule used to add, so the panel takes
+ * none of its own - two margins here would stack into a gap neither of them intended.
+ *
+ * `justify-content: center` also lived here and is gone: it centred loose chips in a row that had
+ * spare space. The segments fill their row, so there was nothing left to distribute and the rule had
+ * stopped meaning anything.
+ */
+/*
+ * The wordmark was 32px and the loudest object in the window, spending the most prominent space
+ * on the one fact never in question - which application this is. It is chrome, so it is sized and
+ * coloured as chrome, and the space it was holding goes to the roster.
+ *
+ * What earns that position instead is WHICH TEAM this window is. `summon --team bravo` opens a
+ * second window identical to the first; until this line existed the only way to tell them apart
+ * was the OS title bar, so two windows of the same application looked the same by design.
+ */
+/*
+ * Stamped into the panel rather than printed on it.
+ *
+ * "Muted but contrasty" pulls in two directions, and the way out is that they are different
+ * channels. The rail is #161e22, a cool blue-grey; corten orange sits almost opposite it on the
+ * wheel, so HUE carries the contrast while VALUE stays close to the background. A brighter orange
+ * would read as a label stuck on the surface; this one reads as part of it.
+ *
+ * The deboss is lighting, not a filter. A recess lit from above is dark along its upper lip and
+ * catches light on its lower one, so the shadows go in that order and no blur is used - a stamped
+ * edge is sharp. The highlight is the panel's own cool grey at 7%, not white, because white would
+ * read as a glow sitting on top of the metal instead of light falling across it.
+ *
+ * Wide tracking is what makes it a stamp rather than a word: letterforms pressed into a plate are
+ * spaced for the die, not for reading speed. The size drops 15px to 13px because 0.26em of
+ * tracking adds most of that width back, keeping the masthead the height it was.
+ */
+.brand {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4em;
+	color: var(--brand);
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.26em;
+	text-shadow:
+		0 -1px 0 var(--bg-deep),
+		0 1px 0 var(--emboss);
+}
+/*
+ * The app icon leads every wordmark (#6030), sized off the wordmark's own em so the masthead and
+ * the larger empty-state greeting keep the same proportion. It is a drawing, not a letter, so it
+ * takes none of the stamped text-shadow.
+ */
+.brand-icon {
+	flex: none;
+	width: 1.35em;
+	height: 1.35em;
+}
+/*
+ * Tracking leaves a gap after the last letter, which used to be balanced with text-indent on the
+ * whole mark. With an icon in front, indenting the block pushes the pair off centre, so the word
+ * gives the gap back on its own right edge instead and the icon and word centre as one unit.
+ */
+.brand-word {
+	margin-right: -0.26em;
+}
+/* Absent for the default team, where the brand alone is the whole masthead. */
+.team-name {
+	overflow: hidden;
+	color: var(--text-bright-2);
+	font-size: 15px;
+	font-weight: 600;
+	letter-spacing: -0.2px;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+/*
+ * The label was the heaviest object in the sidebar: two borders plus two box-shadows made a
+ * four-line engraved groove around an 11px caption, while the teammate rows it introduces carry
+ * no border at all. That runs opposite to the hierarchy - the rows are the content and the label
+ * is a signpost. One hairline under it says the same thing and lets the rows be the loudest.
+ */
+.roster-heading {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 10px;
+	margin: 0 24px 10px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--line-soft);
+	color: var(--muted-3);
+	font-size: 12px;
+}
+h1 {
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 1.4px;
+	margin: 0;
+	color: var(--muted-7);
+}
+#build-info {
+	color: inherit;
+	text-decoration: none;
+}
+#build-info:hover {
+	color: var(--text-2b);
+	text-decoration: underline;
+}
+nav {
+	overflow-y: auto;
+	padding: 0 12px;
+	flex: 1;
+}
+button {
+	font: inherit;
+	cursor: pointer;
+	border: 1px solid var(--line-strong);
+	background: var(--bg-hover);
+	color: var(--text-bright);
+	border-radius: 7px;
+	padding: 9px 15px;
+}
+button:hover {
+	background: var(--bg-strong-2);
+}
+.sidebar-actions {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 6px;
+	margin: 0 12px 12px;
+}
+#sidebar .sidebar-actions > button {
+	min-width: 0;
+	margin: 0;
+	padding-inline: 4px;
+	padding-block: 6px;
+	font-size: 12px;
+}
+button:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+/*
+ * ONE FIELD TREATMENT FOR THE WHOLE WINDOW. Seven had accumulated: three fills (#101518, #10171a,
+ * #0c1215), four borders, four radii, and three focus behaviours including one field - the room
+ * question's "Your own answer" - carrying no rule at all and rendering as raw Chromium on the amber
+ * card. The values here are #room-text's, which was the only field already wearing the house
+ * treatment, so this promotes an existing decision rather than inventing one.
+ *
+ * Checkboxes are excluded from the box treatment and handled by accent-color below, which is what
+ * turns the Chromium default blue - the only blue in the window - into the app's mint.
+ */
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+	padding: 8px;
+	background: var(--bg-app);
+	color: var(--text-bright);
+	border: 1px solid var(--line-stronger);
+	border-radius: 7px;
+	font: inherit;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+input:disabled,
+select:disabled,
+textarea:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+.member {
+	display: grid;
+	grid-template-columns: 34px 1fr 8px;
+	gap: 10px;
+	align-items: center;
+	width: 100%;
+	text-align: left;
+	border-color: transparent;
+	background: transparent;
+	/*
+	 * Tightened on request. Measured against the live nine-teammate roster at the 252px sidebar
+	 * width: rows went 88px to 75px plain and 111px to 97px with a mail badge, giving back 122px of
+	 * 907. The trim is all whitespace - no type size, avatar or truncation changed - and the 32px
+	 * avatar still sets the floor, so a row cannot collapse below a comfortable target.
+	 * Trimmed again by 2px top and bottom (Phillip #15921): with ten teammates and the PM the
+	 * roster overflowed by about 15-20px in his window and showed a scrollbar. Eleven rows give
+	 * back 44px; the 3px gap between rows stays, so a selected row still stands apart.
+	 */
+	margin-bottom: 3px;
+	padding: 6px 12px;
+}
+.member[aria-current='true'] {
+	background: var(--accent-bg);
+	border-color: var(--accent-line-2);
+}
+.avatar {
+	background: var(--bg-strong);
+	color: var(--text-2c);
+	width: 32px;
+	height: 32px;
+	border-radius: 9px;
+	display: grid;
+	place-items: center;
+	font-weight: 600;
+}
+.member strong {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 1px;
+}
+.avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: inherit;
+}
+.member small {
+	color: var(--muted-2);
+	font-size: 11px;
+}
+.dot,
+.signal {
+	background: var(--muted-3);
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	display: inline-block;
+}
+/*
+ * Four states, four colours, and red is reserved for the one that is actually wrong.
+ *
+ * It used to be three: grey for both `offline` and `exited`, green for online, and RED FOR BUSY.
+ * That spent the alarm colour on a teammate doing its job, and left the genuinely alarming state -
+ * a session that ended without anyone stopping it - rendering identically to one that was never
+ * started. The two are not the same fact: `offline` is a deliberate state, `exited` means a
+ * session you were relying on is gone.
+ *
+ * grey   offline   not running, on purpose
+ * green  online    running here or elsewhere, idle
+ * amber  busy      working. Attention-worthy, not alarming.
+ * red    exited    ended, and nobody asked it to. The only state worth interrupting for.
+ *
+ * A held lock whose process could not be verified (`unknown`) is a hollow ring in the neutral
+ * border colour: not online, so never green, and not working, so never amber.
+ */
+.running .dot,
+.signal {
+	background: var(--accent);
+}
+.elsewhere .dot {
+	background: transparent;
+	box-shadow: inset 0 0 0 2px var(--accent);
+}
+.unknown .dot {
+	background: transparent;
+	box-shadow: inset 0 0 0 2px var(--line-stronger);
+}
+.busy .dot {
+	background: var(--warn-fill);
+}
+.exited .dot {
+	background: var(--danger);
+}
+/*
+ * Ready and Busy are written in their dot's colour, in the roster row and beside the name in the
+ * session header (Phillip #8525, #8530). Only those two words: Needs you keeps its own amber and
+ * its hand, Compacting keeps a neutral word so its amber letter can be seen travelling, and the
+ * rest are states of not running, which the dot already says quietly. Busy uses --warn-fill-text
+ * because the dot's own amber, read as a word on the light theme's pale row, is 1.6:1.
+ */
+.member small[data-tone='ready'],
+#name-state small[data-tone='ready'] {
+	color: var(--accent);
+}
+.member small[data-tone='busy'],
+#name-state small[data-tone='busy'] {
+	color: var(--warn-fill-text);
+}
+/*
+ * Launch phases: a session that is alive but has not yet confirmed anything to Summon. The ring is
+ * hollow while connecting and logging in, and the solid accent returns once the launch has been
+ * acknowledged (startup). No new colour: red stays with exited and amber with busy, and the row's
+ * status text carries the phase in words.
+ */
+.member[data-launch-phase='connecting'] .dot,
+.member[data-launch-phase='logging-in'] .dot,
+#name-state.launch-connecting .dot,
+#name-state.launch-logging-in .dot {
+	background: transparent;
+	box-shadow: inset 0 0 0 2px var(--accent);
+}
+/*
+ * How long a launch has been connecting (Phillip #19108). It sits beside the word, not inside it,
+ * so the word's letter motion is untouched, and tabular figures keep the count from shifting as
+ * it ticks. The header's flex gap already spaces it; the row and statusbar need their own.
+ */
+.launch-elapsed {
+	font-variant-numeric: tabular-nums;
+}
+.member .launch-elapsed,
+.statusbar .launch-elapsed {
+	margin-left: 4px;
+}
+.member > span:nth-child(2) {
+	min-width: 0;
+}
+.working-on,
+.member-account {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	margin-top: 3px;
+}
+/*
+ * The row's working line keeps its height when it is empty (a running, idle teammate whose
+ * task is Ready), so a row does not get thinner as its teammate goes idle and taller again when
+ * it picks up a task; the same reservation the session header's working line has (Phillip
+ * #7294, #7312). The account line is not reserved: it is a fixed fact of the member, not a state.
+ */
+.working-on {
+	min-height: 1lh;
+}
+.needs-user small:first-of-type,
+.board-lane-actor {
+	color: var(--warn-2);
+}
+.member-badges {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-top: 3px;
+}
+.member-badges:empty {
+	display: none;
+}
+.mail-count {
+	font-size: 11px;
+	background: var(--bg-strong);
+	border-radius: 4px;
+	padding: 2px 5px;
+}
+.quick-replies {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	padding: 8px 24px;
+}
+.quick-replies button {
+	background: transparent;
+	border-color: var(--line-strong);
+	border-radius: 999px;
+	color: var(--text-3);
+	font-size: 11px;
+	padding: 4px 10px;
+}
+.quick-replies button:hover:not(:disabled) {
+	background: var(--bg-hover);
+	color: var(--text-bright);
+}
+#room-quick-replies {
+	padding: 0;
+}
+footer {
+	text-align: center;
+	padding: 20px;
+	border-top: 1px solid var(--line);
+	color: var(--muted-5);
+	font-size: 11px;
+	line-height: 1.6;
+}
+footer .signal {
+	margin-right: 5px;
+}
+main {
+	grid-column: 3;
+	grid-row: 1;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+}
+.toolbar {
+	min-height: 90px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 20px 24px;
+	border-bottom: 1px solid var(--line);
+	gap: 20px;
+}
+h2 {
+	font-size: 18px;
+	font-weight: 600;
+	margin: 0;
+}
+.toolbar p {
+	margin: 6px 0 0;
+	color: var(--muted-4);
+	font-family: Consolas, monospace;
+	font-size: 12px;
+	overflow-wrap: anywhere;
+}
+.actions {
+	display: flex;
+	gap: 10px;
+	flex-shrink: 0;
+}
+* {
+	scrollbar-color: var(--line) transparent;
+	scrollbar-width: thin;
+}
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	background: var(--line);
+	border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: var(--bg-strong-3);
+}
+dialog {
+	background: var(--bg-panel);
+	color: var(--text);
+	border: 1px solid var(--line-stronger);
+	border-radius: 8px;
+	padding: 20px;
+}
+dialog::backdrop {
+	background: var(--scrim);
+}
+#sidebar .sidebar-actions > button[aria-pressed='true'],
+#sidebar .sidebar-actions > button[aria-expanded='true'] {
+	background: var(--accent-bg);
+	border-color: var(--accent-line);
+	color: var(--accent-text);
+}
+.primary {
+	background: var(--accent);
+	color: var(--on-accent);
+	border-color: var(--accent);
+	font-weight: 600;
+}
+.primary:hover,
+.primary:focus-visible {
+	background: var(--primary-hover);
+	color: var(--primary-hover-text);
+}
+/*
+ * Stop ends a session. It sat beside Hibernate wearing the same base treatment, so the difference
+ * between pausing an agent and ending it was the label alone. #f07878 is the colour the roster
+ * already uses for an exited teammate, so this borrows an established meaning rather than adding one.
+ */
+.danger {
+	border-color: var(--danger);
+	color: var(--danger);
+}
+.danger:hover {
+	background: var(--danger-bg-2);
+}
+/*
+ * The message takes the room and wraps; the dismiss control stays its own size at the end and
+ * holds the top of the row, so a three-line error does not push it into the middle of the text.
+ * display here is safe against the hidden attribute only because of the global
+ * `[hidden] { display: none !important }` further down - without it this rule would make the
+ * banner permanently visible.
+ */
+#error {
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+	background: var(--danger-bg-3);
+	color: var(--danger-text);
+	padding: 12px 28px;
+}
+#error-message {
+	flex: 1;
+	min-width: 0;
+	/* Lines the first line of text up with the button's label rather than its top border. */
+	padding-top: 5px;
+}
+/*
+ * Tinted from the banner rather than taking the window's default slate button, which read as a
+ * hole cut in the alert. Still a bordered control with the same radius and focus ring as the rest.
+ */
+#error-dismiss {
+	flex: 0 0 auto;
+	padding: 4px 12px;
+	border-color: var(--danger-line);
+	background: var(--danger-bg-4);
+	color: var(--danger-text);
+}
+#error-dismiss:hover {
+	background: var(--danger-bg-5);
+}
+/* The journal's own notice: quieter than an error, because the error it concerns is on screen. */
+#fault-notice {
+	margin: 0;
+	padding: 6px 28px;
+	font-size: 12px;
+	color: var(--muted);
+	border-bottom: 1px solid var(--line);
+}
+#terminals {
+	flex: 1;
+	min-height: 0;
+	position: relative;
+	padding: 18px 24px;
+	/* A terminal's own parts (its input box follows the cursor) never spill past the pane. */
+	overflow: clip;
+}
+.terminal-pane {
+	height: 100%;
+	width: 100%;
+}
+#empty {
+	height: 100%;
+	display: grid;
+	align-content: center;
+	justify-items: center;
+	text-align: center;
+	color: var(--muted-6);
+}
+#empty h2 {
+	color: var(--text-soft);
+	margin-top: 20px;
+	font-size: 23px;
+}
+#empty p {
+	line-height: 1.8;
+}
+/*
+ * The empty state wears the masthead's wordmark rather than a lone "S." glyph, so the first thing
+ * an empty window shows is the same mark as the corner it was opened from. It carries `.brand`
+ * for the colour, weight and tracking, and only overrides what has to change with size.
+ *
+ * The deboss is not scale-invariant. A 1px lip reads as a crisp stamped edge at 13px and as a
+ * smudge at 34px, because the offset stops being a hairline relative to the stroke. The shadows
+ * are therefore deepened in proportion rather than inherited - the same light, further from the
+ * surface.
+ */
+.empty-mark {
+	font-size: 34px;
+	letter-spacing: 0.3em;
+	text-shadow:
+		0 -1px 0 var(--bg-deep),
+		0 2px 1px var(--emboss-2);
+}
+.empty-mark .brand-word {
+	margin-right: -0.3em;
+}
+.statusbar {
+	border-top: 1px solid var(--line);
+	display: flex;
+	justify-content: space-between;
+	padding: 10px 24px;
+	color: var(--muted-4);
+	font-size: 11px;
+}
+[hidden] {
+	display: none !important;
+}
+/*
+ * The divider belongs to the sidebar, so it runs the sidebar's height rather than stopping at the
+ * operator pane. It has no rule of its own elsewhere; .splitter carries its appearance.
+ */
+#split-aside {
+	grid-column: 2;
+	grid-row: 1 / span 2;
+}
+/*
+ * L72: the wordmark is a greeting, so it belongs only to the state that is one. "Already running
+ * elsewhere" and "is hibernated" are answers to why the pane is empty, and the mark was the loudest
+ * thing on both.
+ */
+#empty.is-state .empty-mark {
+	display: none;
+}
+
+/*
+ * L89: this one surface carried four near-identical primary text colours (#dce4e4, #cbd8dc, #d2dedc
+ * and #e0ebe8) and four muted greys, none of the differences meaning anything. The toolbar, the
+ * empty state and the statusbar now share one pair.
+ */
+#empty h2 {
+	color: var(--text);
+}
+#empty,
+#empty p {
+	color: var(--muted-4);
+}
+
+/*
+ * The working-folder field and its chooser on one line, the input taking the room.
+ *
+ * A path is long and a button label is short, so the button is sized to its text and the input
+ * takes everything else. They share a row because they are one answer to one question.
+ */
+.maint-folder {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+.maint-folder input {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.maint-folder button {
+	flex: 0 0 auto;
+}
+
+/*
+ * The roster's add button: on the sidebar rail, full width, quieter than the primary actions.
+ *
+ * It sits above the list so the roster's flexible height cannot push it into the tool buttons.
+ * The same position works whether the roster has eight people or none.
+ */
+.roster-entry {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 0 24px 8px;
+}
+/* Never wraps its label: with "Add your first teammate" Team settings moves to the next line. */
+#roster-add {
+	flex: 1 0 auto;
+	white-space: nowrap;
+	padding: 6px 10px;
+	text-align: left;
+	font-size: 12px;
+}
+/* Beside Add teammate at the same weight; Add takes the spare width because it is the longer. */
+#team-settings {
+	padding: 6px 10px;
+	font-size: 12px;
+}
+
+/*
+ * One heading for the three work panels, after Phillip's #4303: Board carried an h2 in a bordered
+ * bar with a Close button, Diary an accent-green h3, and Repos nothing at all.
+ *
+ * Neutral rather than green. The green was the only coloured panel title in the window, and colour
+ * here buys nothing - there is one heading per panel and the sidebar button that opened it is
+ * already lit. It now sits in the same register as the window title above it.
+ */
+.panel-heading {
+	margin: 0 0 12px;
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--text-bright-3);
+}
+
+/*
+ * A teammate something went wrong for, who may not be on screen to say so.
+ *
+ * The error banner names them; this is where the name points. It borrows the error bar's own red
+ * rather than inventing a colour, so the two read as one thing seen from two places, and it marks
+ * the ROW rather than the status text - the status is what the teammate reports about itself, and a
+ * fault is what happened to it (#4924).
+ *
+ * A left edge rather than a fill: the row already uses background to mean selected, and a teammate
+ * can be both.
+ */
+.member.has-fault {
+	box-shadow: inset 3px 0 0 var(--danger-4);
+}

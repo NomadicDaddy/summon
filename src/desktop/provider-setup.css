@@ -1,0 +1,164 @@
+/*
+ * CLI setup (#5308): the check, the guidance and the comparison, in one section of Maintenance.
+ *
+ * The four CLIs are laid out as COLUMNS OF ONE GRID, not as four independent cards, and that is the
+ * design. Each card is a subgrid over the same rows, so "Account" in one column starts level with
+ * "Account" in the next whatever length the text above it runs to. Without that the eye cannot
+ * read across, and a page that exists to compare four things would be four separate things to read.
+ */
+.cli-setup-summary {
+	display: block;
+	margin-top: 6px;
+	margin-left: 12px;
+	color: var(--muted-2);
+	font-weight: 400;
+}
+.cli-setup-actions {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin: 12px 0;
+}
+.cli-setup-problem {
+	color: var(--warn);
+}
+#maintenance .cli-setup-discovery {
+	max-width: 110ch;
+	margin: 0 0 16px;
+	padding: 10px 14px;
+	border-left: 3px solid var(--warn);
+	background: var(--bg-panel);
+	color: var(--text);
+	line-height: 1.6;
+}
+.cli-setup-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+	gap: 0 16px;
+}
+.cli-setup-card {
+	display: grid;
+	grid-row: span 10;
+	grid-template-rows: subgrid;
+	margin-bottom: 16px;
+	padding: 14px 16px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	background: var(--bg-panel);
+}
+/* A found CLI is marked on the card's edge as well as by its badge, so the row scans at a glance. */
+.cli-setup-card[data-status='available'] {
+	border-color: var(--accent-line-3);
+}
+.cli-setup-card-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+.cli-setup-card h3 {
+	margin: 0;
+	color: var(--text);
+	font-size: 16px;
+}
+.cli-setup-card-head span {
+	padding: 2px 8px;
+	border: 1px solid currentColor;
+	border-radius: 5px;
+	white-space: nowrap;
+}
+#maintenance .cli-setup-detail {
+	margin: 6px 0 4px;
+	color: var(--muted-2);
+	overflow-wrap: anywhere;
+}
+.cli-setup-part {
+	padding: 10px 0;
+	border-top: 1px solid var(--line);
+}
+.cli-setup-part h4 {
+	margin: 0 0 4px;
+	color: var(--muted-2);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+#maintenance .cli-setup-part p {
+	margin: 0;
+	line-height: 1.55;
+}
+.cli-setup-link {
+	display: inline-block;
+	margin-top: 6px;
+	color: var(--accent);
+}
+.cli-setup-link:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+.cli-setup-matrix {
+	width: 100%;
+	margin: 8px 0 16px;
+	border-collapse: collapse;
+}
+.cli-setup-matrix caption {
+	padding-bottom: 8px;
+	color: var(--text);
+	font-size: 15px;
+	font-weight: 600;
+	text-align: left;
+}
+.cli-setup-matrix th,
+.cli-setup-matrix td {
+	padding: 10px 12px;
+	border: 1px solid var(--line);
+	text-align: left;
+	vertical-align: top;
+}
+.cli-setup-matrix thead th {
+	background: var(--bg-panel);
+	color: var(--muted-2);
+	font-weight: 600;
+}
+.cli-setup-matrix tbody th {
+	color: var(--text);
+	white-space: nowrap;
+}
+.cli-setup-matrix td strong {
+	display: block;
+}
+.cli-setup-matrix td[data-support='yes'] strong {
+	color: var(--accent);
+}
+.cli-setup-matrix td[data-support='partial'] strong {
+	color: var(--warn);
+}
+.cli-setup-matrix td[data-support='no'] strong {
+	color: var(--muted-2);
+}
+.cli-setup-cell-note {
+	display: block;
+	margin-top: 2px;
+	color: var(--muted-2);
+	line-height: 1.45;
+}
+#maintenance .cli-setup-note {
+	max-width: 110ch;
+	margin: 0 0 8px;
+	color: var(--muted-2);
+	line-height: 1.6;
+}
+/*
+ * First run. The summary and the second button sit under the greeting, and the pair of buttons
+ * shares one row so neither reads as an afterthought to the other.
+ */
+#empty #empty-cli {
+	margin: 0 0 14px;
+	color: var(--text);
+}
+.empty-actions {
+	display: flex;
+	gap: 12px;
+	justify-content: center;
+}

@@ -1,0 +1,64 @@
+/*
+ * #<id> references, their jump targets and the reaction anchors they land on, split from room.css so each file stays under 300 lines and sits beside the module that
+ * draws it (room-references.ts). Linked straight after room.css, so the cascade order is unchanged.
+ */
+.room-message a[data-room-reference],
+.room-reference-back {
+	color: var(--accent-text-4);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+.room-reference-back {
+	display: block;
+	width: fit-content;
+	margin-bottom: 8px;
+	font-size: 12px;
+}
+/*
+ * A JUMP TARGET HAS THE OPPOSITE JOB and needs more than the reply ring gave it (#4698). Following
+ * a reference drops you somewhere you were not looking, mid-conversation, with the message you
+ * asked for somewhere in the middle of the pane - so the mark has to be findable in one glance
+ * rather than merely present once you know where to look. A 2px ring in the room's own link green
+ * was neither: the same colour as every reference in the log, and two pixels of it.
+ *
+ * It now carries a filled surface as well as the ring, which is how this window already says "this
+ * one concerns you" for a human-directed message - a tinted block with a matching border, rather
+ * than a line around the outside. The green family is kept because that is what a reference is in
+ * this room; what changes is weight, not vocabulary.
+ */
+.room-reference-target {
+	outline: 3px solid var(--accent);
+	outline-offset: 3px;
+	background: var(--accent-bg-2);
+	border-radius: 4px;
+}
+.room-reference-dialog {
+	width: min(720px, 90vw);
+	max-height: 80vh;
+	overflow: auto;
+}
+.room-reference-dialog::backdrop {
+	background: var(--scrim-strong);
+}
+
+/*
+ * A #<id> reference to a reaction lands on an anchor that draws nothing, so the message it approves
+ * takes the highlight instead, which is where the reader was going.
+ */
+.room-message:has(.room-reaction-anchor.room-reference-target) {
+	outline: 3px solid var(--accent);
+	outline-offset: 3px;
+	background: var(--accent-bg-2);
+	border-radius: 4px;
+}
+/*
+ * Every approval leaves this: findable by its id so a reference still resolves, and reachable by
+ * focus so the scroll lands - but drawn as nothing, because the button is showing the state.
+ */
+.room-reaction-anchor {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+}

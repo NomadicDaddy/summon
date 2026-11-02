@@ -1,0 +1,526 @@
+#macros {
+	width: min(850px, 90vw);
+	max-height: 90vh;
+}
+/*
+ * A HEIGHT, not a max-height, and that is the whole fix for room #4304.
+ *
+ * The modal used to size to its content, so opening a collapsed section took it from 559px to
+ * 1091px - and because a dialog is centred, that lifted its top edge by about 266px and moved
+ * everything the reader was looking at. Phillip's words were "things are flyin' everywhere", and he
+ * asked for a static size with scrolling rather than for the collapse to go: somebody adding their
+ * first teammate should still meet three fields instead of ten.
+ *
+ * The scrolling that makes a fixed height work was already here - .maint-body takes the slack and
+ * .maint-footer is pinned - so nothing moves now except the content inside the body.
+ *
+ * 760px is a judgement rather than a measurement: tall enough that the collapsed form is not
+ * swimming in space, short enough to fit a 900px-tall screen without the viewport cap changing the
+ * answer. The cap still applies under that.
+ */
+#maintenance {
+	width: min(1700px, 92vw);
+	height: min(1180px, 92vh);
+}
+/*
+ * Doubled width, and as much height as the screen actually allows (#4804).
+ *
+ * The width doubles exactly, 850 to 1700. The HEIGHT DOES NOT, and saying so matters: doubling 760
+ * asks for 1520, which is taller than the 1309-pixel screen this was reported on, so the viewport
+ * cap would have silently given back most of it. 1180 is what 92vh leaves at that height.
+ *
+ * In practice the PIXEL VALUE RARELY GOVERNS: at 2250x1309 the web viewport is about 1272 tall, so
+ * 92vh resolves to 1170 and the cap is what you get. Raising the pixel figure to 1200 changed the
+ * rendered height by nothing at all, which I only know because I measured after changing it. The
+ * fully-opened form still overflows by about twenty pixels and scrolls, and that is what
+ * .maint-body has always been for - squeezing the fields to avoid a 20px scroll would cost more
+ * than the scroll does.
+ *
+ * Which is why the form is rearranged rather than just stretched. Height was the scarce dimension
+ * and width was the plentiful one, so the fields that are SHORT now pair up two to a row, and only
+ * the ones whose content is genuinely long - a path, a gallery of characters, notes - keep the full
+ * span. A 1700px-wide single column would have been worse than the 850px one it replaced: the same
+ * scrolling, with every input stretched to a width no name or URL will ever use.
+ *
+ * The 90vw/90vh of the old rule became 92: at 2250x1309 that is the difference between 1178 and
+ * 1204 of usable height, and the modal is the thing being complained about as too small.
+ */
+#maint-form {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 14px 26px;
+	align-items: start;
+}
+/*
+ * One grid for the whole form. The optional fields used to sit inside a <details>, which needed
+ * its own grid on ::details-content; they are direct children now (card 32f030f9), so the required
+ * three and the optional rest share the same two columns and line up with each other.
+ */
+/*
+ * Full span for anything whose content is long or whose meaning is the whole form: explanatory
+ * paragraphs, the Optional heading, the character gallery, the working directory and the Claude
+ * account directory (absolute paths), and Notes.
+ */
+#maint-form > p,
+#maint-form > h3,
+#maint-form > #maint-gallery,
+#maint-form > label:has(.maint-folder),
+#maint-form > label:has(#maint-notes) {
+	grid-column: 1 / -1;
+}
+/* With a column each rather than the full width, these can afford the height they always wanted. */
+/*
+ * The cover explanation belongs under the control it explains, not across the foot of the row.
+ *
+ * Full width put three lines of prose about Covered by directly beneath Domain, where it read as
+ * explaining Domain instead - the misreading is worse than the empty cell it leaves beside it.
+ */
+#maint-form > .maint-cover-note {
+	grid-column: 2;
+}
+#maint-expertise,
+#maint-domain {
+	min-height: 7em;
+}
+#maint-notes {
+	min-height: 11em;
+}
+/*
+ * Guidance is quieter than what it explains. p carries the cover explanation, the usage line, the
+ * icon hint and the Macros intro; the field label is the text node inside its own label element,
+ * which is why the value is lifted back up rather than the label pushed down.
+ */
+#maintenance :disabled {
+	border-style: dashed;
+}
+#maintenance [hidden] {
+	display: none;
+}
+.cli-status-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 10px 0;
+	border-bottom: 1px solid var(--line);
+}
+.cli-status-row span {
+	border: 1px solid currentColor;
+	border-radius: 5px;
+	padding: 2px 8px;
+}
+.cli-status-available {
+	color: var(--accent);
+}
+.cli-status-missing {
+	color: var(--muted-2);
+}
+.cli-status-unavailable {
+	color: var(--warn);
+}
+#maintenance p,
+#macros p,
+#maintenance legend,
+#macros legend {
+	color: var(--muted-2);
+	font-size: 12px;
+}
+#maintenance label,
+#macros label {
+	color: var(--muted-3);
+	font-size: 12px;
+}
+#maintenance input,
+#maintenance select,
+#maintenance textarea,
+#macros input,
+#macros textarea {
+	font-size: 14px;
+}
+#maintenance .room-header,
+#macros .room-header {
+	padding: 0 0 20px;
+}
+#maintenance label,
+#macros label {
+	display: grid;
+	gap: 5px;
+	margin: 10px 0;
+}
+#maintenance .maint-setting {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 0 0 18px;
+}
+#maintenance .maint-setting input {
+	width: auto;
+}
+/*
+ * The explanation for a setting whose two states do different things, rather than one state being
+ * the absence of the other. It sits under its own checkbox and is tied to it by aria-describedby,
+ * so the consequence is read out with the control instead of being a sentence floating nearby.
+ * Indented to the label text, not the checkbox, because it explains the words rather than the box.
+ */
+#maintenance .maint-hint {
+	margin: -12px 0 18px 26px;
+	color: var(--muted-3);
+	font-size: 12px;
+	line-height: 1.5;
+}
+#maintenance input,
+#maintenance select,
+#maintenance textarea,
+#macros input:not([type='checkbox']),
+#macros textarea {
+	width: 100%;
+}
+#maint-activity {
+	border-left: 3px solid var(--accent);
+	padding: 10px;
+	overflow-wrap: anywhere;
+}
+#maint-removal {
+	margin-top: 24px;
+	border-top: 1px solid var(--line-stronger);
+}
+#maint-error {
+	color: var(--warn);
+	overflow-wrap: anywhere;
+}
+#maint-usage {
+	white-space: pre-wrap;
+}
+.toolbar > div:first-child {
+	min-width: 0;
+	flex: 1;
+}
+/* Within 40px of the name, which is the point: the state belongs beside what it describes. */
+#name-state {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-left: 10px;
+	vertical-align: middle;
+}
+#name-state small {
+	color: var(--muted-2);
+	font-size: 12px;
+	font-weight: 400;
+}
+#detail {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+/*
+ * The line keeps its height when it has nothing to say (a running, idle teammate whose task is
+ * Ready shows no text). Without that the header was one line thinner for such a teammate and the
+ * action buttons and everything below jumped on every switch (Phillip #7294).
+ */
+#header-working {
+	margin: 4px 0 0;
+	min-height: 1lh;
+	color: var(--text);
+	font-family: inherit;
+	font-size: 14px;
+	line-height: 1.5;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+#macro-slots {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 6px;
+}
+#macro-slots fieldset {
+	position: relative;
+	min-width: 0;
+	border: 0;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 0;
+	padding: 0 0 0 52px;
+}
+#macro-slots legend {
+	position: absolute;
+	left: 0;
+	top: 9px;
+	font-size: 12px;
+}
+#macros #macro-slots label {
+	margin: 0;
+}
+#macro-slots label:first-of-type {
+	flex: 1;
+}
+#macro-slots label:last-of-type {
+	display: flex;
+	align-items: center;
+	white-space: nowrap;
+}
+#macro-slots textarea {
+	resize: vertical;
+	min-height: 34px;
+}
+#macros {
+	width: min(720px, 90vw);
+}
+#macros .room-header {
+	padding-bottom: 8px;
+}
+#macros-error {
+	color: var(--danger-text);
+}
+/*
+ * The dialog scrolled as one piece, so its header and its only commit action both left the viewport:
+ * Save Teammate sat at y=1360 against a dialog bottom of y=1243 at 2250x1309, and was below the fold
+ * at every desktop size. Header and footer now hold their ground and only the middle scrolls.
+ */
+#maintenance[open] {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+/*
+ * The padding and the matching negative margin are one thing, not two, and they exist for the focus
+ * ring. Phillip saw "very slight clipping on left" at room #4316 and it is exactly 2px: a scroll
+ * container clips at its padding box, `overflow-y: auto` makes the horizontal axis clip too, and the
+ * inputs sit flush against that edge - so a focused field had the left of its 2px outline shaved
+ * off. An outline draws outside the element's box and never appears in its geometry, which is why
+ * measuring element positions found nothing wrong and only looking at a focused field would.
+ *
+ * The padding gives the ring room inside the scroll box; the negative margin pulls the box back out
+ * by the same amount so the fields stay lined up with the header and the footer above and below.
+ * Changing the dialog's own padding instead would have moved those two as well.
+ */
+.maint-body {
+	flex: 1;
+	min-height: 0;
+	padding-inline: 4px;
+	margin-inline: -4px;
+	overflow-y: auto;
+}
+.maint-footer {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 16px;
+	/* Holds its height on the Team tab, where Save is hidden, so the panel above does not grow. */
+	min-height: 51px;
+	padding-top: 12px;
+	border-top: 1px solid var(--line);
+}
+/* The result line takes the room beside Save and wraps there rather than pushing Save off. */
+#maintenance .maint-footer > #maint-error {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+}
+/* A stale expertise/domain refusal needs attention; "Saved" and other results stay muted. */
+#maintenance .maint-footer > #maint-error.maint-attention {
+	color: var(--warn);
+}
+/* Fits "Show stored text", so swapping to "Show my text" does not move the button's left edge. */
+#maint-text-stored {
+	min-width: calc(17ch + 32px);
+}
+/*
+ * The tab row (card 32f030f9). The selected tab is marked by an underline in the accent colour and
+ * by weight and brightness, never by colour alone. The row is pinned like the header and footer:
+ * only the panel under it scrolls.
+ */
+.maint-tabs {
+	display: flex;
+	flex-shrink: 0;
+	gap: 4px;
+	margin: 0 0 16px;
+	border-bottom: 1px solid var(--line);
+}
+.maint-tabs > [role='tab'] {
+	margin-bottom: -1px;
+	padding: 8px 18px;
+	border: 0;
+	border-bottom: 2px solid transparent;
+	border-radius: 0;
+	background: transparent;
+	color: var(--muted-2);
+	font-size: 14px;
+}
+.maint-tabs > [role='tab'][aria-selected='true'] {
+	border-bottom-color: var(--accent);
+	color: var(--text-bright);
+	font-weight: 600;
+}
+.maint-tabs > [role='tab']:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+/*
+ * A group heading inside a panel: Optional, Provider usage, Delivery, Interruptions, Display. Plain
+ * and quiet, in the lighter label style, because it names a group rather than asking for anything.
+ */
+#maintenance .maint-group {
+	margin: 22px 0 12px;
+	padding-top: 14px;
+	border-top: 1px solid var(--line);
+	color: var(--muted);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+/* The first group in a panel has nothing above it to be separated from. */
+#maintenance .maint-saves + .maint-group {
+	margin-top: 0;
+	padding-top: 0;
+	border-top: 0;
+}
+/* Inside the form the grid's own row gap already separates the heading from its neighbours. */
+#maint-form > .maint-group {
+	margin: 8px 0 0;
+}
+#maintenance .maint-group .cli-setup-summary {
+	letter-spacing: normal;
+	text-transform: none;
+}
+#maintenance .maint-saves {
+	margin: 0 0 16px;
+}
+/* The usage button is a control in a column of full-width fields; it keeps its own width. */
+#maint-usage-refresh {
+	display: block;
+}
+/*
+ * L33: the placeholder is the explanation, so it is quieter than a value but still legible.
+ */
+#macros textarea::placeholder {
+	color: var(--muted-3);
+	font-style: italic;
+}
+/*
+ * L41. The dialog is a fixed min(850px, 90vw), so at 2560x1440 about 1700px of window sat dimmed
+ * while the form still scrolled - every field a full-width row regardless of how little it holds.
+ * Above the width where two columns still leave a usable field, the short fields pair up; the three
+ * long-form ones keep the full width because they hold paragraphs rather than words.
+ *
+ * This depends on S1 for the field treatment and S3 for the frame and the pinned footer: a narrower
+ * or wider dialog alone does not put Save on screen, and S3 is what does.
+ */
+@media (min-width: 1100px) {
+	#maint-form {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		column-gap: 16px;
+	}
+
+	/*
+	 * The blocker takes the whole row for the same reason. Left in one column it sat under Name and
+	 * pulled Working Directory up beside it, so the field pairs stopped reading as pairs - and it
+	 * is about the CLI field in the OTHER column, which made the arrangement say the wrong thing.
+	 */
+	#maint-no-cli {
+		grid-column: 1 / -1;
+	}
+	/*
+	 * And the character row, for the same reason again. In one column it sat beside Name, which
+	 * split the Name and CLI pair and made the row look like a field rather than a choice above the
+	 * form. Third time this grid has caught something prepended to it without being told to span.
+	 */
+	#maint-gallery {
+		grid-column: 1 / -1;
+	}
+}
+/*
+ * A blocker, not a hint. The old wording sat in the shared error slot as plain grey body text that
+ * read like every other piece of guidance in the dialog - and it was the only thing explaining why
+ * Save was dead. It needs the weight of the thing it is reporting.
+ */
+.maint-blocker {
+	margin: 8px 0 0;
+	padding: 10px 12px;
+	border-left: 3px solid var(--danger-3);
+	background: var(--danger-bg-6);
+	color: var(--danger-text-2);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+/*
+ * One row, one line of explanation, and nothing else. This sits in the dialog that was reported as
+ * cluttered and jumpy two hours before it was asked for, so it buys its place with a single line:
+ * eight chips that wrap, and one blurb underneath that changes as you move along them. A card per
+ * character would have put the clutter straight back.
+ */
+#maint-gallery {
+	margin: 0 0 16px;
+}
+.maint-gallery-label {
+	margin: 0 0 6px;
+	color: var(--muted-3);
+	font-size: 11px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+/* Start blank alone in the first column; the characters wrap in the second, so a second row (or a
+   wrapped first one) lines up under Project manager rather than under Start blank. */
+.maint-gallery-chips {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	align-items: start;
+	gap: 6px;
+}
+.maint-gallery-row {
+	grid-column: 2;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+.maint-gallery-chips button {
+	padding: 5px 11px;
+	font-size: 12px;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: transparent;
+	color: var(--muted);
+}
+.maint-gallery-chips button[aria-pressed='true'] {
+	background: var(--accent-bg);
+	border-color: var(--accent-line);
+	color: var(--accent-text);
+}
+/*
+ * Reserves its line whether or not there is anything in it. Without a fixed height the row below
+ * would step up and down as the blurb changed, which is the same twitch the static dialog height
+ * was fixing.
+ */
+.maint-gallery-blurb {
+	margin: 7px 0 0;
+	min-height: 18px;
+	color: var(--muted);
+	font-size: 12px;
+}
+
+/*
+ * The CLI behaviour note sits under the select it describes, in the same column, for the reason the
+ * cover note does: prose at the foot of a row attaches itself to whatever is above it on the left.
+ */
+#maint-form > .maint-cli-behaviour {
+	grid-column: 2;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin: 0;
+}
+/*
+ * The sentence that stops a correct seat being reported as a dead one is the only part of this
+ * worth colouring, and it takes the same green the window uses elsewhere for "this is fine".
+ */
+.maint-cli-behaviour .provider-expected {
+	color: var(--accent);
+}
+.maint-cli-behaviour .provider-common {
+	color: var(--muted-2);
+}

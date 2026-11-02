@@ -1,0 +1,248 @@
+/* Sized to the working area Phillip marked at his screen size (#7024): on a 2560-wide window the
+   notes fill the pane between the sidebar and the Team Room; smaller windows keep the margins. */
+#notepad {
+	box-sizing: border-box;
+	width: min(1820px, 92vw);
+	height: min(1120px, 80vh);
+}
+#notepad[open] {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+#notepad h2,
+#notepad p {
+	margin: 0;
+}
+#notepad p {
+	color: var(--text-3);
+}
+#notepad textarea {
+	flex: 1;
+	min-height: 100px;
+	resize: none;
+	padding: 12px;
+	font:
+		16px/1.5 Consolas,
+		monospace;
+}
+/*
+ * Find (#7628). The editor wrapper stacks the textarea over a layer that repeats its text in
+ * transparent ink with the matches marked; the script copies the textarea's own metrics onto the
+ * layer, so these rules only place the two in one cell and hand the background to the layer
+ * while the bar is open. Both reserve the scrollbar gutter so they wrap at the same width.
+ */
+#notepad > .notepad-editor {
+	display: grid;
+	flex: 1;
+	grid-template-columns: minmax(0, 1fr);
+	min-height: 100px;
+}
+#notepad > .notepad-editor[hidden] {
+	display: none;
+}
+#notepad .notepad-editor > * {
+	grid-area: 1 / 1;
+	min-height: 0;
+	scrollbar-gutter: stable;
+}
+/* The column is the editor's full width (minmax above); without it the one column sized itself to
+   the textarea's default 20-column width, about 211px in a 1779px editor (Phillip #8060). A grid
+   does not stretch a textarea across its cell either, so it fills the column explicitly,
+   border-box so its padding and border stay inside it, as the layer's do. */
+#notepad .notepad-editor > textarea {
+	box-sizing: border-box;
+	width: 100%;
+}
+#notepad .notepad-find-layer {
+	position: relative;
+	display: none;
+	overflow: hidden;
+	box-sizing: border-box;
+	border-style: solid;
+	border-color: transparent;
+	color: transparent;
+	pointer-events: none;
+}
+#notepad .notepad-editor[data-finding] > .notepad-find-layer {
+	display: block;
+}
+#notepad .notepad-editor[data-finding] > textarea {
+	background: transparent;
+}
+#notepad .notepad-find-layer mark {
+	border-radius: 2px;
+	background: var(--find-hit);
+	color: transparent;
+}
+#notepad .notepad-find-layer mark[data-current] {
+	background: var(--find-current);
+	outline: 2px solid var(--warn-fill);
+}
+::highlight(notepad-find) {
+	background-color: var(--find-hit);
+}
+::highlight(notepad-find-current) {
+	background-color: var(--find-current);
+}
+#notepad > .notepad-find {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 8px;
+}
+#notepad > .notepad-find[hidden] {
+	display: none;
+}
+#notepad .notepad-find input {
+	width: min(360px, 40%);
+}
+#notepad .notepad-find output {
+	min-width: 7em;
+	color: var(--text-3);
+}
+/* Alt+Z: unwrapped lines scroll sideways instead of folding. */
+#notepad textarea[wrap='off'] {
+	white-space: pre;
+	overflow-x: auto;
+}
+#notepad > div {
+	display: flex;
+	justify-content: space-between;
+}
+/* The notice: a decision (warning tones) or a reason saving is off (danger tones). It is a direct
+   div child, so it opts out of the action row's flex layout, and keeps [hidden] winning. */
+#notepad > .notepad-notice {
+	display: grid;
+	gap: 8px;
+	padding: 12px;
+	border: 1px solid var(--warn-line);
+	border-radius: 7px;
+	background: var(--warn-bg);
+}
+#notepad > .notepad-notice[hidden] {
+	display: none;
+}
+#notepad > .notepad-notice[data-tone='danger'] {
+	border-color: var(--danger-line);
+	background: var(--danger-bg);
+}
+#notepad .notepad-notice-heading {
+	margin: 0;
+	font-size: 15px;
+	color: var(--warn-text);
+}
+/* Focused only by script, so a reader starts at the situation; it is not a control to ring. */
+#notepad .notepad-notice-heading:focus {
+	outline: none;
+}
+#notepad .notepad-notice[data-tone='danger'] .notepad-notice-heading {
+	color: var(--danger-text);
+}
+#notepad .notepad-notice p {
+	color: var(--text);
+}
+#notepad .notepad-notice-choices {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 24px;
+}
+#notepad .notepad-notice-choice {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--text);
+}
+#notepad .notepad-notice-quiet {
+	border-color: transparent;
+	background: none;
+	color: var(--accent);
+	text-decoration: underline;
+}
+#notepad > .notepad-disk-view {
+	flex: 1;
+	min-height: 100px;
+	margin: 0;
+	overflow: auto;
+	padding: 12px;
+	border: 1px solid var(--line-stronger);
+	border-radius: 7px;
+	background: var(--bg-app);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	font:
+		16px/1.5 Consolas,
+		monospace;
+}
+#notepad > .notepad-disk-view[hidden] {
+	display: none;
+}
+#notepad > #notepad-preview {
+	display: block;
+	flex: 1;
+	min-height: 100px;
+	overflow: auto;
+	padding: 12px 20px;
+	border: 1px solid var(--line-stronger);
+	border-radius: 7px;
+	background: var(--bg-app);
+	font:
+		16px/1.5 system-ui,
+		sans-serif;
+	overflow-wrap: anywhere;
+}
+#notepad > #notepad-preview[hidden] {
+	display: none;
+}
+#notepad-preview :is(h1, h2, h3, h4, h5, h6, p) {
+	margin: 0.6em 0;
+	color: inherit;
+}
+#notepad-preview :is(h1, h2, h3, h4, h5, h6) {
+	letter-spacing: normal;
+	line-height: 1.25;
+}
+#notepad-preview h1 {
+	font-size: 28px;
+}
+#notepad-preview h2 {
+	font-size: 23px;
+}
+#notepad-preview h3 {
+	font-size: 19px;
+}
+#notepad-preview .notepad-task {
+	list-style: none;
+}
+#notepad-preview li {
+	margin: 0.3em 0;
+}
+#notepad-preview .notepad-task > p:first-of-type {
+	display: inline;
+}
+#notepad-preview input[type='checkbox'] {
+	margin-right: 8px;
+}
+#notepad-preview code {
+	font:
+		0.9em Consolas,
+		monospace;
+	color: var(--accent-text-2);
+}
+#notepad-preview pre {
+	white-space: pre-wrap;
+	padding: 12px;
+	background: var(--bg-raised);
+}
+#notepad-preview a {
+	color: var(--accent);
+}
+#notepad-preview table {
+	border-collapse: collapse;
+}
+#notepad-preview td,
+#notepad-preview th {
+	padding: 6px 12px;
+	border: 1px solid var(--line-stronger);
+}

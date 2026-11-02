@@ -1,0 +1,82 @@
+/*
+ * Jump (card e6619a2e): one field and the matches under it. Sized and dressed like the shortcuts
+ * list, which is the other thing a key opens over the window, and placed in the upper third so the
+ * matches grow downward without the field moving.
+ */
+#jump {
+	width: min(560px, 90vw);
+	margin-top: 16vh;
+	padding: 18px 20px;
+	background: var(--bg-panel);
+	color: var(--text-bright);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+}
+#jump::backdrop {
+	background: var(--scrim-soft);
+}
+#jump h2 {
+	margin: 0 0 10px;
+	font-size: 15px;
+}
+#jump-input {
+	width: 100%;
+	box-sizing: border-box;
+	font-size: 15px;
+}
+#jump-list {
+	margin: 10px 0 0;
+	padding: 0;
+	list-style: none;
+}
+#jump-list:empty {
+	margin: 0;
+}
+/*
+ * Kind, then what it is, then where: the kind is a fixed column so a mixed list (a message, two
+ * cards and a teammate) reads down the left edge by type before it reads across.
+ */
+#jump-list > li {
+	display: grid;
+	grid-template-columns: 76px minmax(0, 1fr) auto;
+	align-items: baseline;
+	gap: 10px;
+	padding: 7px 10px;
+	border-radius: 6px;
+	cursor: pointer;
+}
+#jump-list > li[aria-selected='true'] {
+	background: var(--accent-bg);
+	box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+#jump-list > li:hover {
+	background: var(--bg-hover);
+}
+.jump-kind {
+	color: var(--muted-2);
+	font-size: 11px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+.jump-title {
+	overflow: hidden;
+	font-size: 14px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.jump-detail {
+	color: var(--muted-2);
+	font-size: 12px;
+	white-space: nowrap;
+}
+#jump-status {
+	min-height: 1lh;
+	margin: 10px 0 0;
+	color: var(--muted-2);
+	font-size: 12px;
+}
+/* The card Jump brought into view, marked the way a referenced Room message is. */
+.board-jump-target {
+	outline: 3px solid var(--accent);
+	outline-offset: 2px;
+}

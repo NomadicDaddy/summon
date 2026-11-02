@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# leak-guard: local chain, kept by hand
+# Summon runs its own static gate, followed by the shared staged-content leak guard.
+set -euo pipefail
+
+echo "pre-commit: static checks"
+bun run smoke:qc:fast
+echo "pre-commit: leak-guard"
+bash .githooks/leak-guard.sh
+echo "pre-commit: passed"

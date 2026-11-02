@@ -1,0 +1,31 @@
+/*
+ * The communications halt banner. A halt is a standing condition the operator has to clear, not a
+ * failure, so it takes the warning tokens rather than the error bar's danger ones; the two can be on
+ * screen together and must not read as the same thing. Hold Interruptions keeps its own quieter
+ * lit treatment in head-down.css.
+ */
+#comms-halt {
+	display: flex;
+	align-items: flex-start;
+	flex-wrap: wrap;
+	gap: 8px 16px;
+	background: var(--warn-bg);
+	color: var(--warn-text);
+	border-bottom: 1px solid var(--warn-line);
+	padding: 12px 28px;
+}
+#comms-halt-text {
+	flex: 1;
+	min-width: 0;
+	/* Lines the first line of text up with the button's label rather than its top border. */
+	padding-top: 5px;
+}
+/* A failed Proceed is reported under the sentence, not beside it, so the button stays put. */
+#comms-halt-error {
+	flex-basis: 100%;
+	order: 1;
+}
+#comms-halt-proceed {
+	flex: 0 0 auto;
+	padding: 4px 12px;
+}

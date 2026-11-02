@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+	<!-- Summon gallery icon "security". Drawn for Summon by Vera to Jimmy's brief, 2026-10-04; part of Summon and under its licence. gallery/security.png is this file exported at 128x128. -->
+	<rect width="128" height="128" rx="36" fill="#0b1220"/>
+	<g stroke="#87d6b2" fill="none" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+			<path d="M64 32 L94 46 V70 Q94 92 64 98 Q34 92 34 70 V46 Z"/>
+		</g>
+		<g stroke="#d9a441" fill="none" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"><path d="M50 70 L64 54 L78 70"/></g>
+</svg>

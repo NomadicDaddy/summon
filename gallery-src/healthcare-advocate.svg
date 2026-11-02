@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+	<!-- Summon gallery icon "healthcare-advocate". Drawn for Summon by Jimmy, 2026-10-05, in the set's style; part of Summon and under its licence. gallery/healthcare-advocate.png is this file exported at 128x128. -->
+	<rect width="128" height="128" rx="36" fill="#0b1220"/>
+	<g stroke="#87d6b2" fill="none" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"><path d="M64 96 C52 88 30 74 30 54 C30 42 39 34 49 34 C56 34 61 38 64 44 C67 38 72 34 79 34 C89 34 98 42 98 54 C98 74 76 88 64 96 Z"/></g>
+	<g stroke="#d9a441" fill="none" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"><path d="M64 54 V76 M53 65 H75"/></g>
+</svg>
