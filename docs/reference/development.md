@@ -61,11 +61,12 @@ Keep the installed bundle's original version label until its separate replacemen
 ## Native and VM test plans
 
 Local disposable fixtures, mocks and fresh temporary stores fit ordinary development. For native
-or VM acceptance, the operator approves one bounded plan naming the environment and host, artifact or
-reviewed rebuild, allowed operations, data and credential boundary, and checked cleanup/restore.
+or VM acceptance, the operator approves one bounded plan naming the environment, host and
+applicable VM snapshot/restore baseline, artifact or reviewed rebuild, allowed operations,
+data and credential boundary, and checked cleanup/restore.
 For each attempt, take the required Team R17 slot and head-down; verify the plan, host and artifact;
 run only named checks and retain the result and useful failure output; settle children and verify
-cleanup/restore before retry. The team coordinator may rerun affected checks within the
+cleanup/restore before retry. Steward may rerun affected checks within the
 unchanged plan. Changed builds need fresh acceptance evidence. New scope or host, credentials or
 accounts, live data, disruption, failed restore, STOPPED/HOLD exceptions or hold release require
 new decisions.
