@@ -1,7 +1,8 @@
 # Development
 
-Ordinary commits, Team Window builds, installer test builds and `smoke:qc` may use the current
-development version and changelog. The build records its commit, dirty state and artifact
+Ordinary commits, Team Window builds, installer test builds, `smoke:qc:fast` and relevant focused
+tests may use the current development version and changelog. Full `smoke:qc` is pre-release only.
+The build records its commit, dirty state and artifact
 fingerprint so test output remains identifiable. These actions do not authorize adoption,
 restarts, pushes, tags or publication.
 
@@ -19,8 +20,8 @@ current version's release notes. Numeric ordering is temporarily unenforced by o
 establishes a new baseline too. Restoring numeric downgrade protection is tracked separately for
 after this normalization; until then, source review must check version ordering explicitly.
 Missing history, stale ancestry or malformed identities refuse rather than guess a baseline.
-The release check needs complete Git history and a main baseline. CI's `smoke:qc` is a
-development quality gate; it does not validate the release version or changelog. A source
+The release check needs complete Git history and a main baseline. Full `smoke:qc` is a
+pre-release quality gate; it does not validate the release version or changelog. A source
 archive without Git history cannot run the release preflight.
 The offline updater can rebuild a clean historical commit reachable from main without moving
 main backwards. That rebuild checks the historical commit against its own version-bearing
@@ -69,7 +70,7 @@ Contributors enable this checkout's Git hooks explicitly after installing depend
 
 ```sh
 bun run setup:hooks
-bun run smoke:qc
+bun run smoke:qc:fast
 ```
 
 Ordinary installation does not change Git hooks or seed contributor leak-guard patterns.
