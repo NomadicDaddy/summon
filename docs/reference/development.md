@@ -80,6 +80,15 @@ For each change, record the following in its card acceptance criteria and comple
   launch mode and observed result; mocks or another CLI's pass do not establish live acceptance.
 - State whether a restart is needed and which sessions or Team Window must restart.
 
+For an approved installed-app acceptance run, use the single smoke checklist in the Summon
+release supplement: launch, readable output, a basic interaction and safe Stop. Add targeted
+provider, delivery or draft-input checks for changed paths. Record Passed, Failed or Not tested
+with an explanation for each selected check, and link current known limitations. A shared
+integration change may require the full provider matrix; otherwise document affected providers
+and reuse applicable evidence. Rerun affected checks after meaningful changes; docs or
+version-label-only changes leave unaffected acceptance intact. Native execution still requires
+the bounded plan and slot above.
+
 Contributors enable this checkout's Git hooks explicitly after installing dependencies:
 
 ```sh

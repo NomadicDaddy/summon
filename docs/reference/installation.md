@@ -82,6 +82,11 @@ publisher signing process is configured; a successful build is not clean-host ac
 The normal payload gate retains isolated CLI/help, default-team initialization and headless
 Electron/node-pty load/spawn checks using the build host's external Bun with a restricted child PATH.
 The native payload check still does not establish installed-host or provider acceptance.
+For a future approved candidate, use the installed-app smoke checklist in the Summon release
+supplement and add only the provider, delivery or draft-input checks affected by its changes.
+Record Passed, Failed or Not tested with explanations and current limitations. Installer or
+startup changes still require the named exact-artifact clean-host and first-run evidence; a
+docs or version-label-only change does not invalidate unaffected installed acceptance.
 
 ### Source installation
 
