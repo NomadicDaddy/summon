@@ -36,10 +36,10 @@ The site is uploaded as-is by the Pages workflow and is outside the application'
 this exemption does not permit publishing it. Formatting-only changes qualify when
 the installed formatter produces identical output for both versions; an unsupported format or
 missing formatter cannot establish that exemption. The report names the baseline and reason.
-These checks supplement review and exact human approval; a matching version is not permission
+These checks supplement review and applicable merge authority; a matching version is not permission
 to merge or adopt. The release-policy reference-transaction hook has been removed, including
-its local main deletion and rewind guard. Exact source review and human merge approval remain
-required. The existing pre-commit and pre-push hooks remain.
+its local main deletion and rewind guard. Exact source review remains required; pre-v1 Summon
+main integration follows Team rule R2. The existing pre-commit and pre-push hooks remain.
 
 After the candidate's own build and checks, prepare an adoption inventory explicitly:
 
@@ -57,6 +57,19 @@ the revision label and stable inventory do not independently prove that these by
 from that source. The manifest records `independentBuildVerified: false`. Sealing does not prove
 native-provider acceptance, copy files, approve adoption or restart anything.
 Keep the installed bundle's original version label until its separate replacement is approved.
+
+## Native and VM test plans
+
+Local disposable fixtures, mocks and fresh temporary stores fit ordinary development. For native
+or VM acceptance, the operator approves one bounded plan naming the environment and host, artifact or
+reviewed rebuild, allowed operations, data and credential boundary, and checked cleanup/restore.
+For each attempt, take the required Team R17 slot and head-down; verify the plan, host and artifact;
+run only named checks and retain the result and useful failure output; settle children and verify
+cleanup/restore before retry. The team coordinator may rerun affected checks within the
+unchanged plan. Changed builds need fresh acceptance evidence. New scope or host, credentials or
+accounts, live data, disruption, failed restore, STOPPED/HOLD exceptions or hold release require
+new decisions.
+This grants no current F5 run, final product acceptance or publication.
 
 For each change, record the following in its card acceptance criteria and completion report:
 
