@@ -1,6 +1,6 @@
 /*
- * Questions and approvals in the room, split from room.css so each file stays under 300 lines and sits beside the module that
- * draws it (room-questions.ts). Linked straight after room.css, so the cascade order is unchanged.
+ * Questions and approvals in the room sit beside the module that draws them (room-questions.ts).
+ * Linked straight after room.css, so the cascade order is unchanged.
  */
 /*
  * Shared shape: a question and an approval are the same KIND of thing - gold, framed, waiting on

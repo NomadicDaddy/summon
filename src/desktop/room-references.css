@@ -1,6 +1,6 @@
 /*
- * #<id> references, their jump targets and the reaction anchors they land on, split from room.css so each file stays under 300 lines and sits beside the module that
- * draws it (room-references.ts). Linked straight after room.css, so the cascade order is unchanged.
+ * #<id> references, their jump targets and reaction anchors sit beside room-references.ts.
+ * Linked straight after room.css, so the cascade order is unchanged.
  */
 .room-message a[data-room-reference],
 .room-reference-back {

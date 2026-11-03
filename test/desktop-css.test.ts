@@ -2,8 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 /*
  * Two CSS findings from the re-audit. Enabled controls and labels reached AA only because opacity
- * was stacked on colours that pass, and room.css had grown past 300 lines holding two rule groups
- * owned by other modules.
+ * was stacked on colours that pass, and room.css held two rule groups owned by other modules.
  */
 const read = (name: string): Promise<string> => Bun.file(`src/desktop/${name}`).text();
 

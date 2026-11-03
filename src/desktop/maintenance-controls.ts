@@ -3,8 +3,8 @@
  *
  * Neither belongs to the profile form they were nested in: a view preference for the sidebar, a usage
  * reading, the removal, the team switches. They were there because the closure was where
- * everything went - setupMaintenance had become a single 300-line function, which is the audit
- * finding this resolves, and the last several commits to that file each made it longer.
+ * everything went - setupMaintenance mixed unrelated controls with profile editing and dialog
+ * coordination. This split gives those controls a separate responsibility.
  */
 
 import { applyColorTheme, readColorTheme, saveColorTheme } from './color-theme.ts';

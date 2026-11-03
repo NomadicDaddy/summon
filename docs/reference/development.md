@@ -6,6 +6,10 @@ The build records its commit, dirty state and artifact
 fingerprint so test output remains identifiable. These actions do not authorize adoption,
 restarts, pushes, tags or publication.
 
+File length is advisory. Extract code when a module mixes responsibilities, is difficult to
+reason about, or has a defect that a clearer boundary would prevent; a line count alone does
+not require a split. Formatting, types, lint and relevant tests remain the normal checks.
+
 Before publication, run `bun run release:check` on the clean, exact candidate. It checks the
 version and dated, categorized changelog before full QC and the package dry run, then checks
 that the source is still clean and at the same commit. Run the version check alone with

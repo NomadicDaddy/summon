@@ -8,9 +8,8 @@ import { marked } from './search-marks.ts';
  * Drawing one diary entry: the line itself, and the marks on what was searched for (the marking
  * itself is shared with the Board, in search-marks.ts).
  *
- * It moved out of the panel module when the panel reached the 300-line cap. The split is a real
- * seam rather than a convenience: everything here decides what an entry LOOKS like, and everything
- * left behind decides which entries to ask for and when.
+ * It moved out of the panel module to give display its own responsibility: everything here
+ * decides what an entry looks like, while the panel decides which entries to ask for and when.
  */
 
 const DAY_ONLY = /^\d{4}-\d{2}-\d{2}$/;
