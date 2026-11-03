@@ -14,7 +14,8 @@ export async function oldBuild(root: string) {
 		.digest('hex');
 	if (actualHash !== archiveHash)
 		throw new Error(`Pinned rollback archive changed: ${rollbackPin}`);
-	const extract = Bun.spawn(['tar', '-xf', archive, '-C', root], {
+	const extract = Bun.spawn(['tar', '-xf', '-', '-C', root], {
+		stdin: Bun.file(archive),
 		stdout: 'pipe',
 		stderr: 'pipe',
 		windowsHide: true,
