@@ -223,8 +223,9 @@ export async function dispatchSchedules(
 				status: 'dispatching',
 			};
 			state.runs.push(pending);
-			// Coalesce missed intervals; completion remains independently recorded on the run.
-			item.nextDueAt = now + item.everyMinutes * 60000;
+			// Coalesce missed intervals without shifting the schedule's original phase.
+			const interval = item.everyMinutes * 60000;
+			item.nextDueAt += (Math.floor((now - item.nextDueAt) / interval) + 1) * interval;
 			await save(state);
 			try {
 				await sendMessage(

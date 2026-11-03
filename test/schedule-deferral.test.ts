@@ -67,7 +67,7 @@ test('deferral is visible to owner CLI, retains due work, and clears before one 
 	state = await listSchedules();
 	expect(state.runs).toHaveLength(1);
 	expect(state.schedules[0]?.deferred).toBeUndefined();
-	expect(state.schedules[0]?.nextDueAt).toBe(60300);
+	expect(state.schedules[0]?.nextDueAt).toBe(60000);
 	await dispatchSchedules(availability, noNotify, 60400);
 	expect((await listSchedules()).schedules[0]?.deferred?.reason).toBe('unfinished-run');
 	expect(calls).toBe(3);

@@ -54,7 +54,7 @@ const dispatch = (now: number) =>
 
 test('separate processes claim one occurrence; receipt is not completion; overdue intervals coalesce', async () => {
 	const schedule = await createSchedule(input);
-	const now = schedule.nextDueAt + 600000;
+	const now = schedule.nextDueAt + 600123;
 	const children = [1, 2, 3].map(() =>
 		Bun.spawn({
 			cmd: [
@@ -75,7 +75,8 @@ test('separate processes claim one occurrence; receipt is not completion; overdu
 	let state = await listSchedules();
 	expect(state.runs).toHaveLength(1);
 	expect(first(state.runs).status).toBe('delivered');
-	expect(first(state.schedules).nextDueAt).toBe(now + 60000);
+	expect(first(state.runs).dueAt).toBe(schedule.nextDueAt);
+	expect(first(state.schedules).nextDueAt).toBe(schedule.nextDueAt + 660000);
 	expect(await readdir(join(fixture.records, 'mailboxes/alpha/inbox'))).toHaveLength(1);
 	await acknowledgeMessage('alpha', first(state.runs).id);
 	await dispatch(now + 600000);
@@ -91,6 +92,27 @@ test('separate processes claim one occurrence; receipt is not completion; overdu
 	state = await listSchedules();
 	expect(state.runs).toHaveLength(2);
 	expect(first(state.runs).result).toBe('Verified fixture');
+});
+
+test('late daily dispatch keeps the original phase after deferral and at an exact boundary', async () => {
+	const schedule = await createSchedule({ ...input, everyMinutes: 1440 });
+	const day = 1440 * 60000;
+	const late = schedule.nextDueAt + 8 * 60 * 60000 + 12345;
+	await dispatchSchedules(
+		() => Promise.resolve(false),
+		() => Promise.resolve(),
+		late,
+	);
+	expect(first((await listSchedules()).schedules).nextDueAt).toBe(schedule.nextDueAt);
+	await dispatch(late);
+	let state = await listSchedules();
+	expect(first(state.runs).dueAt).toBe(schedule.nextDueAt);
+	expect(first(state.schedules).nextDueAt).toBe(schedule.nextDueAt + day);
+	await finishScheduledRun(first(state.runs).id, 'complete', 'Fixture evidence');
+	await dispatch(schedule.nextDueAt + day);
+	state = await listSchedules();
+	expect(state.runs).toHaveLength(2);
+	expect(first(state.schedules).nextDueAt).toBe(schedule.nextDueAt + 2 * day);
 });
 
 test('delivery failure stays uncertain and empty storage fails closed without overwriting history', async () => {

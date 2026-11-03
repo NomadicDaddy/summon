@@ -38,7 +38,9 @@ wait; sessions explicitly stopped through Zzz can resume for scheduled work as d
 Closing the window or halting communications stops dispatch. Each named team has
 independent storage. Restart the full Team Window to load scheduler implementation updates.
 
-Missed intervals coalesce into one run. The next interval starts at dispatch, and a schedule
+Missed intervals coalesce into one run. The next due time is the first original interval after
+dispatch, so a late delivery does not shift the schedule's stored cadence. Already shifted
+schedule times remain as stored; this change does not restore an earlier phase. A schedule
 cannot dispatch another run until its preceding run is explicitly complete or failed. Durable
 claims prevent competing processes from sending the same occurrence twice. Mail goes only to
 the recorded owner; each provider's launch receiver delivers its notice. Kilo and Grok use only
