@@ -4,14 +4,12 @@ import { resolve } from 'node:path';
 
 import { summonStorageLayout, version } from '../package.json';
 import { requireExecutable } from './executable.ts';
-import { checkWorkingReleaseVersion } from './release-version.ts';
 import { teamBuildOptions, teamDist, teamEntries } from './team-build-options.ts';
 
 /** Kept beside the build that copies it, because window.ts resolves it relative to the output. */
 const windowIcon = 'icons/summon.ico';
 
 export async function buildTeam(): Promise<void> {
-	await checkWorkingReleaseVersion(resolve(import.meta.dir, '..'));
 	// This fixed, generated output directory is the package glob; no prior build file may survive.
 	await rm(teamDist, { recursive: true, force: true });
 	await mkdir(teamDist, { recursive: true });

@@ -56,9 +56,9 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"test": "bun scripts/test.ts",
-		"smoke:qc:fast": "bun run check:release-version && bun run check:max-lines && bun run format:check && bun run typecheck && bun run lint",
-		"smoke:qc": "bun run check:release-version && bun run check:max-lines && bun run format:check && bun run typecheck && bun run lint && bun run check:dead-code && bun run build:team && bun run check:licenses && bun run check:leak-guard && bun run test",
-		"release:check": "bun run smoke:qc && bun pm pack --dry-run"
+		"smoke:qc:fast": "bun run check:max-lines && bun run format:check && bun run typecheck && bun run lint",
+		"smoke:qc": "bun run check:max-lines && bun run format:check && bun run typecheck && bun run lint && bun run check:dead-code && bun run build:team && bun run check:licenses && bun run check:leak-guard && bun run test",
+		"release:check": "bun scripts/release-check.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "10.0.1",

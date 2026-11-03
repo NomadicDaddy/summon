@@ -71,25 +71,9 @@ test('a documented lower version covers earlier runtime while numeric ordering i
 	expect((await checkReleaseVersion(f.root, f.base, f.commit())).version).toBe('0.1.9');
 });
 
-test('the real main-ref hook preserves main for an early bump and accepts a final bump', async () => {
-	const f = await fixture();
-	const bad = await earlyBump(f);
-	await f.version('0.3.0');
-	const good = f.commit('final version covers the accumulated behavior');
-	f.git('config', 'core.hooksPath', resolve(import.meta.dir, '../.githooks'));
-	const refused = f.run('update-ref', 'refs/heads/main', bad, f.base);
-	expect(refused.exitCode).not.toBe(0);
-	expect(refused.stderr.toString()).toContain('without a version bump');
-	expect(f.git('rev-parse', 'refs/heads/main')).toBe(f.base);
-	expect(f.run('update-ref', 'refs/heads/main', good, f.base).exitCode).toBe(0);
-	expect(f.git('rev-parse', 'refs/heads/main')).toBe(good);
-});
-
-test('the actual build refuses the range-order defect before removing old output', async () => {
+test('the release CLI rejects an early bump and accepts the final clean candidate', async () => {
 	const f = await fixture();
 	for (const name of [
-		'team-build.ts',
-		'team-build-options.ts',
 		'release-changelog.ts',
 		'release-version.ts',
 		'release-version-git.ts',
@@ -97,29 +81,34 @@ test('the actual build refuses the range-order defect before removing old output
 	])
 		await copyFile(resolve(import.meta.dir, '../src', name), join(f.root, 'src', name));
 	await f.write(
-		'scripts/build-team.ts',
-		"import { buildTeam } from '../src/team-build.ts';\nawait buildTeam();\n",
+		'scripts/check-release-version.ts',
+		await Bun.file(resolve(import.meta.dir, '../scripts/check-release-version.ts')).text(),
 	);
-	await earlyBump(f);
-	await f.write('dist/team/preserved.txt', 'old bundle stays\n');
 	const run = () =>
-		Bun.spawnSync([process.execPath, join(f.root, 'scripts/build-team.ts')], {
-			cwd: f.root,
-			windowsHide: true,
-			timeout: 20_000,
-		});
+		Bun.spawnSync(
+			[process.execPath, join(f.root, 'scripts/check-release-version.ts'), '--release'],
+			{
+				cwd: f.root,
+				windowsHide: true,
+				timeout: 20_000,
+			},
+		);
+	await earlyBump(f);
 	const refused = run();
 	expect(refused.exitCode).not.toBe(0);
 	expect(refused.stderr.toString()).toContain('without a version bump');
-	expect(await readFile(join(f.root, 'dist/team/preserved.txt'), 'utf8')).toBe(
-		'old bundle stays\n',
-	);
+	expect(f.git('rev-parse', 'refs/heads/main')).toBe(f.base);
 	await f.version('0.3.0');
+	const good = f.commit('final version covers the accumulated behavior');
 	const accepted = run();
-	// No desktop entry exists in this fixture. Reaching the builder is the positive guard control.
-	expect(accepted.exitCode).not.toBe(0);
-	expect(accepted.stderr.toString()).not.toContain('without a version bump');
-	expect(await Bun.file(join(f.root, 'dist/team/preserved.txt')).exists()).toBe(false);
+	expect(accepted.exitCode).toBe(0);
+	expect(JSON.parse(accepted.stdout.toString())).toMatchObject({
+		candidate: good,
+		version: '0.3.0',
+	});
+	await f.write('docs/untracked.md', 'not in the release candidate\n');
+	expect(run().stderr.toString()).toContain('clean working tree');
+	expect(f.git('rev-parse', 'refs/heads/main')).toBe(f.base);
 });
 
 test('seal refusal preserves the existing seal and bundle for an early range bump', async () => {

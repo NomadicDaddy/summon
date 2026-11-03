@@ -1,13 +1,15 @@
 # Development
 
-Before each new build created for testing, complete `document-changes`: update the internal
-version, changelog and affected feature revision records so they describe the build being tested.
-This does not authorize adoption, restarts, pushes, tags or publication.
+Ordinary commits, Team Window builds, installer test builds and `smoke:qc` may use the current
+development version and changelog. The build records its commit, dirty state and artifact
+fingerprint so test output remains identifiable. These actions do not authorize adoption,
+restarts, pushes, tags or publication.
 
-The source version preflight enforces that relationship in the fast/full gates, before a Team
-Window build removes output, and in the source checkout's prepared main-ref updates (including
-fast-forwards). Run it explicitly with `bun run check:release-version`, or pass two exact hashes
-to inspect a proposed integration. It compares accumulated changes with the most recent
+Before publication, run `bun run release:check` on the clean, exact candidate. It checks the
+version and dated, categorized changelog before full QC and the package dry run, then checks
+that the source is still clean and at the same commit. Run the version check alone with
+`bun run check:release-version`, or pass two exact hashes to inspect a proposed integration.
+The checker compares accumulated changes with the most recent
 version-bearing first-parent main commit. Runtime, UI, bundled startup instructions and guard
 changes need a changed semantic version and newly updated, categorized, dated release notes.
 The version change must accompany or follow the behavior it covers; an earlier change in the same
@@ -17,14 +19,14 @@ current version's release notes. Numeric ordering is temporarily unenforced by o
 establishes a new baseline too. Restoring numeric downgrade protection is tracked separately for
 after this normalization; until then, source review must check version ordering explicitly.
 Missing history, stale ancestry or malformed identities refuse rather than guess a baseline.
-Quality CI fetches the complete history and establishes the main baseline before checking a
-detached pull-request merge. A source archive without Git history cannot run this preflight.
+Quality CI fetches the complete history and establishes the main baseline for release checks.
+A source archive without Git history cannot run this preflight.
 The offline updater can rebuild a clean historical commit reachable from main without moving
 main backwards. That rebuild checks the historical commit against its own version-bearing
 baseline and reports the historical rebuild reason. Dirty historical checkouts and unversioned
 historical runtime changes still refuse. Unpublished candidates retain the normal integration checks.
-This working-checkout path does not permit main-ref rewinds. Installed-source comparisons use
-the same temporary numeric-ordering policy when sealing a new candidate.
+Installed-source comparisons use the same temporary numeric-ordering policy when sealing a new
+candidate.
 
 Test and documentation changes may retain the version, including the separately published
 `site/` front-door documentation and root `PRIVACY.md`, `SECURITY.md` and `SUPPORT.md` prose.
@@ -33,17 +35,9 @@ this exemption does not permit publishing it. Formatting-only changes qualify wh
 the installed formatter produces identical output for both versions; an unsupported format or
 missing formatter cannot establish that exemption. The report names the baseline and reason.
 These checks supplement review and exact human approval; a matching version is not permission
-to merge or adopt. The local hook applies where this checkout's `.githooks` are installed and
-present, and is not an operating-system security boundary.
-Git selects the hook and checker from the worktree performing the update. A fast-forward merge
-can already have checked out the candidate's guard code when the ref check runs, so that code
-can weaken its own check. An older linked worktree without this hook runs no check at all.
-The hook therefore does not independently enforce its own integrity or cover every worktree;
-exact source review and human merge approval remain required.
-Same-value ref updates and Git's files-backend packing/pruning preserve the published main
-identity and are allowed. Real creation, deletion and rewinds still refuse. A loose-copy prune
-qualifies only with the same published packed main and no packed-refs transaction lock; unknown
-storage or ambiguous maintenance state refuses. The existing pre-commit/pre-push hooks stay intact.
+to merge or adopt. The release-policy reference-transaction hook has been removed, including
+its local main deletion and rewind guard. Exact source review and human merge approval remain
+required. The existing pre-commit and pre-push hooks remain.
 
 After the candidate's own build and checks, prepare an adoption inventory explicitly:
 
