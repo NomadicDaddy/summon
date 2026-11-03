@@ -130,9 +130,10 @@ test.skipIf(unsupported)('claims accept an aliased owner root and target', async
 	if (!ownerShort || !insideShort) throw new Error('Missing alias control.');
 	const target = join(ownerShort, 'evidence.txt');
 	expect((await claim(['file-exists', target], ownerShort)).state).toBe('WEAK');
-	expect((await claim(['file-exists', join(owner, 'evidence.txt')], ownerShort)).state).toBe(
-		'WEAK',
-	);
+	expect(
+		(await claim(['file-exists', join(await realpath(ownerShort), 'evidence.txt')], ownerShort))
+			.state,
+	).toBe('WEAK');
 	const inner = join(owner, basename(insideShort), 'inner.txt');
 	expect((await claim(['file-exists', inner], owner)).state).toBe('WEAK');
 	expect((await claim(['file-contains', target, 'expected'], ownerShort)).state).toBe(

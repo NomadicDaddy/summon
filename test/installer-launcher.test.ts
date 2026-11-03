@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from 'bun:test';
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -10,7 +10,7 @@ afterAll(async () => {
 	await rm(root, { recursive: true, force: true });
 });
 const windows = process.platform === 'win32' ? test : test.skip;
-
+const realExe = async (path: string) => (await realpath(path)).toLowerCase();
 // The launcher's fallback folders must come from the fixture, never this host's real profile.
 const emptyProfile = join(root, 'empty profile');
 const emptyLocalAppData = join(root, 'empty local app data');
@@ -177,7 +177,7 @@ windows(
 		await mkdir(join(started, 'folder named bun', 'bun.exe'), { recursive: true });
 		const path = `relative;..\\up;${join(started, 'folder named bun')};"${wins}"`;
 		const result = await launch(path, '', undefined, started);
-		expect(result.stdout.trim()).toBe(join(wins, 'bun.exe'));
+		expect(await realExe(result.stdout.trim())).toBe(await realExe(join(wins, 'bun.exe')));
 		expect(result.code).toBe(0);
 	},
 );
@@ -236,7 +236,7 @@ windows(
 			USERPROFILE: join(base, 'profile'),
 			LOCALAPPDATA: join(base, 'local'),
 		});
-		expect(result.stdout.trim()).toBe(join(inherited, 'bun.exe'));
+		expect(await realExe(result.stdout.trim())).toBe(await realExe(join(inherited, 'bun.exe')));
 	},
 );
 
