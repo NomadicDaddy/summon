@@ -71,9 +71,11 @@ that process deliberately before retrying. The installed launcher gives its own 
 precedence for child commands without adding bundled-runtime directories to PATH.
 
 Build on Windows x64 with exactly the Bun version in `packageManager`, frozen dependencies, and
-the Inno Setup 7.1.1 compiler. Set `SUMMON_ISCC` to its `ISCC.exe`, then run `bun run smoke:qc`
-and `bun run build:installer`. The build records payload hashes, build toolchain and external
-prerequisite requirements, refuses staged runtimes and checks required Electron assets and licenses.
+the Inno Setup 7.1.1 compiler. Set `SUMMON_ISCC` to its `ISCC.exe`. For an ordinary test build,
+run `bun run smoke:qc:fast` and relevant focused tests; reserve full `bun run smoke:qc` for
+pre-release. Then run `bun run build:installer`. The build records payload hashes, build
+toolchain and external prerequisite requirements, refuses staged runtimes and checks required
+Electron assets and licenses.
 It writes the installer plus SHA-256 beside its staging directory under
 `dist/installer/`. Dirty builds are explicitly labelled. Installer binaries are unsigned until a
 publisher signing process is configured; a successful build is not clean-host acceptance.

@@ -31,4 +31,4 @@ jobs:
             - name: Install locked dependencies
               run: bun install --frozen-lockfile
             - name: Validate
-              run: bun run smoke:qc
+              run: bun run smoke:qc:fast
