@@ -1,3 +1,4 @@
+import { checkReleaseCandidateVersion } from '../src/release-candidate.ts';
 import { releaseGit } from '../src/release-version-git.ts';
 import { checkReleaseVersion, checkWorkingReleaseVersion } from '../src/release-version.ts';
 
@@ -6,11 +7,16 @@ const args = process.argv.slice(2);
 
 if (args.length === 1 && args[0] === '--release') {
 	const head = releaseGit(root, ['rev-parse', '--verify', 'HEAD']).trim();
+	const main = releaseGit(root, ['rev-parse', '--verify', 'refs/heads/main']).trim();
 	const clean = () =>
 		!releaseGit(root, ['status', '--porcelain=v1', '--untracked-files=all']).trim();
 	if (!clean()) throw new Error('Release candidate requires a clean working tree.');
-	const result = await checkWorkingReleaseVersion(root);
-	if (!clean() || releaseGit(root, ['rev-parse', '--verify', 'HEAD']).trim() !== head)
+	const result = await checkReleaseCandidateVersion(root, main, head);
+	if (
+		!clean() ||
+		releaseGit(root, ['rev-parse', '--verify', 'HEAD']).trim() !== head ||
+		releaseGit(root, ['rev-parse', '--verify', 'refs/heads/main']).trim() !== main
+	)
 		throw new Error('Release candidate source changed during preflight.');
 	console.log(JSON.stringify(result));
 } else if (args.length === 2 && args[0] && args[1]) {

@@ -4,6 +4,7 @@ import { copyFile, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
 import { prepareTeamSeal } from '../scripts/prepare-team-seal.ts';
+import { checkReleaseCandidateVersion } from '../src/release-candidate.ts';
 import {
 	checkInstalledRelease,
 	checkReleaseVersion,
@@ -74,6 +75,7 @@ test('a documented lower version covers earlier runtime while numeric ordering i
 test('the release CLI rejects an early bump and accepts the final clean candidate', async () => {
 	const f = await fixture();
 	for (const name of [
+		'release-candidate.ts',
 		'release-changelog.ts',
 		'release-version.ts',
 		'release-version-git.ts',
@@ -109,6 +111,28 @@ test('the release CLI rejects an early bump and accepts the final clean candidat
 	await f.write('docs/untracked.md', 'not in the release candidate\n');
 	expect(run().stderr.toString()).toContain('clean working tree');
 	expect(f.git('rev-parse', 'refs/heads/main')).toBe(f.base);
+});
+
+test('an integrated main release rejects prewritten notes until they are refreshed', async () => {
+	const f = await fixture();
+	await f.write('docs/CHANGELOG.md', `${f.notes('0.2.0')}\n${f.notes('0.1.0')}`);
+	const prior = f.commit('prewrite future release notes');
+	f.git('update-ref', 'refs/heads/main', prior, f.base);
+	await f.version('0.2.0');
+	await f.write('src/app.ts', 'export const value=2;\n');
+	const candidate = f.commit('release with stale notes');
+	f.git('update-ref', 'refs/heads/main', candidate, prior);
+	await rejects(
+		checkReleaseCandidateVersion(f.root, candidate, candidate),
+		/Release notes were not updated/u,
+	);
+	await f.write(
+		'docs/CHANGELOG.md',
+		f.notes('0.2.0').replace("Changed the fixture's source behavior.", 'Fresh release notes.'),
+	);
+	const repaired = f.commit('refresh release notes');
+	f.git('update-ref', 'refs/heads/main', repaired, candidate);
+	expect((await checkReleaseCandidateVersion(f.root, repaired, repaired)).version).toBe('0.2.0');
 });
 
 test('seal refusal preserves the existing seal and bundle for an early range bump', async () => {

@@ -57,7 +57,7 @@ function section(text: string, version: string): string {
 	return match[0] + body;
 }
 
-function versionBaseline(root: string, base: string): string {
+export function versionBaseline(root: string, base: string): string {
 	for (const commit of releaseGit(root, [
 		'log',
 		'--first-parent',

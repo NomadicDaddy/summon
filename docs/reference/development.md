@@ -19,8 +19,9 @@ current version's release notes. Numeric ordering is temporarily unenforced by o
 establishes a new baseline too. Restoring numeric downgrade protection is tracked separately for
 after this normalization; until then, source review must check version ordering explicitly.
 Missing history, stale ancestry or malformed identities refuse rather than guess a baseline.
-Quality CI fetches the complete history and establishes the main baseline for release checks.
-A source archive without Git history cannot run this preflight.
+The release check needs complete Git history and a main baseline. CI's `smoke:qc` is a
+development quality gate; it does not validate the release version or changelog. A source
+archive without Git history cannot run the release preflight.
 The offline updater can rebuild a clean historical commit reachable from main without moving
 main backwards. That rebuild checks the historical commit against its own version-bearing
 baseline and reports the historical rebuild reason. Dirty historical checkouts and unversioned
