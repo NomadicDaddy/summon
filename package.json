@@ -1,6 +1,6 @@
 {
 	"name": "summon",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"summonStorageLayout": 1,
 	"license": "FSL-1.1-ALv2",
 	"description": "Open named Claude Code, Codex, Grok Build, or Kilo sessions in a shared terminal window or team workspace.",

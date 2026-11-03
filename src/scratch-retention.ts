@@ -2,6 +2,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
+import { atomicWrite } from './mail-files.ts';
 import { storageRoot } from './store.ts';
 
 /** Phillip #17706: anything in scratch older than 30 days goes at the operator's startup. */
@@ -20,6 +21,12 @@ export interface ExpiryReport {
 	disappeared: number;
 	skipped: number;
 	skippedSample: { path: string; reason: string }[];
+	/** The complete skip list for the latest successful operator run, outside scratch. */
+	detailsPath?: string;
+	/** Counts by skip reason, used to distinguish safe hard links from other failures. */
+	skipReasons?: Record<string, number>;
+	/** The worker finished, but its complete skip list could not be retained. */
+	detailsUnavailable?: boolean;
 	/** Set when the whole run was refused before anything was removed. */
 	refused?: string;
 	/**
@@ -50,6 +57,9 @@ const readySchema = z.object({
 const pauseSchema = z.object({
 	pause: z.enum(['list', 'remove', 'dispose']),
 	path: z.string().min(1),
+});
+const skipSchema = z.object({
+	skip: z.object({ path: z.string(), reason: z.string() }),
 });
 const count = z.number().int().nonnegative();
 const doneSchema = z.object({
@@ -133,6 +143,7 @@ export async function expireScratch(
 	}
 	const stderr = new Response(child.stderr).text();
 	const lines = lineReader(child.stdout);
+	const skippedDetails: { path: string; reason: string }[] = [];
 	let started = false;
 	// Only this worker, never a session, provider or other process.
 	const timer = setTimeout(() => child.kill(), startLimitMs);
@@ -179,6 +190,11 @@ export async function expireScratch(
 			await child.stdin.flush();
 			for (;;) {
 				const line = await lines.next();
+				const skip = skipSchema.safeParse(line);
+				if (skip.success) {
+					skippedDetails.push(skip.data.skip);
+					continue;
+				}
 				const pause = pauseSchema.safeParse(line);
 				if (pause.success) {
 					const hook = {
@@ -194,7 +210,22 @@ export async function expireScratch(
 				const done = doneSchema.safeParse(line);
 				if (!done.success || (await child.exited) !== 0) break;
 				const { sample, ...counts } = done.data.report;
-				return { ...report, ...counts, skippedSample: sample };
+				const complete = { ...report, ...counts, skippedSample: sample };
+				if (skippedDetails.length !== counts.skipped)
+					return { ...complete, detailsUnavailable: true };
+				const skipReasons: Record<string, number> = {};
+				for (const { reason } of skippedDetails)
+					skipReasons[reason] = (skipReasons[reason] ?? 0) + 1;
+				const detailsPath = resolve(store, 'logs', 'scratch-expiry-details.json');
+				try {
+					await atomicWrite(
+						detailsPath,
+						`${JSON.stringify({ cutoff: report.cutoff, ...counts, skips: skippedDetails })}\n`,
+					);
+					return { ...complete, skipReasons, detailsPath };
+				} catch {
+					return { ...complete, skipReasons, detailsUnavailable: true };
+				}
 			}
 		} finally {
 			clearTimeout(runTimer);
@@ -222,7 +253,7 @@ export async function expireScratch(
 	}
 }
 
-/** One console line, with bounded and escaped relative paths and no file contents. */
+/** One concise console line; full skip paths live in the private store report. */
 export function expiryLine(report: ExpiryReport): string {
 	if (report.refused) return `Scratch expiry skipped: ${report.refused}. Nothing was removed.`;
 	if (report.incomplete)
@@ -232,12 +263,14 @@ export function expiryLine(report: ExpiryReport): string {
 	];
 	if (report.disappeared) parts.push(`${report.disappeared} were already gone`);
 	if (report.skipped) {
-		const sample = report.skippedSample
-			.map((item) => `${JSON.stringify(item.path)} (${item.reason})`)
-			.join(', ');
+		const hardLinks = report.skipReasons?.['has other hard links, not removed'] ?? 0;
 		parts.push(
-			`skipped ${report.skipped}: ${sample}${report.skipped > SAMPLE_LIMIT ? ', ...' : ''}`,
+			hardLinks === report.skipped
+				? `kept ${report.skipped} old hard-linked files for safety`
+				: `kept ${report.skipped} entries that could not be removed safely`,
 		);
+		if (report.detailsPath) parts.push(`full details: ${JSON.stringify(report.detailsPath)}`);
+		else parts.push('full details could not be saved');
 	}
 	return `${parts.join('; ')}.`;
 }

@@ -14,6 +14,7 @@ public sealed class ScratchExpiry : IDisposable
     public string Stage { get; private set; } = "initializing";
     // Test seam only: called with (point, relative path); returning false stops the run.
     public Func<string, string, bool> Pause;
+    public Action<string, string> OnSkip;
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern SafeFileHandle CreateFileW(string name, uint access,
@@ -192,6 +193,7 @@ public sealed class ScratchExpiry : IDisposable
     {
         skipped++;
         if (sample.Count < SampleLimit) sample.Add(new Skip { path = path, reason = reason });
+        OnSkip?.Invoke(path, reason);
     }
 
     private void Stop(string point, string path)

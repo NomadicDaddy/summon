@@ -4,6 +4,7 @@
   "workspaces": {
     "": {
       "name": "summon",
+      "version": "1.0.1",
       "dependencies": {
         "@modelcontextprotocol/sdk": "1.32.1",
         "@xterm/addon-fit": "0.11.0",

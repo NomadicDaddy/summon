@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { link, rm, utimes } from 'node:fs/promises';
+import { link, readFile, rm, utimes } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { expireScratch, expiryLine, operatorScratchExpiry } from '../src/scratch-retention.ts';
@@ -110,7 +110,7 @@ winTest(
 );
 
 winTest(
-	'the report line is bounded and escaped, and a missing scratch folder is a no-op',
+	'the report line is concise, and a missing scratch folder is a no-op',
 	async () => {
 		await rm(scratch(), { recursive: true });
 		const empty = await expireScratch(at.store, startedAt);
@@ -119,14 +119,46 @@ winTest(
 		const line = expiryLine({
 			...empty,
 			skipped: 25,
+			skipReasons: { 'has other hard links, not removed': 25 },
+			detailsPath: join(at.store, 'logs', 'scratch-expiry-details.json'),
 			skippedSample: Array.from({ length: 20 }, (_, index) => ({
 				path: `a"b\n${index}`,
-				reason: 'in use or not permitted',
+				reason: 'has other hard links, not removed',
 			})),
 		});
-		expect(line).toContain(String.raw`"a\"b\n0"`);
-		expect(line).toContain(', ...');
+		expect(line).toContain('kept 25 old hard-linked files for safety');
+		expect(line).toContain('full details:');
+		expect(line).not.toContain('a"b');
 		expect(line).not.toContain('\n');
+	},
+	SLOW,
+);
+
+winTest(
+	'full hard-link diagnostics are saved while startup reports one concise line',
+	async () => {
+		for (let index = 0; index < 25; index++) {
+			const name = `linked-${index}.txt`;
+			await file(scratch('ada', name), old);
+			await link(scratch('ada', name), join(at.outside, name));
+		}
+		const report = await expireScratch(at.store, startedAt);
+		const line = expiryLine(report);
+		expect(report.skipped).toBe(25);
+		expect(report.skippedSample).toHaveLength(20);
+		expect(line).toContain('kept 25 old hard-linked files for safety');
+		expect(line).not.toContain('linked-0.txt');
+		const detailsPath = report.detailsPath;
+		expect(detailsPath).toBe(join(at.store, 'logs', 'scratch-expiry-details.json'));
+		if (!detailsPath) throw new Error('The complete skip report was not saved.');
+		const details = JSON.parse(await readFile(detailsPath, 'utf8')) as {
+			skipped: number;
+			skips: { path: string; reason: string }[];
+		};
+		expect(details.skipped).toBe(25);
+		expect(details.skips).toHaveLength(25);
+		expect(details.skips.map(({ path }) => path)).toContain(join('ada', 'linked-24.txt'));
+		expect(existsSync(scratch('ada', 'linked-24.txt'))).toBe(true);
 	},
 	SLOW,
 );

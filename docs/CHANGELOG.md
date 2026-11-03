@@ -2,6 +2,15 @@
 
 Notable changes to summon are recorded here using Keep a Changelog categories and semantic versions.
 
+## [1.0.1] - 2026-11-03
+
+### Fixed
+
+- Startup scratch expiry now reports old hard-linked files kept for safety in one concise line.
+  Complete skip paths and reasons for the latest successful run are saved in the private store
+  instead of being listed in the startup output. The 30-day cutoff and deletion safeguards are
+  unchanged.
+
 ## [1.0.0] - 2026-10-31
 
 ### Changed

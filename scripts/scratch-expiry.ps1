@@ -31,6 +31,10 @@ try {
             [Console]::ReadLine() -eq 'continue'
         }
     }
+    $expiry.OnSkip = [Action[string, string]] {
+        param($path, $reason)
+        [Console]::WriteLine((@{ skip = @{ path = $path; reason = $reason } } | ConvertTo-Json -Depth 3 -Compress -EscapeHandling EscapeNonAscii))
+    }
     $state = $expiry.Hold([string]$request.root)
     [Console]::WriteLine((@{ ready = $true; state = $state } | ConvertTo-Json -Compress -EscapeHandling EscapeNonAscii))
     if ($state -eq 'present') {

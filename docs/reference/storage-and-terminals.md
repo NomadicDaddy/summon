@@ -29,8 +29,10 @@ named-team storage is a routing boundary, not a security sandbox.
 
 On Windows, `summon --team` and `summon all` remove scratch files in the selected store that were
 last written more than 30 days before that start. Empty folders that were already that old go too.
-Each start prints one line with the counts and up to 20 skipped paths, never file contents. Member
-homes, `shared` and the scratch folder itself always stay. Named sessions, internal launches, mail,
+Each start prints one concise line with the counts, never file contents or skipped paths. Old hard
+links kept for safety are identified by count. The full paths and reasons from the latest
+successful run are saved in `logs/scratch-expiry-details.json` under the selected private store.
+Member homes, `shared` and the scratch folder itself always stay. Named sessions, internal launches, mail,
 status and other commands never purge, and a teammate's own CLI never does either.
 
 The removal runs in one hidden PowerShell 7 worker (`scripts/scratch-expiry.ps1` and its C#
