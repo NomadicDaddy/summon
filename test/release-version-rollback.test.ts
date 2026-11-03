@@ -24,6 +24,7 @@ afterEach(async () => {
 test('the maintenance transaction rolls back through the real guard at a historical Git commit', async () => {
 	const f = await fixture();
 	for (const name of [
+		'release-candidate.ts',
 		'release-changelog.ts',
 		'release-version.ts',
 		'release-version-git.ts',
