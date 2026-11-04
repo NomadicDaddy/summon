@@ -12,6 +12,7 @@ interface Batch {
 	more: boolean;
 	telegramRefreshError?: string;
 	telegramFresh?: boolean;
+	transportWarning?: string;
 	package?: { id: string; phase: string };
 	room?: { events: { text: string }[] };
 }
@@ -178,12 +179,23 @@ test('outage provenance survives multiple frozen pages after remote recovery', a
 			(await h.invoke([], 'timeout', 'test-agent', '42', '--checkpoint')).out,
 		) as Batch;
 		const id = batch.package?.id;
+		expect(batch.transportWarning).toContain('because the Telegram request failed');
+		const interruptedRead = JSON.parse(
+			(await h.invoke([], 'success', 'test-agent', '42', '--checkpoint')).out,
+		) as Batch;
+		expect(interruptedRead).toMatchObject({
+			receipt: batch.receipt,
+			telegramFresh: false,
+			telegramRefreshError: batch.telegramRefreshError,
+			transportWarning: batch.transportWarning,
+		});
 		let pages = 0;
 		while (batch.package?.phase === 'page') {
 			expect(batch).toMatchObject({
 				telegramFresh: false,
 				telegramRefreshError: 'The Telegram request timed out.',
 			});
+			if (pages > 0) expect(batch.transportWarning).toContain('cached-only (request failed)');
 			pages++;
 			batch = JSON.parse(
 				(await h.invoke([batch.receipt], 'success', 'test-agent', '42', '--checkpoint'))
@@ -196,11 +208,13 @@ test('outage provenance survives multiple frozen pages after remote recovery', a
 			telegramFresh: false,
 			telegramRefreshError: 'The Telegram request timed out.',
 		});
+		expect(batch.transportWarning).toContain('cached-only (request failed)');
 		const quiet = JSON.parse(
 			(await h.invoke([batch.receipt], 'success', 'test-agent', '42', '--checkpoint')).out,
 		) as Batch;
 		expect(quiet.room?.events[0]?.text).toContain('Telegram refresh recovered.');
 		expect(quiet.telegramFresh).toBeUndefined();
+		expect(quiet.transportWarning).toBeUndefined();
 	} finally {
 		await h.dispose();
 	}
