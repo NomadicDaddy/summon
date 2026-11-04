@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="14 11.5 100 100">
-	<!-- The summon bell without its tile, as in the app icon (src/desktop/icons/summon.svg) and the Team Window masthead: Phillip confirmed it at #6497, 2026-10-05. -->
-	<path d="M46 60 C46 46 82 46 82 60 C82 74 86 84 100 92 Q104 95 103 98 L25 98 Q24 95 28 92 C42 84 46 74 46 60 Z" fill="#87d6b2" stroke="#C68F44" stroke-width="5" stroke-linejoin="round"/>
-	<circle cx="64" cy="104" r="6" fill="#C68F44"/>
-	<rect x="56" y="40" width="16" height="7" rx="2.5" fill="#C68F44"/>
-	<path d="M58 42 C56 36 55 30 58 24 Q64 18 70 24 C73 30 72 36 70 42 Z" fill="#C68F44"/>
-	<circle cx="64" cy="18" r="5" fill="#C68F44"/>
-</svg>

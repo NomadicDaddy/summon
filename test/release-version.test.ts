@@ -55,9 +55,8 @@ test('test-only and documentation-only commits report the exemption', async () =
 	expect(result.version).toBe('0.1.0');
 });
 
-test('public site and root policy prose retain the application version', async () => {
+test('root policy prose retains the application version', async () => {
 	const f = await fixture();
-	await f.write('site/index.html', '<h1>Public documentation</h1>\n');
 	for (const path of ['SECURITY.md', 'PRIVACY.md', 'SUPPORT.md'])
 		await f.write(path, 'Current project policy.\n');
 	expect((await checkWorkingReleaseVersion(f.root)).reason).toBe('test/documentation-only');

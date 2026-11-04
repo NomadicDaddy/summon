@@ -92,7 +92,6 @@ function documentationOrTest(path: string): boolean {
 	return (
 		path.startsWith('test/') ||
 		path.startsWith('docs/') ||
-		path.startsWith('site/') ||
 		['PRIVACY.md', 'SECURITY.md', 'SUPPORT.md'].includes(path) ||
 		/^(?:README|CHANGELOG|CONTRIBUTING|LICENSE|THIRD-PARTY-NOTICES)(?:\.[^/]*)?$/.test(path)
 	);

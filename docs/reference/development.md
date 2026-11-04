@@ -34,10 +34,8 @@ historical runtime changes still refuse. Unpublished candidates retain the norma
 Installed-source comparisons use the same temporary numeric-ordering policy when sealing a new
 candidate.
 
-Test and documentation changes may retain the version, including the separately published
-`site/` front-door documentation and root `PRIVACY.md`, `SECURITY.md` and `SUPPORT.md` prose.
-The site is uploaded as-is by the Pages workflow and is outside the application's package files;
-this exemption does not permit publishing it. Formatting-only changes qualify when
+Test and documentation changes may retain the version, including root `PRIVACY.md`,
+`SECURITY.md` and `SUPPORT.md` prose. Formatting-only changes qualify when
 the installed formatter produces identical output for both versions; an unsupported format or
 missing formatter cannot establish that exemption. The report names the baseline and reason.
 These checks supplement review and applicable merge authority; a matching version is not permission

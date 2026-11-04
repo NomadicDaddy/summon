@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="14 11.5 100 100" width="128" height="128">
-	<!-- The Summon app icon: the hand bell without its orange tile, the handle, clapper and outline inked in Summon brass (Phillip chose the untiled bell for the masthead, option C, and confirmed it as the app icon at #6497, 2026-10-05). The viewBox crops to the bell so it fills the icon box. summon-{32..256}.png are this file exported at those sizes, summon-16.png and summon-24.png come from summon-small.svg, and summon.ico carries all seven; site/favicon.svg is the same drawing. -->
+	<!-- The Summon app icon: the hand bell without its orange tile, the handle, clapper and outline inked in Summon brass (Phillip chose the untiled bell for the masthead, option C, and confirmed it as the app icon at #6497, 2026-10-05). The viewBox crops to the bell so it fills the icon box. summon-{32..256}.png are this file exported at those sizes, summon-16.png and summon-24.png come from summon-small.svg, and summon.ico carries all seven. -->
 	<path d="M46 60 C46 46 82 46 82 60 C82 74 86 84 100 92 Q104 95 103 98 L25 98 Q24 95 28 92 C42 84 46 74 46 60 Z" fill="#87d6b2" stroke="#C68F44" stroke-width="5" stroke-linejoin="round"/>
 	<circle cx="64" cy="104" r="6" fill="#C68F44"/>
 	<rect x="56" y="40" width="16" height="7" rx="2.5" fill="#C68F44"/>

@@ -2,6 +2,13 @@
 
 Notable changes to summon are recorded here using Keep a Changelog categories and semantic versions.
 
+## [1.0.4] - 2026-11-04
+
+### Removed
+
+- The old GitHub Pages workflow and standalone `site/` have been removed after the Summon page
+  moved to beazley.org. This source change does not switch off Pages in repository settings.
+
 ## [1.0.3] - 2026-11-04
 
 ### Changed
