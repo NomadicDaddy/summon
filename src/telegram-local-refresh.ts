@@ -10,6 +10,9 @@ import { syncTelegram } from './telegram-sync.ts';
 /** Why a refresh could not complete: another process held the poll lock, or the request failed. */
 export type TelegramUnavailable = 'refresh-busy' | 'request-failed';
 
+export const TELEGRAM_REFRESH_BUSY_REASON =
+	'Another Telegram refresh is still in progress after a short wait; using recorded state.';
+
 /** A remote outage cannot veto local work. Local state/configuration errors still propagate. */
 export async function refreshTelegramForLocal(
 	config: TelegramConfig,
@@ -23,10 +26,7 @@ export async function refreshTelegramForLocal(
 			error instanceof LockBusyError &&
 			error.path === join(telegramRoot(config), 'poll.lock')
 		) {
-			onUnavailable(
-				'Another Telegram refresh is still in progress after a short wait; using recorded state.',
-				'refresh-busy',
-			);
+			onUnavailable(TELEGRAM_REFRESH_BUSY_REASON, 'refresh-busy');
 			return;
 		}
 		if (!(error instanceof TelegramRequestError)) throw error;

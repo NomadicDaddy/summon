@@ -2,6 +2,14 @@
 
 Notable changes to summon are recorded here using Keep a Changelog categories and semantic versions.
 
+## [1.1.0] - Unreleased
+
+### Changed
+
+- Checkpoint output explains an incomplete Telegram refresh in detail on the first page, then uses
+  a shorter cached-only warning on later pages and the final receipt. Every page retains the full
+  refresh reason and `telegramFresh: false`; poll contention remains distinct from request failure.
+
 ## [1.0.4] - 2026-11-04
 
 ### Removed

@@ -7,6 +7,7 @@ import {
 	CATCH_UP_THRESHOLD,
 	checkpointWork,
 } from './checkpoint-work.ts';
+import { TELEGRAM_REFRESH_BUSY_REASON } from './telegram-local-refresh.ts';
 
 const JSON_DELIVERY_LIMIT = 28_000;
 const TEXT_DELIVERY_LIMIT = 24_000;
@@ -43,13 +44,30 @@ interface PagePosition {
 	nextForMePage: number | null;
 }
 
-export function checkpointTransport(error?: string) {
+function transportWarning(error: string, concise: boolean): string {
+	const busy = error === TELEGRAM_REFRESH_BUSY_REASON;
+	const kind = busy ? 'refresh busy' : 'request failed';
+	if (concise)
+		return (
+			`Telegram refresh is incomplete: cached-only (${kind}); ` +
+			'unseen remote updates may remain.'
+		);
+	const cause = busy
+		? 'another receiver held the poll lock after a short wait'
+		: 'the Telegram request failed';
+	return (
+		`Telegram refresh is incomplete because ${cause}. ` +
+		'This checkpoint covers local and cached records only; unseen remote updates may remain. ' +
+		'Continue receipts normally; retry Telegram at the next ordinary boundary.'
+	);
+}
+
+export function checkpointTransport(error?: string, concise = false) {
 	return error
 		? {
 				telegramRefreshError: error,
 				telegramFresh: false,
-				transportWarning:
-					'Telegram refresh is incomplete. This checkpoint covers local and cached records only; unseen remote updates remain pending. Continue receipts normally; retry Telegram at the next ordinary boundary.',
+				transportWarning: transportWarning(error, concise),
 			}
 		: {};
 }
@@ -81,7 +99,7 @@ function delivery(
 			? { catchUpAdvice: catchUpAdvice(position.pages, position.items) }
 			: {}),
 		...(work ? { work: checkpointWork() } : {}),
-		...checkpointTransport(error),
+		...checkpointTransport(error, position.phase === 'final' || position.page > 1),
 		...(replay
 			? {
 					warning:
@@ -152,13 +170,16 @@ export function checkpointPageFits(payload: Record<string, unknown>, error?: str
 	};
 	if (Buffer.byteLength(JSON.stringify(payload)) > PAYLOAD_LIMIT) return false;
 	// false is longer than true, and issued is the longer of the two replay warnings.
-	const output = delivery(payload, uuid, position, false, true, error, 'issued');
-	const json = `${JSON.stringify(output)}\n`;
-	const text = `${checkpointText(output, true)}\n`;
-	return (
-		Buffer.byteLength(json) <= JSON_DELIVERY_LIMIT &&
-		json.length <= JSON_DELIVERY_LIMIT &&
-		Buffer.byteLength(text) <= TEXT_DELIVERY_LIMIT &&
-		text.length <= TEXT_DELIVERY_LIMIT
-	);
+	const fits = (candidate: PagePosition): boolean => {
+		const output = delivery(payload, uuid, candidate, false, true, error, 'issued');
+		const json = `${JSON.stringify(output)}\n`;
+		const text = `${checkpointText(output, true)}\n`;
+		return (
+			Buffer.byteLength(json) <= JSON_DELIVERY_LIMIT &&
+			json.length <= JSON_DELIVERY_LIMIT &&
+			Buffer.byteLength(text) <= TEXT_DELIVERY_LIMIT &&
+			text.length <= TEXT_DELIVERY_LIMIT
+		);
+	};
+	return fits({ ...position, page: 1 }) && fits(position);
 }
