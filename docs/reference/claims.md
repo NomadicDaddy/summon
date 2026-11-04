@@ -3,7 +3,7 @@
 The team's designated editor maintains `<SUMMON_HOME>/team-rules.md` (normally
 `~/.summon/team-default/team-rules.md`); teammates propose corrections to that editor. Rules enter
 every provider's startup prompt before personal notes. Human directives need exact room citations;
-earned rules need the dated correction that justified them. A 40-line, 8000-character budget keeps
+earned rules need the dated correction that justified them. A 40-line, 10,000-character budget keeps
 this a short rulebook. Rules over budget still all reach the prompt; each start prints a warning
 naming the size. A rule without its source or earned correction refuses the start. Changes take effect
 on subsequent provider launches without rebuilding. A team without rules or provenance launches
@@ -16,7 +16,7 @@ The editor may number rules as `- R1 Read the decision.` and put their evidence 
 leading zeros. Each numbered rule needs exactly one matching entry; duplicate numbers, missing
 evidence, malformed entries and entries without a rule refuse startup. Blank lines and Markdown
 headings may separate provenance entries. The provenance stays out of provider prompts and the
-40-line, 8000-character rules budget. Existing unnumbered rules with an immediately following,
+40-line, 10,000-character rules budget. Existing unnumbered rules with an immediately following,
 two-space-indented source or earned line remain valid during the split. The author-time
 `validateTeamRules(rules, provenance)` check validates both strings and enforces the rules budget.
 
