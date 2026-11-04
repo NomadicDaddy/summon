@@ -52,7 +52,8 @@ test.each(['claude', 'codex', 'grok', 'kilo'] as const)(
 		const pending = await receive(['--pending']);
 		expect(pending.view).toBe('pending');
 		expect(pending.messages[0]?.header.id).toBe(id);
-		expect(pending.instruction).toContain('Messages remain pending until handled');
+		expect(pending.instruction).toContain('other mail remains pending until handled');
+		expect(pending.instruction).toContain('recoverable with --mail history');
 	},
 );
 

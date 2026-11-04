@@ -69,7 +69,12 @@ export async function recordRead(
 		});
 		if (actual.kind !== 'receipt' || actual.from !== mail.from)
 			throw new Error('Mail receipt classification changed; message remains in the inbox.');
-		await archiveMessage(mailboxPath(name), mail.id);
+		await locked(statePath(name, mail.id, 'handling.lock'), async () => {
+			// Deferred because the hold module imports this module's public mail functions.
+			const { hasPendingHold } = await import('./mail-attention.ts');
+			if (await hasPendingHold(name, mail.id)) return;
+			await archiveMessage(mailboxPath(name), mail.id);
+		});
 	});
 }
 
@@ -185,7 +190,7 @@ export async function receiveMail(
 	}
 	// Assemble every body before recording coverage; a later body-read failure must not hide an
 	// earlier request from the unread view when no page could be returned. Lost command output is
-	// still recoverable through the explicit pending view; only checkpoint has a receipt protocol.
+	// recoverable through pending mail or receipt history; only checkpoint has a receipt protocol.
 	if (markRead && !archive)
 		for (const message of messages)
 			if (message.text !== undefined) await recordRead(name, message.header);
@@ -196,7 +201,7 @@ export async function receiveMail(
 		view,
 		instruction: archive
 			? 'Read-only archive; no read coverage or handling state changed.'
-			: `${markRead ? 'Complete returned bodies are marked read; header-only entries are not.' : 'This view does not mark messages read.'} Reading is not handling. Messages remain pending until handled and explicitly acknowledged with --mail ack-self <id>${markRead ? '; fully read receipt-kind bookkeeping is archived automatically.' : '.'}`,
+			: `${markRead ? 'Complete returned bodies are marked read; header-only entries are not.' : 'This view does not mark messages read.'} Reading is not handling. ${markRead ? 'Fully read receipt-kind bookkeeping without a pending approval hold is archived automatically and recoverable with --mail history; other mail remains pending until handled and explicitly acknowledged with --mail ack-self <id>.' : 'Messages remain pending until handled and explicitly acknowledged with --mail ack-self <id>.'}`,
 		...(view === 'unread' ? { pendingCount: mails.length, unreadCount: unread.size } : {}),
 	};
 }

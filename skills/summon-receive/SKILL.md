@@ -89,8 +89,8 @@ read, archives it, approves work, or substitutes for complete checkpoint coverag
 The first content page freezes a package. Pass every page receipt in order, then pass the separate
 `package.phase: "final"` receipt to commit its frozen room and Telegram cursors. Later arrivals
 belong to the next package. A page receipt records mail read coverage only for bodies completed
-on that page. A fully read `Kind: receipt` message is then archived automatically, with its exact
-body available in own history. Other kinds remain pending. The final receipt is read coverage,
+on that page. A fully read `Kind: receipt` message without a pending approval hold is then archived
+automatically, with its exact body available in own history. Held mail and other kinds remain pending. The final receipt is read coverage,
 never approval, handling or task completion.
 Use `summon --checkpoint manifest [cursor]` to inspect source bounds, addressed items, hashes and
 page ranges. This index never replaces reading other bodies. New pages pack by complete output
@@ -198,9 +198,9 @@ Ending a turn with nothing to do is sleeping, it is yours to decide, and any cal
 It is not hibernation, which only the operator applies and only `--unhibernate` ends. Never
 hibernate yourself.
 For explicit mailbox inspection or oversized content, run `summon --mail receive`.
-It shows unread mail newest first. A fully read `Kind: receipt` message is archived automatically
-after read coverage; header-only or partial reads leave it in the inbox. Other kinds remain pending
-until explicitly handled.
+It shows unread mail newest first. A fully read `Kind: receipt` message without a pending approval
+hold is archived automatically after read coverage; header-only, partial or held reads leave it in
+the inbox. Other kinds remain pending until explicitly handled.
 Its counts describe valid pending and unread messages before the returned page is marked read.
 Follow its continuation cursor with `summon --mail receive <cursor>` until the batch is covered;
 new arrivals above that cursor appear on the next read without a cursor. A fully read receipt-kind
@@ -208,8 +208,10 @@ cursor remains valid after its automatic archive. If another handled boundary is
 cursor expires, restart without a cursor; already read requests remain skipped.
 Use `summon --mail receive --pending [cursor]` to inspect every unresolved inbox request,
 including already read or held requests. An empty unread view is not proof that work is handled.
-If a direct receive command's output is lost, recover with `--pending`; direct receive has no
-package receipt. Prefer checkpoint when exact output replay and receipt-bound coverage are needed.
+If a direct receive command's output is lost, recover substantive mail with `--pending` and
+automatically archived receipt-kind mail with `--mail history` or `--mail read-history <id>`;
+direct receive has no package receipt. Prefer checkpoint when exact output replay and receipt-bound
+coverage are needed.
 Either receive view takes `--kind <kind>` and `--since <message-id>` to narrow a page to one kind
 of mail or to mail sent after a message you received. A filtered page is not complete coverage:
 the mail it omits keeps its unread and pending state. Continue with the same filters and cursor,
@@ -257,8 +259,8 @@ Changing the proposed action requires a new hold. On approval, recheck present c
 only within the approved scope. On decline, report the rejection without performing the action.
 
 Reply with results or limitations using `summon --mail reply <id> <text>`. Archive a handled
-substantive request with `summon --mail ack-self <id>`; fully read receipt-kind bookkeeping needs
-no manual acknowledgement. Read and confirmed are not completed. `ack-self`'s
+substantive request with `summon --mail ack-self <id>`; fully read receipt-kind bookkeeping without
+a pending approval hold needs no manual acknowledgement. Read and confirmed are not completed. `ack-self`'s
 only handling check is an open hold. It does not check that you read the message in full,
 confirmed it or replied, so never put it in the same batch as `confirm` or `reply`. Wait for their
 results, finish handling, then acknowledge. `confirm` needs the inbox copy; after an

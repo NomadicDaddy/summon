@@ -26,6 +26,7 @@ const mailPath = (folder: 'inbox' | 'archive', id: string) =>
 
 interface Page {
 	messages: { header: { id: string; kind: string }; text?: string; oversized?: boolean }[];
+	instruction: string;
 	next: string | null;
 	pendingCount?: number;
 	unreadCount?: number;
@@ -59,6 +60,7 @@ test('a complete receive archives only receipt-kind bookkeeping and retains exac
 	const first = await receive();
 	expect(first.messages).toHaveLength(6);
 	expect(first.unreadCount).toBe(6);
+	expect(first.instruction).toContain('--mail history');
 	expect(await Bun.file(mailPath('inbox', receipt)).exists()).toBe(false);
 	expect(await readFile(mailPath('archive', receipt), 'utf8')).toBe(body);
 	for (const id of [request, reply, confirmation, notice, unknown])
@@ -153,7 +155,7 @@ test('checkpoint replay and concurrent receive archive one exact receipt after p
 	expect(await readFile(mailPath('archive', id), 'utf8')).toBe(body);
 });
 
-test('a held request keeps its explicit handling and cannot be archived by receipt-shaped prose', async () => {
+test('held work stays pending even when its body or later kind resembles a receipt', async () => {
 	const id = await sendMessage('beta', 'alpha', 'Read receipt for another message');
 	await receive();
 	expect((await fixture.run(['--mail', 'confirm', id, 'Needs approval'], 'alpha')).code).toBe(0);
@@ -168,6 +170,10 @@ test('a held request keeps its explicit handling and cannot be archived by recei
 	expect(await Bun.file(mailPath('inbox', id)).exists()).toBe(true);
 	expect(await Bun.file(mailPath('archive', id)).exists()).toBe(false);
 	expect((await fixture.run(['--mail', 'ack-self', id], 'alpha')).code).toBe(1);
+	await setKind(id, 'receipt');
+	expect((await receive(['--pending'])).messages[0]?.header.kind).toBe('receipt');
+	expect(await Bun.file(mailPath('inbox', id)).exists()).toBe(true);
+	expect(await Bun.file(mailPath('archive', id)).exists()).toBe(false);
 });
 
 test('auto-archive reports a conflicting retained body without replacing either copy', async () => {

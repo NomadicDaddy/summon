@@ -169,10 +169,14 @@ export async function readHoldChunk(
 	return { text: chunk, end: offset + count, size: bytes.length };
 }
 
+export async function hasPendingHold(name: string, id: string): Promise<boolean> {
+	return (await ownHolds(name)).some(
+		(hold) => hold.messageId === id && hold.decision === 'pending',
+	);
+}
+
 export async function assertNotHeld(name: string, id: string): Promise<void> {
-	if (
-		(await ownHolds(name)).some((hold) => hold.messageId === id && hold.decision === 'pending')
-	) {
+	if (await hasPendingHold(name, id)) {
 		throw new Error('This request is held for user approval; leave it pending.');
 	}
 }
