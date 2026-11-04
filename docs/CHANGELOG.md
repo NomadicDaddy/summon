@@ -2,6 +2,13 @@
 
 Notable changes to summon are recorded here using Keep a Changelog categories and semantic versions.
 
+## [1.0.3] - 2026-11-04
+
+### Changed
+
+- Team rules may now contain up to 10,000 characters while keeping the 40-line and provenance
+  checks. Valid rules above that budget still load in full with a startup warning.
+
 ## [1.0.2] - 2026-11-03
 
 ### Fixed

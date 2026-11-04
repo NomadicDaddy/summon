@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { storageRoot } from './store.ts';
 
 const MAX_LINES = 40;
-const MAX_CHARACTERS = 8000;
+const MAX_CHARACTERS = 10_000;
 const SOURCE = /^(source: #\d+ ".+"|earned: \d{4}-\d{2}-\d{2}, .+)$/;
 
 function ruleLines(text: string): string[] {

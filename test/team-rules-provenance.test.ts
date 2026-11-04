@@ -165,15 +165,15 @@ test('large provenance does not consume the unchanged rules budget', async () =>
 test('numbered rules retain the exact author budget and startup warning behavior', async () => {
 	const lines = Array.from({ length: 40 }, (_, i) => `- R${i + 1} Rule.`);
 	const sources = lines.map((_, i) => `R${i + 1}: source: #${i + 1} "Yes"`).join('\n');
-	lines[0] = `${lines[0] ?? ''}${'x'.repeat(8000 - lines.join('\n').length)}`;
+	lines[0] = `${lines[0] ?? ''}${'x'.repeat(10_000 - lines.join('\n').length)}`;
 	const boundary = lines.join('\n');
 	validateTeamRules(boundary, sources);
-	expect(() => validateTeamRules(`${boundary}x`, sources)).toThrow('8001 characters');
+	expect(() => validateTeamRules(`${boundary}x`, sources)).toThrow('10001 characters');
 	expect(() => validateTeamRules(`${boundary}\nExtra prose.`, sources)).toThrow('41 lines');
 	await withFiles(`${boundary}x`, sources, () => {
 		const notes: string[] = [];
 		expect(teamRules((note) => notes.push(note))).toBe(`${boundary}x`);
 		expect(notes).toHaveLength(1);
-		expect(notes[0]).toContain('8001 characters (limit 8000)');
+		expect(notes[0]).toContain('10001 characters (limit 10000)');
 	});
 });
