@@ -2,6 +2,15 @@
 
 Notable changes to summon are recorded here using Keep a Changelog categories and semantic versions.
 
+## [1.0.2] - 2026-11-03
+
+### Fixed
+
+- Published claims now accept a Windows target that mixes short and long spellings already present
+  in the owner's configured and real directory paths, after proving the candidate owner prefix
+  names that same directory. Unrelated aliases, links, outside targets and private paths remain
+  refused.
+
 ## [1.0.1] - 2026-11-03
 
 ### Fixed

@@ -24,6 +24,7 @@ test('a root change is never a spelling alias', () => {
 // A real 8.3 alias needs Windows and a volume that generates short names. Where either is missing
 // these controls are reported as skipped, never as passed.
 let root: string | undefined;
+let rootShort: string | undefined;
 let owner = '';
 let ownerShort: string | undefined;
 let credentialsShort: string | undefined;
@@ -67,6 +68,8 @@ if (process.platform === 'win32') {
 	await symlink(join(owner, 'inside target'), join(owner, 'inner alias'), 'junction');
 	await symlink(join(root, 'outside target'), join(owner, 'escape'), 'junction');
 	ownerShort = await shortAlias(owner);
+	rootShort = ownerShort ? dirname(ownerShort) : undefined;
+	if (rootShort?.toLowerCase() === root.toLowerCase()) rootShort = undefined;
 	credentialsShort = await shortAlias(join(owner, 'credentials-folder'));
 	insideShort = await shortAlias(join(owner, 'inside target'));
 	if (!ownerShort || !credentialsShort || !insideShort)
@@ -112,6 +115,30 @@ test.skipIf(process.platform !== 'win32')(
 	},
 );
 
+test.skipIf(process.platform !== 'win32')(
+	'claims refuse a mixed owner prefix without probing it when the root is a junction',
+	async () => {
+		if (!root) throw new Error('Missing fixture root.');
+		const written = join(root, 'junction source', 'owner link');
+		const real = join(root, 'junction destination', 'owner real');
+		const unrelated = join(root, 'junction source', 'owner real');
+		await mkdir(real, { recursive: true });
+		await mkdir(unrelated, { recursive: true });
+		await symlink(real, written, 'junction');
+		await writeFile(join(unrelated, 'evidence.txt'), 'unrelated\n');
+		const probe = spyOn(identity, 'redirectedComponent');
+		try {
+			expect(
+				(await claim(['file-exists', join(unrelated, 'evidence.txt')], written)).state,
+			).toBe('UNVERIFIABLE');
+			expect(probe).toHaveBeenCalledWith(written);
+			expect(probe).not.toHaveBeenCalledWith(unrelated);
+		} finally {
+			probe.mockRestore();
+		}
+	},
+);
+
 test.skipIf(unsupported)('a short-name alias is an identity, not a link', async () => {
 	if (!ownerShort) throw new Error('Missing alias control.');
 	expect(await redirectedComponent(join(ownerShort, 'evidence.txt'))).toBeUndefined();
@@ -130,10 +157,9 @@ test.skipIf(unsupported)('claims accept an aliased owner root and target', async
 	if (!ownerShort || !insideShort) throw new Error('Missing alias control.');
 	const target = join(ownerShort, 'evidence.txt');
 	expect((await claim(['file-exists', target], ownerShort)).state).toBe('WEAK');
-	expect(
-		(await claim(['file-exists', join(await realpath(ownerShort), 'evidence.txt')], ownerShort))
-			.state,
-	).toBe('WEAK');
+	expect((await claim(['file-exists', join(owner, 'evidence.txt')], ownerShort)).state).toBe(
+		'WEAK',
+	);
 	const inner = join(owner, basename(insideShort), 'inner.txt');
 	expect((await claim(['file-exists', inner], owner)).state).toBe('WEAK');
 	expect((await claim(['file-contains', target, 'expected'], ownerShort)).state).toBe(
@@ -143,6 +169,34 @@ test.skipIf(unsupported)('claims accept an aliased owner root and target', async
 		'DISPUTED',
 	);
 });
+
+test.skipIf(unsupported || !rootShort)(
+	'claims accept mixed long and short spellings already present in the owner root',
+	async () => {
+		if (!rootShort || !ownerShort) throw new Error('Missing alias control.');
+		const mixedOwner = join(rootShort, 'long owner directory');
+		expect(
+			(await claim(['file-exists', join(mixedOwner, 'evidence.txt')], ownerShort)).state,
+		).toBe('WEAK');
+		// A newly shortened owner component is still outside a root configured with its long name.
+		expect(
+			(await claim(['file-exists', join(ownerShort, 'evidence.txt')], mixedOwner)).state,
+		).toBe('UNVERIFIABLE');
+		const probe = spyOn(identity, 'redirectedComponent');
+		try {
+			expect(
+				(await claim(['file-exists', join(rootShort, 'outside target', 'x')], ownerShort))
+					.state,
+			).toBe('UNVERIFIABLE');
+			expect(probe).not.toHaveBeenCalled();
+		} finally {
+			probe.mockRestore();
+		}
+		expect(
+			(await claim(['file-exists', join(mixedOwner, 'escape', 'x')], ownerShort)).state,
+		).toBe('UNVERIFIABLE');
+	},
+);
 
 test.skipIf(unsupported)(
 	'claims refuse a separately shortened root spelling before probing it',

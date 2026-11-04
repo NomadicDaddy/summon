@@ -6,7 +6,7 @@ import type { Claim, ClaimResult } from './claims-model.ts';
 
 import { requireExecutable } from './executable.ts';
 import { localEvents } from './local-room.ts';
-import { canonicalPath, redirectedComponent } from './path-identity.ts';
+import { canonicalPath, redirectedComponent, sameRoot } from './path-identity.ts';
 
 const forbidden =
 	/(?:^|[\\/])(?:secrets|\.git|\.codex|\.claude|\.summon|mailboxes|\.ssh|\.aws|\.wrangler|\.env(?:\..*)?)(?:[\\/]|$)|(?:credential|password|token|secret|private[-_]?key)/i;
@@ -14,6 +14,22 @@ const inside = (root: string, path: string): boolean => {
 	const part = relative(root, path);
 	return !isAbsolute(part) && part !== '..' && !part.startsWith(`..${sep}`);
 };
+
+/** A target may mix the written and real spellings of aliases already present in the owner root. */
+function mixedOwnerRoot(target: string, written: string, real: string): string | undefined {
+	if (process.platform !== 'win32' || !sameRoot(written, real)) return undefined;
+	const writtenParts = written.split(sep);
+	const realParts = real.split(sep);
+	const targetParts = target.split(sep);
+	if (writtenParts.length !== realParts.length || targetParts.length < writtenParts.length)
+		return undefined;
+	for (let i = 0; i < writtenParts.length; i++) {
+		const part = targetParts[i]?.toLowerCase();
+		if (part !== writtenParts[i]?.toLowerCase() && part !== realParts[i]?.toLowerCase())
+			return undefined;
+	}
+	return targetParts.slice(0, writtenParts.length).join(sep);
+}
 
 /** No network paths, private stores, junction escapes or alternate data streams. */
 async function claimPath(path: unknown, root: string): Promise<string> {
@@ -27,15 +43,26 @@ async function claimPath(path: unknown, root: string): Promise<string> {
 	)
 		throw new Error('Target is outside published-claim scope.');
 	const base = await realpath(root);
+	const written = resolve(root);
 	const target = resolve(path);
-	// Containment is checked lexically first, against the root as written and as real, so a target
-	// outside it is refused before anything on its path is probed.
-	if (
-		forbidden.test(base) ||
-		forbidden.test(target) ||
-		(!inside(resolve(root), target) && !inside(base, target))
-	)
+	if (forbidden.test(base) || forbidden.test(target))
 		throw new Error('Target must be inside the owner working directory.');
+	// Containment is checked first against the written and real root. Only a mix of aliases already
+	// present in those roots may probe an alternate owner prefix; an outside target is never probed.
+	let contained = inside(written, target) || inside(base, target);
+	if (!contained) {
+		const aliasRoot = mixedOwnerRoot(target, written, base);
+		// A redirected configured root could mix into an unrelated sibling. Verify the root before
+		// probing only the candidate owner prefix; a separately shortened root stays outside.
+		if (
+			aliasRoot &&
+			!(await redirectedComponent(written)) &&
+			!(await redirectedComponent(aliasRoot)) &&
+			(await canonicalPath(aliasRoot)).toLowerCase() === base.toLowerCase()
+		)
+			contained = true;
+	}
+	if (!contained) throw new Error('Target must be inside the owner working directory.');
 	// Links and redirected drives are refused on the path as written. A spelling alias (an 8.3 short
 	// name) is neither, so the target's identity decides containment and the forbidden names.
 	if (await redirectedComponent(target)) throw new Error('Links are not claim targets.');
