@@ -1,34 +1,23 @@
 import { createHash } from 'node:crypto';
-import { open, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
 
-import type { SystemMail, SystemMailStatus } from './system-mail.ts';
+import type { MailChunk } from './mail-read-bytes.ts';
+import type { MailHeader } from './mail-read-index.ts';
 
 import { CommunicationsPausedError, communicationState } from './communication-state.ts';
+import { archiveMessage } from './mail-archive.ts';
 import { notInInbox } from './mail-confirm-missing.ts';
 import { atomicWrite, locked, missing, optionalText } from './mail-files.ts';
-import { coveringInbox, messageId, ownMailbox } from './mail-identity.ts';
+import { messageId, ownMailbox } from './mail-identity.ts';
+import { readChunk } from './mail-read-bytes.ts';
+import { header, readMailIndex, statePath } from './mail-read-index.ts';
 import { alreadyPublished } from './mail-replay.ts';
-import { mailboxPath, pendingMessages, sendMessage } from './mailbox.ts';
+import { mailboxPath, sendMessage } from './mailbox.ts';
 import { slugFor } from './store.ts';
-import { decodeSystemMail, systemMailStatus } from './system-mail.ts';
 
-export interface MailHeader {
-	id: string;
-	from: string;
-	to: string;
-	sent: string;
-	kind: string;
-	size: number;
-	systemNotice?: SystemMail;
-	noticeStatus?: SystemMailStatus;
-}
-
-export interface MailChunk {
-	text: string;
-	end: number;
-	size: number;
-}
+export { assertReadWindow, boundedBytes, readChunk } from './mail-read-bytes.ts';
+export type { MailChunk } from './mail-read-bytes.ts';
+export { header, readMailIndex, statePath } from './mail-read-index.ts';
+export type { MailHeader } from './mail-read-index.ts';
 
 export interface ReceivedMail {
 	messages: { header: MailHeader; text?: string; oversized?: boolean }[];
@@ -42,103 +31,6 @@ export interface ReceivedMail {
 
 export type MailView = 'pending' | 'unread' | 'history';
 
-export function statePath(name: string, id: string, state: string): string {
-	ownMailbox(name);
-	return join(mailboxPath(name), 'delivery', `${messageId(id)}.${state}`);
-}
-
-export function assertReadWindow(offset: number, limit: number): void {
-	if (
-		!Number.isSafeInteger(offset) ||
-		offset < 0 ||
-		!Number.isSafeInteger(limit) ||
-		limit < 1 ||
-		limit > 32768
-	) {
-		throw new Error('Read offset must be nonnegative; limit must be 1 through 32768 bytes.');
-	}
-}
-
-/** Returns the longest valid UTF-8 prefix of buffer that fits in limit. */
-export function boundedBytes(buffer: Buffer, limit: number): { text: string; count: number } {
-	const bytesRead = buffer.length;
-	if (bytesRead && ((buffer[0] ?? 0) & 0xc0) === 0x80)
-		throw new Error('Read offset splits a UTF-8 character; use the previous chunk end.');
-	let count = Math.min(limit, bytesRead);
-	while (count < bytesRead && ((buffer[count] ?? 0) & 0xc0) === 0x80) count -= 1;
-	if (bytesRead && !count) throw new Error('Limit is too small for the next UTF-8 character.');
-	return { text: buffer.subarray(0, count).toString('utf8'), count };
-}
-
-export async function readChunk(
-	name: string,
-	id: string,
-	offset = 0,
-	limit = 32768,
-	archive = false,
-): Promise<MailChunk> {
-	// Readable by the owner, or by whoever is recorded as covering them.
-	if (archive) ownMailbox(name);
-	else await coveringInbox(name);
-	assertReadWindow(offset, limit);
-	const file = await open(
-		join(mailboxPath(name), archive ? 'archive' : 'inbox', `${messageId(id)}.md`),
-		'r',
-	);
-	try {
-		const { size } = await file.stat();
-		if (offset > size) throw new Error('Read offset exceeds message size.');
-		const buffer = Buffer.alloc(limit + 4);
-		const { bytesRead } = await file.read(buffer, 0, limit + 4, offset);
-		const { text, count } = boundedBytes(buffer.subarray(0, bytesRead), limit);
-		return { text, end: offset + count, size };
-	} finally {
-		await file.close();
-	}
-}
-
-export async function header(name: string, id: string, archive = false): Promise<MailHeader> {
-	const { text, size } = await readChunk(name, id, 0, 2048, archive);
-	const boundary = text.indexOf('\n\n');
-	if (boundary < 0) throw new Error(`Malformed message header: ${id}`);
-	const fields = new Map(
-		text
-			.slice(0, boundary)
-			.split('\n')
-			.map((line) => {
-				const colon = line.indexOf(': ');
-				return [line.slice(0, colon), line.slice(colon + 2)];
-			}),
-	);
-	const from = slugFor(fields.get('From') ?? '');
-	const to = slugFor(fields.get('To') ?? '');
-	const sent = fields.get('Sent') ?? '';
-	if (fields.get('ID') !== id || to !== slugFor(name) || !Number.isFinite(Date.parse(sent))) {
-		throw new Error(`Malformed message metadata: ${id}`);
-	}
-	const kind = fields.get('Kind') ?? 'request';
-	const generated = fields.get('Summon-Notice');
-	if (generated === undefined) return { id, from, to, sent, size, kind };
-	if (kind !== 'notice' || from !== to) throw new Error(`Malformed generated notice: ${id}`);
-	let systemNotice: SystemMail;
-	try {
-		systemNotice = decodeSystemMail(generated);
-	} catch {
-		// Version-skewed provenance cannot justify suppressing this or unrelated mail.
-		return { id, from, to, sent, size, kind, noticeStatus: 'unverifiable' };
-	}
-	return {
-		id,
-		from,
-		to,
-		sent,
-		size,
-		kind,
-		systemNotice,
-		noticeStatus: await systemMailStatus(to, systemNotice),
-	};
-}
-
 function eventId(id: string, event: string): string {
 	const hex = createHash('sha256').update(`${id}:${event}`).digest('hex').slice(0, 32);
 	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
@@ -150,23 +42,34 @@ export async function recordRead(
 ): Promise<void> {
 	const path = statePath(name, mail.id, 'read');
 	await locked(`${path}.lock`, async () => {
-		if (await optionalText(path)) return;
-		if (
-			(mail.kind === 'request' || mail.kind === 'reply') &&
-			!(await communicationState()).paused
-		) {
-			try {
-				await sendMessage(name, mail.from, `Read receipt for ${mail.id}.`, {
-					kind: 'receipt',
-					replyTo: mail.id,
-					id: eventId(`${slugFor(name)}:${mail.id}`, 'read'),
-				});
-			} catch (error: unknown) {
-				if (!(error instanceof CommunicationsPausedError))
-					console.error('Read receipt could not be delivered; mail remains readable.');
+		if (!(await optionalText(path))) {
+			if (
+				(mail.kind === 'request' || mail.kind === 'reply') &&
+				!(await communicationState()).paused
+			) {
+				try {
+					await sendMessage(name, mail.from, `Read receipt for ${mail.id}.`, {
+						kind: 'receipt',
+						replyTo: mail.id,
+						id: eventId(`${slugFor(name)}:${mail.id}`, 'read'),
+					});
+				} catch (error: unknown) {
+					if (!(error instanceof CommunicationsPausedError))
+						console.error(
+							'Read receipt could not be delivered; mail remains readable.',
+						);
+				}
 			}
+			await atomicWrite(path, new Date().toISOString());
 		}
-		await atomicWrite(path, new Date().toISOString());
+		if (mail.kind !== 'receipt') return;
+		const actual = await header(name, mail.id).catch((error: unknown) => {
+			if (!missing(error)) throw error;
+			return header(name, mail.id, true);
+		});
+		if (actual.kind !== 'receipt' || actual.from !== mail.from)
+			throw new Error('Mail receipt classification changed; message remains in the inbox.');
+		await archiveMessage(mailboxPath(name), mail.id);
 	});
 }
 
@@ -195,29 +98,30 @@ export async function confirmMessage(name: string, id: string, text: string): Pr
 	});
 }
 
-export async function readMailIndex(name: string, archive = false) {
-	if (archive) ownMailbox(name);
-	const files = archive
-		? await readdir(join(mailboxPath(name), 'archive')).catch((error: unknown) => {
-				if (missing(error)) return [];
-				throw error;
-			})
-		: await pendingMessages(name);
-	const mails: MailHeader[] = [];
-	const errors: { id: string; error: string }[] = [];
-	for (const file of files.filter((entry) => entry.endsWith('.md'))) {
-		const id = file.slice(0, -3);
-		try {
-			mails.push(await header(name, id, archive));
-		} catch (error: unknown) {
-			if (errors.length < 10)
-				errors.push({
-					id,
-					error: (error instanceof Error ? error.message : String(error)).slice(0, 256),
-				});
-		}
+function mailOrder(left: MailHeader, right: MailHeader): number {
+	return left.sent.localeCompare(right.sent) || left.id.localeCompare(right.id);
+}
+
+async function indexedBody(name: string, mail: MailHeader): Promise<MailChunk> {
+	try {
+		return await readChunk(name, mail.id);
+	} catch (error: unknown) {
+		if (!missing(error) || mail.kind !== 'receipt') throw error;
+		ownMailbox(name);
+		if (!(await optionalText(statePath(name, mail.id, 'read')))) throw error;
+		const archived = await header(name, mail.id, true);
+		if (
+			archived.from !== mail.from ||
+			archived.to !== mail.to ||
+			archived.sent !== mail.sent ||
+			archived.kind !== mail.kind ||
+			archived.size !== mail.size
+		)
+			throw new Error(`Archived receipt changed after inbox indexing: ${mail.id}`, {
+				cause: error,
+			});
+		return readChunk(name, mail.id, 0, 32768, true);
 	}
-	return { mails, errors };
 }
 
 export async function receiveMail(
@@ -231,25 +135,44 @@ export async function receiveMail(
 	if (view !== 'pending') ownMailbox(name);
 	const archive = view === 'history';
 	const { mails, errors } = await readMailIndex(name, archive);
-	mails.sort((a, b) => {
-		const order = a.sent.localeCompare(b.sent) || a.id.localeCompare(b.id);
-		return view === 'pending' ? order : -order;
-	});
+	mails.sort((a, b) => (view === 'pending' ? mailOrder(a, b) : mailOrder(b, a)));
 	const cursorIndex = mails.findIndex((mail) => mail.id === cursor);
-	if (cursor && cursorIndex < 0) throw new Error('Receive cursor expired; start receive again.');
+	let afterCursor = mails.slice(cursor ? cursorIndex + 1 : 0);
+	if (cursor && cursorIndex < 0) {
+		if (archive || !(await optionalText(statePath(name, cursor, 'read'))))
+			throw new Error('Receive cursor expired; start receive again.');
+		let archivedCursor: MailHeader;
+		try {
+			archivedCursor = await header(name, cursor, true);
+		} catch (error: unknown) {
+			if (!missing(error)) throw error;
+			throw new Error('Receive cursor expired; start receive again.', { cause: error });
+		}
+		if (archivedCursor.kind !== 'receipt')
+			throw new Error('Receive cursor expired; start receive again.');
+		afterCursor = mails.filter((mail) =>
+			view === 'pending'
+				? mailOrder(mail, archivedCursor) > 0
+				: mailOrder(mail, archivedCursor) < 0,
+		);
+	}
 	const unread = new Set<string>();
 	if (view === 'unread')
 		for (const mail of mails)
 			if (!(await optionalText(statePath(name, mail.id, 'read')))) unread.add(mail.id);
-	const remaining = mails
-		.slice(cursor ? cursorIndex + 1 : 0)
-		.filter((mail) => (view !== 'unread' || unread.has(mail.id)) && select(mail));
+	const remaining = afterCursor.filter(
+		(mail) => (view !== 'unread' || unread.has(mail.id)) && select(mail),
+	);
 	const messages: { header: MailHeader; text?: string; oversized?: boolean }[] = [];
 	let bytes = Buffer.byteLength(JSON.stringify({ errors })) + 512;
 	for (const mail of remaining) {
 		if (messages.length === 10) break;
 		const chunk =
-			mail.size > 24000 ? undefined : await readChunk(name, mail.id, 0, 32768, archive);
+			mail.size > 24000
+				? undefined
+				: archive
+					? await readChunk(name, mail.id, 0, 32768, true)
+					: await indexedBody(name, mail);
 		let entry: { header: MailHeader; text?: string; oversized?: boolean } = chunk
 			? { header: mail, text: chunk.text }
 			: { header: mail, oversized: true };
@@ -273,7 +196,7 @@ export async function receiveMail(
 		view,
 		instruction: archive
 			? 'Read-only archive; no read coverage or handling state changed.'
-			: `${markRead ? 'Complete returned bodies are marked read; header-only entries are not.' : 'This view does not mark messages read.'} Reading is not handling. Messages remain pending until handled and explicitly acknowledged with --mail ack-self <id>.`,
+			: `${markRead ? 'Complete returned bodies are marked read; header-only entries are not.' : 'This view does not mark messages read.'} Reading is not handling. Messages remain pending until handled and explicitly acknowledged with --mail ack-self <id>${markRead ? '; fully read receipt-kind bookkeeping is archived automatically.' : '.'}`,
 		...(view === 'unread' ? { pendingCount: mails.length, unreadCount: unread.size } : {}),
 	};
 }
