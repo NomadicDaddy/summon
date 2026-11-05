@@ -15,8 +15,20 @@ import {
 } from './mail-session.ts';
 import { mailboxPath } from './mailbox.ts';
 import { assertNotificationOpen } from './notification-delivery.ts';
+import { telegramPollInterval } from './receiver-cadence.ts';
+import { nextReceiverDeadline } from './receiver-deadlines.ts';
+import { createReceiverPump } from './receiver-pump.ts';
+import { receiverWatchSources } from './receiver-watch-sources.ts';
+import { pollWakeTelegram } from './telegram-live.ts';
 import { createWakeCoordinator } from './wake-coordinator.ts';
-import { retainWakeError } from './wake-errors.ts';
+import { retainWakeError, wakeErrors } from './wake-errors.ts';
+
+const localWakes = new Map<string, () => void>();
+
+/** A cleared in-memory terminal draft has no file event, so its owned receiver gets a direct wake. */
+export function wakeMailWatcher(name: string, nonce: string): void {
+	localWakes.get(`${name}:${nonce}`)?.();
+}
 
 export interface WakeReceiverOptions {
 	noticeAllowed?: () => Promise<boolean>;
@@ -106,51 +118,93 @@ async function initializeMailWatcher(
 		reason: awaitingReadinessReason,
 	});
 	let stopped = false;
-	let busy: Promise<void> | undefined;
+	let pollBusy: Promise<void> | undefined;
 	const inbox = join(mailboxPath(name), 'inbox');
 	await mkdir(inbox, { recursive: true, mode: 0o700 });
-	const tick = createWakeCoordinator(name, nonce, send, () => !stopped, release.owns, options);
-	const schedule = (): void => {
-		if (!busy)
-			busy = tick()
-				.catch(async (error: unknown) => {
-					try {
-						const retained = await retainWakeError(name, 'receiver cycle', error);
-						await saveDelivery(name, {
-							...(await deliveryStatus(name, nonce)),
-							state: 'queued-only',
-							reason: 'A receiver cycle failed; inspect own wake errors and delivery outcome.',
-						});
-						if (retained.changed)
-							console.error(
-								`${name}: receiver cycle failed; inspect own mail status.`,
-							);
-					} catch {
-						console.error(
-							`${name}: receiver failure could not be retained; inspect own delivery storage before retrying.`,
-						);
-					}
-				})
-				.finally(() => {
-					busy = undefined;
-				});
+	const telegramPollState = {
+		failed: (await wakeErrors(name)).some(
+			(error) =>
+				!error.recoveredAt &&
+				error.observedNonce === nonce &&
+				error.stage === 'telegram inventory',
+		),
 	};
-	let watcher: ReturnType<typeof watch> | undefined;
-	try {
-		watcher = watch(inbox, schedule);
-		watcher.on('error', () => {
-			watcher?.close();
+	const tick = createWakeCoordinator(
+		name,
+		nonce,
+		send,
+		() => !stopped,
+		release.owns,
+		options,
+		telegramPollState,
+	);
+	const reportCycle = async (error: unknown): Promise<void> => {
+		const retained = await retainWakeError(name, 'receiver cycle', error);
+		await saveDelivery(name, {
+			...(await deliveryStatus(name, nonce)),
+			state: 'queued-only',
+			reason: 'A receiver cycle failed; inspect own wake errors and delivery outcome.',
 		});
-	} catch {
-		/* The rescan below remains authoritative on filesystems without watch support. */
+		if (retained.changed)
+			console.error(`${name}: receiver cycle failed; inspect own mail status.`);
+	};
+	const sources = await receiverWatchSources(name);
+	const pump = createReceiverPump(
+		tick,
+		async () => (stopped ? undefined : nextReceiverDeadline(name, nonce)),
+		reportCycle,
+	);
+	const { schedule } = pump;
+	const key = `${name}:${nonce}`;
+	const watchers: ReturnType<typeof watch>[] = [];
+	for (const source of sources) {
+		try {
+			await mkdir(source.directory, { recursive: true, mode: 0o700 });
+			const watcher = watch(source.directory, (_event, filename) => {
+				if (source.accept(filename?.toString() ?? null)) schedule();
+			});
+			watcher.on('error', () => watcher.close());
+			watchers.push(watcher);
+		} catch {
+			/* An inaccessible or unsupported watch remains covered by the bounded rescan. */
+		}
 	}
-	const timer = setInterval(schedule, 2000);
+	// Remote polling has its own cadence, so an idle Telegram check does not rescan every local source.
+	const pollTimer = setInterval(() => {
+		if (stopped || pollBusy) return;
+		pollBusy = release
+			.owns()
+			.then(async (owns) =>
+				owns
+					? pollWakeTelegram(name, () => {
+							telegramPollState.failed = false;
+						})
+					: 0,
+			)
+			.then((count) => {
+				if (count) schedule();
+			})
+			.catch(async (error: unknown) => {
+				telegramPollState.failed = true;
+				try {
+					await retainWakeError(name, 'telegram inventory', error);
+				} catch {
+					console.error(`${name}: Telegram poll failure could not be retained.`);
+				}
+			})
+			.finally(() => {
+				pollBusy = undefined;
+			});
+	}, telegramPollInterval());
+	localWakes.set(key, schedule);
 	schedule();
 	return async () => {
 		stopped = true;
-		clearInterval(timer);
-		watcher?.close();
-		await busy;
+		clearInterval(pollTimer);
+		for (const watcher of watchers) watcher.close();
+		await pump.stop();
+		if (localWakes.get(key) === schedule) localWakes.delete(key);
+		await pollBusy;
 		await release();
 		await saveDelivery(name, {
 			...(await deliveryStatus(name, nonce)),

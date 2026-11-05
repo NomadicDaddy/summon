@@ -7,7 +7,12 @@ import { appendLocalEvent } from '../src/local-room.ts';
 import { atomicWrite } from '../src/mail-files.ts';
 import { scopedMail } from '../src/mailbox-commands.ts';
 import { NotificationNotSentError } from '../src/notification-delivery.ts';
-import { outcomePath, saveWakeOutcome, wakeDeliveryStatus } from '../src/wake-delivery-store.ts';
+import {
+	nextWakeRetryAt,
+	outcomePath,
+	saveWakeOutcome,
+	wakeDeliveryStatus,
+} from '../src/wake-delivery-store.ts';
 import { deliverWakeParts } from '../src/wake-delivery.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
 
@@ -128,6 +133,30 @@ test('definitely unsent input retries with backoff and keeps source reading unco
 		expect(await Bun.file(join(fixture.records, 'runtime/alpha/room.cursor')).exists()).toBe(
 			false,
 		);
+	} finally {
+		clock.mockRestore();
+	}
+});
+
+test('receiver retry timers follow 2, 5, 15, then 60 seconds without an early resubmit', async () => {
+	await sendHuman('retry cadence');
+	let now = Date.now();
+	const clock = spyOn(Date, 'now').mockImplementation(() => now);
+	let calls = 0;
+	try {
+		for (const [index, delay] of [2_000, 5_000, 15_000, 60_000, 60_000].entries()) {
+			const result = await send('outcome-fixture', () => {
+				calls++;
+				throw new NotificationNotSentError('draft');
+			}).catch((error: unknown) => error);
+			expect(result).toBeInstanceOf(NotificationNotSentError);
+			expect(await nextWakeRetryAt('alpha', 'outcome-fixture')).toBe(now + delay);
+			now += delay - 1;
+			expect(await send('outcome-fixture', () => Promise.resolve())).toBe('none');
+			expect(calls).toBe(index + 1);
+			now++;
+		}
+		expect(calls).toBe(5);
 	} finally {
 		clock.mockRestore();
 	}

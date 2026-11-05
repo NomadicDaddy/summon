@@ -14,6 +14,7 @@ import { receivesRoutineRoom } from './room-wake-policy.ts';
 import {
 	type RoomWakeBatch,
 	roomWakeCauses,
+	roomWakeDeadline,
 	roomWakeDue,
 	trackRoomWakeBatch,
 	wakeCauseText,
@@ -21,6 +22,13 @@ import {
 import { wakeRoomReadThrough } from './wake-read-boundary.ts';
 
 const batches = new Map<string, RoomWakeBatch>();
+
+export function nextLocalRoomWakeAt(now = Date.now()): number | undefined {
+	const future = [...batches.values()]
+		.map((batch) => roomWakeDeadline(batch))
+		.filter((at) => at > now);
+	return future.length ? Math.min(...future) : undefined;
+}
 
 interface LocalNotice {
 	through: number;

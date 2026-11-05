@@ -66,6 +66,7 @@ export function createWakeCoordinator(
 	active: () => boolean,
 	owns: () => Promise<boolean>,
 	options: WakeReceiverOptions,
+	telegramPollState?: { failed: boolean },
 ): () => Promise<void> {
 	const startedAt = Date.now();
 	const report = async (stage: WakeStage, error: unknown): Promise<void> => {
@@ -139,11 +140,15 @@ export function createWakeCoordinator(
 		// Import authenticated remote halt/proceed even while ordinary notifications are paused.
 		let telegramFailed = false;
 		try {
-			await pollWakeTelegram(name);
+			await pollWakeTelegram(name, () => {
+				if (telegramPollState) telegramPollState.failed = false;
+			});
 		} catch (error: unknown) {
 			telegramFailed = true;
+			if (telegramPollState) telegramPollState.failed = true;
 			await report('telegram inventory', error);
 		}
+		telegramFailed ||= telegramPollState?.failed ?? false;
 		if ((await communicationState()).paused) return;
 		if (await deliverHibernationControl(name, nonce, options.controlSend ?? send)) return;
 		if (

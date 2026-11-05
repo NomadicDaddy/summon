@@ -39,6 +39,20 @@ export interface ResponseObservation {
 const responseWaitingMs = 5 * 60 * 1000;
 const responseAlertMs = 10 * 60 * 1000;
 
+/** Keep waiting and alert transitions independent of the ordinary receiver rescan. */
+export function responseEpisodeDeadline(
+	episode: ResponseEpisode,
+	now = Date.now(),
+): number | undefined {
+	if (episode.suspended || episode.dismissed) return;
+	const future = episode.expectations.flatMap((item) =>
+		[item.progressAt + responseWaitingMs, item.progressAt + responseAlertMs].filter(
+			(at) => at > now,
+		),
+	);
+	return future.length ? Math.min(...future) : undefined;
+}
+
 /** Pure transition: no transport, read acknowledgment, or approval side effects. */
 export function reconcileResponseEpisode(
 	previous: ResponseEpisode | undefined,

@@ -27,7 +27,11 @@ import { publicTeamSnapshot } from './team-public-snapshot.ts';
 import { teamSelection } from './team-selection.ts';
 import { retainFailedMention } from './team-wake-errors.ts';
 import { flushTeamMentionWakes, wakeTeamMentions } from './team-wakes.ts';
-import { stopTerminalReceivers, syncTerminalReceivers } from './terminal-receivers.ts';
+import {
+	stopTerminalReceivers,
+	syncTerminalReceivers,
+	wakeTerminalReceiver,
+} from './terminal-receivers.ts';
 import { settleStops } from './window-shutdown.ts';
 
 interface Session extends SessionStop {
@@ -219,7 +223,13 @@ export class Team {
 	}
 
 	async input(slug: string, data: string, humanInput = true): Promise<void> {
-		await inputToOwnedTerminal(slug, data, humanInput, () => this.sessions.get(slug));
+		await inputToOwnedTerminal(
+			slug,
+			data,
+			humanInput,
+			() => this.sessions.get(slug),
+			wakeTerminalReceiver,
+		);
 	}
 
 	async hibernate(slug: string, active: boolean): Promise<void> {

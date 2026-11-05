@@ -18,23 +18,32 @@ export async function saveOperatorView(
 	);
 }
 
-export async function operatorViewing(name: string, now = Date.now()): Promise<boolean> {
+export async function operatorViewExpiry(
+	name: string,
+	now = Date.now(),
+): Promise<number | undefined> {
 	const text = await optionalText(path());
-	if (!text) return false;
+	if (!text) return undefined;
 	let value: unknown;
 	try {
 		value = JSON.parse(text);
 	} catch {
-		return false;
+		return undefined;
 	}
-	if (!value || typeof value !== 'object') return false;
+	if (!value || typeof value !== 'object') return undefined;
 	const entry = value as Record<string, unknown>;
-	return (
+	if (
 		entry.name === name &&
 		typeof entry.expires === 'number' &&
 		entry.expires > now &&
 		entry.expires <= now + 6000 &&
 		typeof entry.pid === 'number' &&
 		processAlive(entry.pid)
-	);
+	)
+		return entry.expires;
+	return undefined;
+}
+
+export async function operatorViewing(name: string, now = Date.now()): Promise<boolean> {
+	return (await operatorViewExpiry(name, now)) !== undefined;
 }

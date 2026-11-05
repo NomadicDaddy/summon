@@ -4,6 +4,7 @@ import {
 	ROOM_WAKE_MAX_HOLD_MS,
 	ROOM_WAKE_QUIET_MS,
 	type RoomWakeBatch,
+	roomWakeDeadline,
 	roomWakeDue,
 	roomWakeImmediate,
 	trackRoomWakeBatch,
@@ -46,6 +47,7 @@ test('a burst is delivered once it falls quiet, and the window restarts on every
 	expect(roomWakeDue(batch, 9_000, WINDOWS)).toBe(true);
 	// A tick that sees no new message must not extend the wait.
 	expect(trackRoomWakeBatch(batches, 'alpha', 11, 8_000).lastChangeAt).toBe(4_000);
+	expect(roomWakeDeadline(batch, WINDOWS)).toBe(9_000);
 });
 
 test('a room that never falls quiet still gets its wake at the ceiling', () => {
@@ -55,6 +57,9 @@ test('a room that never falls quiet still gets its wake at the ceiling', () => {
 		expect(roomWakeDue(trackRoomWakeBatch(batches, 'alpha', at, at), at, WINDOWS)).toBe(false);
 	// Still mid-burst - the quiet window has been restarted every second - so only the ceiling can
 	// release it. Without one, a continuously busy room would never notify at all.
+	const batch = batches.get('alpha');
+	if (!batch) throw new Error('Missing room wake batch.');
+	expect(roomWakeDeadline(batch, WINDOWS)).toBe(30_000);
 	expect(roomWakeDue(trackRoomWakeBatch(batches, 'alpha', 30_000, 30_000), 30_000, WINDOWS)).toBe(
 		true,
 	);

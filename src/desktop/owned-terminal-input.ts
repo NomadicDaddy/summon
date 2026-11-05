@@ -25,6 +25,7 @@ export async function inputToOwnedTerminal(
 				stopRequested?: boolean;
 		  }
 		| undefined,
+	wakeReceiver?: (name: string, nonce: string) => void,
 ): Promise<void> {
 	if (data.length > MAX_TERMINAL_INPUT) throw new Error('Terminal input is too large.');
 	if (await isHibernated(slug)) throw new Error(`${slug} is hibernated; use Unhibernate first.`);
@@ -64,6 +65,7 @@ export async function inputToOwnedTerminal(
 	// Coalesced keys and pastes can carry a submitting line break, so they spend the token first,
 	// for the launch the pane's receiver captured, whether or not activity.json reads right now.
 	const launch = receiverLaunch(session.pty);
+	const draftBefore = terminalDraft(session.pty).draft;
 	if (humanInput && session.agent.provider === 'claude' && launch && /[\r\n]/.test(data)) {
 		await spendClaudeRelease(slug, launch);
 		const latest = currentSession();
@@ -72,6 +74,10 @@ export async function inputToOwnedTerminal(
 	if (session.agent.provider === 'claude') recordClaudeInput(session.pty, data, humanInput);
 	else recordTerminalDraft(session.pty, data, humanInput, session.agent.provider === 'grok');
 	session.pty.write(data);
+	if (draftBefore && !terminalDraft(session.pty).draft) {
+		const nonce = launch ?? (await readActivity(slug))?.nonce;
+		if (nonce && currentSession() === session) wakeReceiver?.(slug, nonce);
+	}
 }
 
 export function resizeOwnedTerminal(

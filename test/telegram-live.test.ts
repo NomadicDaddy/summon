@@ -184,6 +184,34 @@ test('polling does not suppress failures from the operation inside its lock', as
 	);
 });
 
+test('only an actual successful refresh clears the receiver outage signal', async () => {
+	let successes = 0;
+	const success = () => {
+		successes++;
+	};
+	await syncTelegram(config, false, 2_000, false, success);
+	expect({ requests, successes }).toEqual({ requests: 1, successes: 1 });
+	await syncTelegram(config, false, 2_000, false, success);
+	expect({ requests, successes }).toEqual({ requests: 1, successes: 1 });
+	globalThis.fetch = Object.assign(() => Promise.reject(new Error('Network unavailable')), {
+		preconnect: originalFetch.preconnect,
+	});
+	const failure = await syncTelegram(config, false, 0, false, success).catch(
+		(error: unknown) => error,
+	);
+	expect(failure).toBeInstanceOf(Error);
+	expect(successes).toBe(1);
+	globalThis.fetch = Object.assign(
+		() => {
+			requests++;
+			return Promise.resolve(Response.json({ ok: true, result: [] }));
+		},
+		{ preconnect: originalFetch.preconnect },
+	);
+	await syncTelegram(config, false, 0, false, success);
+	expect(successes).toBe(2);
+});
+
 test('active receivers share polling, notify each teammate once, and require explicit read acknowledgement', async () => {
 	updates = [event(1, 'private test context')];
 	const alpha: string[] = [];

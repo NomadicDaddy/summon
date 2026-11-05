@@ -1,6 +1,10 @@
 import { expect, test } from 'bun:test';
 
-import { reconcileResponseEpisode, responseEpisodePhase } from '../src/response-watchdog-model.ts';
+import {
+	reconcileResponseEpisode,
+	responseEpisodeDeadline,
+	responseEpisodePhase,
+} from '../src/response-watchdog-model.ts';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const observation = { id: 'mail:one', condition: 'blocked' as const, progress: 0 };
@@ -15,6 +19,8 @@ const input = {
 
 test('blocked work escalates once and a send does not reset its age', () => {
 	const initial = reconcileResponseEpisode(undefined, input);
+	expect(responseEpisodeDeadline(initial, 0)).toBe(300000);
+	expect(responseEpisodeDeadline(initial, 300000)).toBe(600000);
 	const waiting = reconcileResponseEpisode(initial, { ...input, now: 300000 });
 	expect(responseEpisodePhase(waiting, 300000)).toBe('waiting');
 	const sent = reconcileResponseEpisode(waiting, {
@@ -23,6 +29,7 @@ test('blocked work escalates once and a send does not reset its age', () => {
 		observations: [{ ...observation, condition: 'awaiting-read' }],
 	});
 	expect(responseEpisodePhase(sent, 600000)).toBe('attention');
+	expect(responseEpisodeDeadline(sent, 600000)).toBeUndefined();
 	expect(sent.expectations[0]?.progressAt).toBe(0);
 	expect(reconcileResponseEpisode(sent, { ...input, now: 700000 }).id).toBe(id);
 });
@@ -77,7 +84,9 @@ test('progress after an alert hides it until the wait expires again without repl
 	expect(progress.episodeTargets).toEqual(alert.episodeTargets);
 	expect(progress.expectations).toHaveLength(1);
 	expect(responseEpisodePhase(progress, 660000)).toBe('observing');
+	expect(responseEpisodeDeadline(progress, 660000)).toBe(960000);
 	expect(responseEpisodePhase(progress, 960000)).toBe('waiting');
+	expect(responseEpisodeDeadline(progress, 960000)).toBe(1260000);
 	expect(responseEpisodePhase(progress, 1259999)).toBe('waiting');
 	expect(responseEpisodePhase(progress, 1260000)).toBe('attention');
 	expect(responseEpisodePhase({ ...progress, dismissed: true }, 1260000)).toBe('dismissed');

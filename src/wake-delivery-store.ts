@@ -201,6 +201,21 @@ export async function wakeDeliveryRetained(name: string, nonce: string) {
 	return retainedOutcomes(name, nonce, (value) => Promise.resolve(compact(value)));
 }
 
+/** The receiver needs a timer for definite failures, never for uncertain submissions. */
+export async function nextWakeRetryAt(name: string, nonce: string): Promise<number | undefined> {
+	ownMailbox(name);
+	const entries = (await unresolvedWakeIndex(name)).filter((entry) => entry.nonce === nonce);
+	const outcomes = await Promise.all(
+		entries.map((entry) => loadWakeOutcome(name, nonce, entry.id)),
+	);
+	if (outcomes.some((outcome) => !outcome))
+		throw new Error('Unresolved wake delivery outcome is missing.');
+	const deadlines = outcomes
+		.filter((outcome) => outcome?.state === 'not-sent' && outcome.retryAt > 0)
+		.map((outcome) => outcome?.retryAt ?? 0);
+	return deadlines.length ? Math.min(...deadlines) : undefined;
+}
+
 async function retainedOutcomes<T>(
 	name: string,
 	nonce: string,

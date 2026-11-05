@@ -18,6 +18,7 @@ export async function syncTelegram(
 	drain = false,
 	minimumInterval = 0,
 	local = false,
+	onPollSuccess?: () => void,
 ): Promise<number> {
 	if (!config.allowedUserIds.length)
 		throw new Error(
@@ -105,6 +106,7 @@ export async function syncTelegram(
 				if (!drain || result.length < 100) {
 					await repairRoomMirrors(config);
 					await recordTelegramHealth(config);
+					onPollSuccess?.();
 					return accepted;
 				}
 			}

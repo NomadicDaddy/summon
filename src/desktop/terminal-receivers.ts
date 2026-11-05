@@ -21,7 +21,7 @@ import {
 	reserveKiloNotice,
 } from '../kilo-turn-state.ts';
 import { deliveryStatus } from '../mail-session.ts';
-import { startMailWatcher } from '../mail-watcher.ts';
+import { startMailWatcher, wakeMailWatcher } from '../mail-watcher.ts';
 import {
 	NotificationEnterWithheldError,
 	NotificationNotSentError,
@@ -40,6 +40,10 @@ interface Receiver {
 
 const receivers = new WeakMap<Team, Map<string, Receiver>>();
 const syncing = new WeakMap<Team, Promise<void>>();
+
+export function wakeTerminalReceiver(name: string, nonce: string): void {
+	wakeMailWatcher(name, nonce);
+}
 
 /** The window delivers only into the exact PTY it owns; provider input queues active turns. */
 export function syncTerminalReceivers(team: Team): Promise<void> {

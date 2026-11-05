@@ -14,6 +14,7 @@ import { receivesRoutineRoom } from './room-wake-policy.ts';
 import {
 	type RoomWakeBatch,
 	roomWakeCauses,
+	roomWakeDeadline,
 	roomWakeDue,
 	trackRoomWakeBatch,
 	wakeCauseText,
@@ -25,6 +26,13 @@ import { syncTelegram } from './telegram-sync.ts';
 
 const cachedEvents = roomCache<RoomEvent[]>();
 const batches = new Map<string, RoomWakeBatch>();
+
+export function nextTelegramRoomWakeAt(now = Date.now()): number | undefined {
+	const future = [...batches.values()]
+		.map((batch) => roomWakeDeadline(batch))
+		.filter((at) => at > now);
+	return future.length ? Math.min(...future) : undefined;
+}
 
 export function roomCursorPath(config: TelegramConfig, name: string): string {
 	return join(
@@ -79,10 +87,11 @@ export async function roomDeliveryStatus(
 }
 
 /** A receiver wakes its own active provider; it never starts providers or sends room replies. */
-export async function pollWakeTelegram(name: string): Promise<void> {
+export async function pollWakeTelegram(name: string, onPollSuccess?: () => void): Promise<number> {
 	ownMailbox(name);
 	if (await optionalText(join(storageRoot(), 'integrations', 'telegram.json')))
-		await syncTelegram(await telegramConfig(), false, 2000);
+		return syncTelegram(await telegramConfig(), false, 2000, false, onPollSuccess);
+	return 0;
 }
 
 export async function prepareTelegramNotice(

@@ -175,6 +175,11 @@ export function roomWakeDue(
 	return now - batch.lastChangeAt >= windows.quiet || now - batch.firstAt >= windows.maxHold;
 }
 
+/** The next exact quiet or starvation deadline for a batch already observed. */
+export function roomWakeDeadline(batch: RoomWakeBatch, windows = roomWakeWindows()): number {
+	return Math.min(batch.lastChangeAt + windows.quiet, batch.firstAt + windows.maxHold);
+}
+
 /**
  * Whether newly arrived traffic justifies re-notifying a session that was already told and has not
  * acknowledged yet. This no longer skips the delay - nothing does - it only decides whether a stale
