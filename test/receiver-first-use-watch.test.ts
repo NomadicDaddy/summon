@@ -26,13 +26,32 @@ test('a first Room post wakes through its new directory without waiting for fall
 	const room = join(fixture.records, 'room');
 	expect(await Bun.file(join(room, 'events.json')).exists()).toBe(false);
 	const sent: string[] = [];
-	stop = await startMailWatcher('alpha', 'first-room', (text) => {
-		sent.push(text);
-		return Promise.resolve();
+	let initialCollected: () => void = () => {};
+	const startup = new Promise<void>((resolve) => {
+		initialCollected = resolve;
 	});
+	stop = await startMailWatcher(
+		'alpha',
+		'first-room',
+		(text) => {
+			sent.push(text);
+			return Promise.resolve();
+		},
+		{
+			noticeHold: () => {
+				initialCollected();
+				return Promise.resolve(undefined);
+			},
+		},
+	);
 	expect((await stat(room)).isDirectory()).toBe(true);
-	// Let startup settle so its initial scan cannot deliver the post without a file watch.
-	await Bun.sleep(1500);
+	await Promise.race([
+		startup,
+		Bun.sleep(5000).then(() => {
+			throw new Error('Initial receiver collection did not complete.');
+		}),
+	]);
+	// The initial collector has finished before this first-use file appears.
 	const postedAt = Date.now();
 	await appendLocalEvent({
 		sender: { kind: 'user', id: 'operator' },

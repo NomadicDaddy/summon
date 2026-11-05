@@ -7,6 +7,7 @@ import { optionalText } from '../src/mail-files.ts';
 import { startMailWatcher } from '../src/mail-watcher.ts';
 import { sendMessage } from '../src/mailbox.ts';
 import { operatorViewExpiry, operatorViewing, saveOperatorView } from '../src/operator-view.ts';
+import { RECEIVER_FALLBACK_MS } from '../src/receiver-cadence.ts';
 import { nextReceiverDeadline } from '../src/receiver-deadlines.ts';
 import { localCursorPath } from '../src/room-cursor.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
@@ -120,18 +121,46 @@ test('mail receiver retains new mail during viewing and delivers after release',
 }, 10000);
 
 test('receiver alarm delivers held mail when operator view expires before fallback', async () => {
-	await saveOperatorView('alpha');
+	const receiverStartedAt = Date.now();
 	const sent: string[] = [];
-	const stop = await startMailWatcher('alpha', 'fixture-expiry', (text) => {
-		sent.push(text);
-		return Promise.resolve();
+	let deliveredAt: number | undefined;
+	let initialCollected: () => void = () => {};
+	const startup = new Promise<void>((resolve) => {
+		initialCollected = resolve;
 	});
+	const stop = await startMailWatcher(
+		'alpha',
+		'fixture-expiry',
+		(text) => {
+			deliveredAt = Date.now();
+			sent.push(text);
+			return Promise.resolve();
+		},
+		{
+			noticeHold: () => {
+				initialCollected();
+				return Promise.resolve(undefined);
+			},
+		},
+	);
 	try {
+		await Promise.race([
+			startup,
+			Bun.sleep(5000).then(() => {
+				throw new Error('Initial receiver collection did not complete.');
+			}),
+		]);
+		sent.length = 0;
+		deliveredAt = undefined;
+		await saveOperatorView('alpha');
 		await sendMessage('beta', 'alpha', 'mail held until view expiry');
+		const fallbackAt = receiverStartedAt + RECEIVER_FALLBACK_MS;
+		expect(Date.now()).toBeLessThan(fallbackAt - 6500);
 		await Bun.sleep(500);
 		expect(sent).toHaveLength(0);
-		for (let attempt = 0; attempt < 80 && sent.length === 0; attempt++) await Bun.sleep(100);
+		while (sent.length === 0 && Date.now() < fallbackAt - 200) await Bun.sleep(50);
 		expect(sent[0]).toContain('mailbox event');
+		expect(deliveredAt).toBeLessThan(fallbackAt - 200);
 	} finally {
 		await stop();
 	}

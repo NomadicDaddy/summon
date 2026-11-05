@@ -55,8 +55,8 @@ async function waitForReason(match: (reason: string) => boolean): Promise<string
 	}
 	throw new Error(`Delivery status did not settle: ${(await deliveryView('alpha')).reason}`);
 }
-/** Allow two full fallback cycles before checking a retained hold. */
-const cycles = () => Bun.sleep(2 * RECEIVER_FALLBACK_MS + 300);
+/** One full fallback interval checks the held state again; the pump test covers repeated cadence. */
+const oneFallback = () => Bun.sleep(RECEIVER_FALLBACK_MS + 300);
 
 test('human input in the pane holds notices and says so; backspace keeps it, Ctrl+U releases it', async () => {
 	const pty = h.team.sessions.get('alpha')?.pty;
@@ -75,7 +75,7 @@ test('human input in the pane holds notices and says so; backspace keeps it, Ctr
 
 	// A backspace can empty the box, but the tracker still holds, and the status keeps saying so.
 	await h.team.input('alpha', '\u007f');
-	await cycles();
+	await oneFallback();
 	expect(terminalDraft(pty).draft).toBe(true);
 	expect((await deliveryView('alpha')).reason).toBe(reason);
 	expect(h.inputs).toHaveLength(2);
@@ -89,6 +89,6 @@ test('human input in the pane holds notices and says so; backspace keeps it, Ctr
 test('with no input in the pane, the input hold is never written', async () => {
 	await sendMessage('beta', 'alpha', 'PRIVATE_DELIVERED');
 	await waitForNotice(h.inputs, 'mailbox event');
-	await cycles();
+	await oneFallback();
 	expect((await deliveryView('alpha')).reason).not.toBe(claudeInputHold('alpha', nonce));
 }, 30000);

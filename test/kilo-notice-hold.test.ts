@@ -78,8 +78,8 @@ async function waitForStatus(match: (reason: string) => boolean): Promise<string
 	}
 	throw new Error(`Delivery status did not settle: ${(await deliveryView('alpha')).reason}`);
 }
-/** Allow two full fallback cycles before checking a retained hold. */
-const cycles = () => Bun.sleep(2 * RECEIVER_FALLBACK_MS + 300);
+/** One full fallback interval checks the held state again; the pump test covers repeated cadence. */
+const oneFallback = () => Bun.sleep(RECEIVER_FALLBACK_MS + 300);
 
 async function startedSeat(): Promise<void> {
 	await initializeKiloTurn('alpha', nonce, thread, 'stream-one');
@@ -102,7 +102,7 @@ test('no attached stream: held with its reason and no input, even before startup
 	expect(reason).not.toContain('PRIVATE');
 	expect((await deliveryView('alpha')).state).toBe('queued-only');
 	await kiloStartupSubmitting('alpha', nonce, thread);
-	await cycles();
+	await oneFallback();
 	expect(held('no Kilo turn stream is attached')((await deliveryView('alpha')).reason)).toBe(
 		true,
 	);
@@ -165,12 +165,12 @@ test('an attached stream waiting on startup, and a busy turn, write no hold', as
 	await initializeKiloTurn('alpha', nonce, thread, 'stream-one');
 	await syncTerminalReceivers(h.team);
 	await sendMessage('beta', 'alpha', 'PRIVATE_QUIET');
-	await cycles();
+	await oneFallback();
 	expect(notHeld((await deliveryView('alpha')).reason)).toBe(true);
 	await kiloStartupSubmitting('alpha', nonce, thread);
 	await native('busy');
 	await kiloStartupSettled('alpha', nonce, thread, 'accepted');
-	await cycles();
+	await oneFallback();
 	expect(notHeld((await deliveryView('alpha')).reason)).toBe(true);
 	expect(h.inputs).toHaveLength(0);
 	await native('idle');
@@ -181,12 +181,12 @@ test('a hold is written only on change, and a human draft leaves the status alon
 	await syncTerminalReceivers(h.team);
 	await waitForStatus(held('no Kilo turn stream is attached'));
 	const written = (await stat(deliveryPath())).mtimeMs;
-	await cycles();
+	await oneFallback();
 	expect((await stat(deliveryPath())).mtimeMs).toBe(written);
 	await h.team.input('alpha', 'human draft');
 	// Attached and waiting on startup would clear the hold, but a draft means no one may say so.
 	await initializeKiloTurn('alpha', nonce, thread, 'stream-one');
-	await cycles();
+	await oneFallback();
 	expect(held('no Kilo turn stream is attached')((await deliveryView('alpha')).reason)).toBe(
 		true,
 	);
@@ -207,7 +207,7 @@ test('a replacement launch starts with its own status, not the old hold', async 
 	});
 	await initializeKiloTurn('alpha', next, thread, 'stream-next');
 	await syncTerminalReceivers(h.team);
-	await cycles();
+	await oneFallback();
 	expect(notHeld((await deliveryView('alpha')).reason)).toBe(true);
 	expect(h.inputs).toHaveLength(0);
 }, 30000);
