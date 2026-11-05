@@ -9,6 +9,9 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 - Checkpoint output explains an incomplete Telegram refresh in detail on the first page, then uses
   a shorter cached-only warning on later pages and the final receipt. Every page retains the full
   refresh reason and `telegramFresh: false`; poll contention remains distinct from request failure.
+- Receivers wake on local file changes and exact deadlines, with a ten-second missed-event
+  fallback and per-seat three-to-five-second Telegram polling. Deadlines crossed during a cycle
+  get a prompt follow-up.
 - Fully read receipt-kind mail is archived automatically after read coverage is recorded by receive,
   read-self or checkpoint unless an approval hold is pending. Its exact body remains in own history;
   held and other substantive mail retains explicit handling.

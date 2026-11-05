@@ -31,6 +31,9 @@ test('a first Room post wakes through its new directory without waiting for fall
 		return Promise.resolve();
 	});
 	expect((await stat(room)).isDirectory()).toBe(true);
+	// Let startup settle so its initial scan cannot deliver the post without a file watch.
+	await Bun.sleep(1500);
+	const postedAt = Date.now();
 	await appendLocalEvent({
 		sender: { kind: 'user', id: 'operator' },
 		text: '@alpha first post',
@@ -41,5 +44,5 @@ test('a first Room post wakes through its new directory without waiting for fall
 		if (sent.some((text) => text.includes('summon room through 1'))) return;
 		await Bun.sleep(20);
 	}
-	throw new Error('First Room post missed its native wake.');
-});
+	throw new Error(`First Room post missed its native wake within ${Date.now() - postedAt} ms.`);
+}, 20000);

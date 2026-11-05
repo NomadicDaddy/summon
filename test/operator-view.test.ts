@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { sendHuman } from '../src/local-room-access.ts';
+import { nextLocalRoomWakeAt, prepareLocalRoomNotice } from '../src/local-room-live.ts';
+import { appendLocalEvent } from '../src/local-room.ts';
 import { optionalText } from '../src/mail-files.ts';
 import { startMailWatcher } from '../src/mail-watcher.ts';
 import { sendMessage } from '../src/mailbox.ts';
@@ -29,6 +31,7 @@ test('viewing follows selection and expires if the window stops renewing', async
 	expect(await operatorViewing('alpha', now)).toBe(true);
 	expect(await operatorViewExpiry('alpha', now)).toBe(now + 6000);
 	expect(await nextReceiverDeadline('alpha', 'fixture-view', now)).toBe(now + 6000);
+	expect(await nextReceiverDeadline('alpha', 'fixture-view', now + 6001, now)).toBe(now + 6000);
 	expect(await operatorViewing('beta', now)).toBe(false);
 	expect(await operatorViewing('alpha', now + 6000)).toBe(false);
 	expect(await operatorViewExpiry('alpha', now + 6000)).toBeUndefined();
@@ -37,6 +40,38 @@ test('viewing follows selection and expires if the window stops renewing', async
 	expect(await operatorViewing('beta', now)).toBe(true);
 	await saveOperatorView('', now);
 	expect(await operatorViewing('beta', now)).toBe(false);
+});
+
+test('Room quiet deadline crossed during a receiver cycle remains armed', async () => {
+	const previousAgent = process.env.SUMMON_AGENT;
+	const previousNonce = process.env.SUMMON_NONCE;
+	const previousQuiet = process.env.SUMMON_ROOM_WAKE_QUIET_MS;
+	try {
+		process.env.SUMMON_AGENT = 'alpha';
+		process.env.SUMMON_NONCE = 'quiet-straddle';
+		process.env.SUMMON_ROOM_WAKE_QUIET_MS = '5000';
+		await appendLocalEvent({
+			sender: { kind: 'user', id: 'operator' },
+			text: '@alpha please check this',
+			replyTo: null,
+			source: 'local',
+		});
+		const cycleStartedAt = Date.now();
+		expect(await prepareLocalRoomNotice('alpha', 'quiet-straddle')).toBeUndefined();
+		const deadline = nextLocalRoomWakeAt(cycleStartedAt);
+		expect(deadline).toBeDefined();
+		if (deadline === undefined) throw new Error('Room quiet deadline was not retained.');
+		expect(
+			await nextReceiverDeadline('alpha', 'quiet-straddle', deadline + 1, cycleStartedAt),
+		).toBe(deadline);
+	} finally {
+		if (previousAgent === undefined) delete process.env.SUMMON_AGENT;
+		else process.env.SUMMON_AGENT = previousAgent;
+		if (previousNonce === undefined) delete process.env.SUMMON_NONCE;
+		else process.env.SUMMON_NONCE = previousNonce;
+		if (previousQuiet === undefined) delete process.env.SUMMON_ROOM_WAKE_QUIET_MS;
+		else process.env.SUMMON_ROOM_WAKE_QUIET_MS = previousQuiet;
+	}
 });
 
 test('focused reading retains room messages without marking delivery or acknowledgement', async () => {
@@ -83,3 +118,21 @@ test('mail receiver retains new mail during viewing and delivers after release',
 		await stop();
 	}
 }, 10000);
+
+test('receiver alarm delivers held mail when operator view expires before fallback', async () => {
+	await saveOperatorView('alpha');
+	const sent: string[] = [];
+	const stop = await startMailWatcher('alpha', 'fixture-expiry', (text) => {
+		sent.push(text);
+		return Promise.resolve();
+	});
+	try {
+		await sendMessage('beta', 'alpha', 'mail held until view expiry');
+		await Bun.sleep(500);
+		expect(sent).toHaveLength(0);
+		for (let attempt = 0; attempt < 80 && sent.length === 0; attempt++) await Bun.sleep(100);
+		expect(sent[0]).toContain('mailbox event');
+	} finally {
+		await stop();
+	}
+}, 12000);

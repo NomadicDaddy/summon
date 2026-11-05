@@ -119,11 +119,14 @@ explicit original read; history is unchanged. This reduces routine-peer catch-up
 threads may save little. Receipts acknowledge the delivered digest only, never approval or task
 completion. Lost output still replays the same receipt; Telegram and mail are not summarized.
 
-Claude and Codex launches attach a local Claude stdio MCP channel or a Codex SessionStart hook and exact-thread
-queue adapter. Only one receiver per name emits notices. It watches the inbox, rescans every two
-seconds, and combines readiness, mail, approval decisions, local room and Telegram into one notice
-per scan. A definitely unsent outcome becomes eligible for retry after nominal delays of 2, 5 and
-15 seconds, then 60 seconds for later attempts. Collection and provider gates can delay it further:
+Claude and Codex launches attach a local Claude stdio MCP channel or a Codex SessionStart hook
+and exact-thread queue adapter. Each name has one notice receiver. Local file changes wake it,
+and exact timers cover retries, Room quiet windows, response checks and operator-view expiry.
+A ten-second fallback scan covers missed file events, while each seat polls Telegram separately
+every three to five seconds. A cycle combines readiness, mail, approval decisions, local room and
+Telegram into one notice when eligible. A definitely unsent outcome becomes eligible for retry
+after nominal delays of 2, 5 and 15 seconds, then 60 seconds for later attempts. Collection and
+provider gates can delay it further:
 Room and Telegram rebuild their 30-second quiet window after a failed attempt, with a 120-second
 ceiling while traffic continues. The outcome's retry time still applies when its targets are
 unchanged. A new combined target set has its own outcome and attempt count, so these delays are not

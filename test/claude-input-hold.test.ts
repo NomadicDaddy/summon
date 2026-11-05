@@ -7,6 +7,7 @@ import { claudeNoticeAllowed } from '../src/claude-turn-state.ts';
 import { terminalDraft } from '../src/desktop/terminal-draft.ts';
 import { deliveryView, noticesHeldPrefix } from '../src/mail-session.ts';
 import { sendMessage } from '../src/mailbox.ts';
+import { RECEIVER_FALLBACK_MS } from '../src/receiver-cadence.ts';
 import { newRecord } from '../src/store.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
 import { terminalHarness } from './fixtures/owned-terminal.ts';
@@ -54,8 +55,8 @@ async function waitForReason(match: (reason: string) => boolean): Promise<string
 	}
 	throw new Error(`Delivery status did not settle: ${(await deliveryView('alpha')).reason}`);
 }
-/** Two full receiver cycles (one every 2 seconds). */
-const cycles = () => Bun.sleep(4300);
+/** Allow two full fallback cycles before checking a retained hold. */
+const cycles = () => Bun.sleep(2 * RECEIVER_FALLBACK_MS + 300);
 
 test('human input in the pane holds notices and says so; backspace keeps it, Ctrl+U releases it', async () => {
 	const pty = h.team.sessions.get('alpha')?.pty;
@@ -83,11 +84,11 @@ test('human input in the pane holds notices and says so; backspace keeps it, Ctr
 	await waitForNotice(h.inputs, 'mailbox event');
 	expect(h.inputs.join('')).not.toContain('PRIVATE');
 	await waitForReason((value) => value !== reason);
-}, 20000);
+}, 30000);
 
 test('with no input in the pane, the input hold is never written', async () => {
 	await sendMessage('beta', 'alpha', 'PRIVATE_DELIVERED');
 	await waitForNotice(h.inputs, 'mailbox event');
 	await cycles();
 	expect((await deliveryView('alpha')).reason).not.toBe(claudeInputHold('alpha', nonce));
-}, 20000);
+}, 30000);

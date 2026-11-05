@@ -151,7 +151,8 @@ async function initializeMailWatcher(
 	const sources = await receiverWatchSources(name);
 	const pump = createReceiverPump(
 		tick,
-		async () => (stopped ? undefined : nextReceiverDeadline(name, nonce)),
+		async (cycleStartedAt) =>
+			stopped ? undefined : nextReceiverDeadline(name, nonce, Date.now(), cycleStartedAt),
 		reportCycle,
 	);
 	const { schedule } = pump;

@@ -6,28 +6,29 @@ import { responseStatus } from './response-watchdog-store.ts';
 import { nextTelegramRoomWakeAt } from './telegram-live.ts';
 import { nextWakeRetryAt } from './wake-delivery-store.ts';
 
-/** Future deadlines only. An already due item was handled by the just-completed cycle. */
+/** Keep deadlines crossed during a cycle for an immediate follow-up. */
 export async function nextReceiverDeadline(
 	name: string,
 	nonce: string,
 	now = Date.now(),
+	cycleStartedAt = now,
 ): Promise<number | undefined> {
 	const [retry, response, viewExpiry] = await Promise.all([
 		nextWakeRetryAt(name, nonce),
 		responseStatus(name, nonce),
-		operatorViewExpiry(name, now),
+		operatorViewExpiry(name, cycleStartedAt),
 	]);
 	const deadlines = [
 		retry === undefined
 			? undefined
-			: retry <= now
+			: retry <= cycleStartedAt
 				? now + RETRY_CLOCK_GUARD_MS
 				: Math.min(retry, now + RETRY_CLOCK_GUARD_MS),
 		viewExpiry,
-		nextLocalRoomWakeAt(now),
-		nextTelegramRoomWakeAt(now),
+		nextLocalRoomWakeAt(cycleStartedAt),
+		nextTelegramRoomWakeAt(cycleStartedAt),
 	];
-	if (response) deadlines.push(responseEpisodeDeadline(response, now));
-	const future = deadlines.filter((at): at is number => at !== undefined && at > now);
+	if (response) deadlines.push(responseEpisodeDeadline(response, cycleStartedAt));
+	const future = deadlines.filter((at): at is number => at !== undefined && at > cycleStartedAt);
 	return future.length ? Math.min(...future) : undefined;
 }

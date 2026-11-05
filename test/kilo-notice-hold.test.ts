@@ -15,6 +15,7 @@ import {
 import { startKiloTurnStream } from '../src/kilo-turn-stream.ts';
 import { deliveryView, noticesHeldPrefix, saveDelivery } from '../src/mail-session.ts';
 import { sendMessage } from '../src/mailbox.ts';
+import { RECEIVER_FALLBACK_MS } from '../src/receiver-cadence.ts';
 import { newRecord } from '../src/store.ts';
 import { createWakeCoordinator } from '../src/wake-coordinator.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
@@ -77,8 +78,8 @@ async function waitForStatus(match: (reason: string) => boolean): Promise<string
 	}
 	throw new Error(`Delivery status did not settle: ${(await deliveryView('alpha')).reason}`);
 }
-/** Two full receiver cycles (one every 2 seconds). */
-const cycles = () => Bun.sleep(4300);
+/** Allow two full fallback cycles before checking a retained hold. */
+const cycles = () => Bun.sleep(2 * RECEIVER_FALLBACK_MS + 300);
 
 async function startedSeat(): Promise<void> {
 	await initializeKiloTurn('alpha', nonce, thread, 'stream-one');
@@ -106,7 +107,7 @@ test('no attached stream: held with its reason and no input, even before startup
 		true,
 	);
 	expect(h.inputs).toHaveLength(0);
-}, 15000);
+}, 30000);
 
 test('the immediate consumer, summon --mail status, reports the held reason', async () => {
 	await syncTerminalReceivers(h.team);
@@ -174,7 +175,7 @@ test('an attached stream waiting on startup, and a busy turn, write no hold', as
 	expect(h.inputs).toHaveLength(0);
 	await native('idle');
 	await waitForNotice(h.inputs, '--mail ready');
-}, 20000);
+}, 50000);
 
 test('a hold is written only on change, and a human draft leaves the status alone', async () => {
 	await syncTerminalReceivers(h.team);
@@ -189,7 +190,7 @@ test('a hold is written only on change, and a human draft leaves the status alon
 	expect(held('no Kilo turn stream is attached')((await deliveryView('alpha')).reason)).toBe(
 		true,
 	);
-}, 20000);
+}, 50000);
 
 test('a replacement launch starts with its own status, not the old hold', async () => {
 	await syncTerminalReceivers(h.team);
@@ -209,7 +210,7 @@ test('a replacement launch starts with its own status, not the old hold', async 
 	await cycles();
 	expect(notHeld((await deliveryView('alpha')).reason)).toBe(true);
 	expect(h.inputs).toHaveLength(0);
-}, 20000);
+}, 30000);
 
 test('the final save keeps a hold that is still current', async () => {
 	await saveDelivery('alpha', {

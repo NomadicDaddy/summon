@@ -123,6 +123,39 @@ test('one busy cycle coalesces a burst and keeps its exact retry deadline', asyn
 	expect(errors).toHaveLength(0);
 });
 
+test('a deadline crossed during a busy cycle gets one prompt follow-up', async () => {
+	const time = controlledClock();
+	let finishFirst: (() => void) | undefined;
+	const first = new Promise<void>((resolve) => {
+		finishFirst = resolve;
+	});
+	let scans = 0;
+	const deadline = 3_000;
+	const pump = createReceiverPump(
+		async () => {
+			scans++;
+			if (scans === 1) await first;
+		},
+		(cycleStartedAt) => Promise.resolve(deadline > cycleStartedAt ? deadline : undefined),
+		(error) => {
+			throw error;
+		},
+		time.clock,
+	);
+	pump.schedule();
+	await time.advance(0);
+	await time.advance(deadline + 1);
+	expect(scans).toBe(1);
+	finishFirst?.();
+	await time.advance(deadline + 1);
+	await time.advance(deadline + 2);
+	expect(scans).toBe(2);
+	expect(time.pendingAlarms()).toBe(0);
+	await time.advance(deadline + 3);
+	expect(scans).toBe(2);
+	await pump.stop();
+});
+
 test('seat poll jitter separates contenders without extending the local fallback', () => {
 	expect(telegramPollInterval(0)).toBe(3_000);
 	expect(telegramPollInterval(0.5)).toBe(4_000);
@@ -149,13 +182,22 @@ test('three quiet seats make fewer shared poll and lock attempts than the two-se
 		return { checks: checks.length, locks };
 	};
 	const baseline = count([2_000, 2_000, 2_000]);
-	const candidate = count([
+	const pollOnly = count([
 		telegramPollInterval(0),
 		telegramPollInterval(0.5),
 		telegramPollInterval(0.999),
 	]);
+	const candidate = count([
+		telegramPollInterval(0),
+		telegramPollInterval(0.5),
+		telegramPollInterval(0.999),
+		RECEIVER_FALLBACK_MS,
+		RECEIVER_FALLBACK_MS,
+		RECEIVER_FALLBACK_MS,
+	]);
 	expect(baseline).toEqual({ checks: 90, locks: 30 });
-	expect(candidate).toEqual({ checks: 47, locks: 20 });
+	expect(pollOnly).toEqual({ checks: 47, locks: 20 });
+	expect(candidate).toEqual({ checks: 65, locks: 22 });
 });
 
 test('an empty room batch never schedules an overflowing timer', () => {

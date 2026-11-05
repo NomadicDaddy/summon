@@ -19,7 +19,7 @@ const systemClock: ReceiverClock = {
 /** Coalesce bursts without losing an event that arrives during a cycle. */
 export function createReceiverPump(
 	run: () => Promise<void>,
-	nextDeadline: () => Promise<number | undefined>,
+	nextDeadline: (cycleStartedAt: number) => Promise<number | undefined>,
 	onError: (error: unknown) => Promise<void>,
 	clock: ReceiverClock = systemClock,
 ): { schedule: () => void; stop: () => Promise<void> } {
@@ -42,12 +42,13 @@ export function createReceiverPump(
 		}
 		if (alarm) clock.clearTimeout(alarm);
 		alarm = undefined;
+		const cycleStartedAt = clock.now();
 		busy = Promise.resolve()
 			.then(run)
 			.catch(report)
 			.then(async () => {
-				const next = await nextDeadline();
-				if (!stopped && next !== undefined && next > clock.now())
+				const next = await nextDeadline(cycleStartedAt);
+				if (!stopped && next !== undefined)
 					alarm = clock.setTimeout(schedule, Math.max(1, next - clock.now()));
 			})
 			.catch(report)
