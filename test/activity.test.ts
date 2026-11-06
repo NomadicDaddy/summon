@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { rm } from 'node:fs/promises';
+import { join } from 'node:path';
 
 import { initializeActivity, readActivity } from '../src/agent-activity.ts';
 import { unreadMailCount } from '../src/desktop/mail-count.ts';
@@ -36,6 +38,14 @@ test('self-defined activity is bounded, launch-owned, and reset on restart', asy
 	expect((await readActivity('alpha'))?.state).toBe('idle');
 	expect((await readActivity('alpha'))?.workingOn).toBe('');
 	expect((await fixture.run(['--status', 'busy', 'Stale writer'], 'alpha')).code).toBe(1);
+});
+
+test('a named seat without a recorded launch cannot set status', async () => {
+	await rm(join(fixture.records, 'runtime', 'beta', 'activity.json'));
+	const result = await fixture.run(['--status', 'idle', 'Available'], 'beta');
+	expect(result.code).toBe(1);
+	expect(result.error).toContain('another launch');
+	expect(await readActivity('beta')).toBeUndefined();
 });
 
 test('operator unread count excludes read but unarchived mail and handles offline mail', async () => {

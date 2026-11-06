@@ -223,7 +223,9 @@ a POSIX shell, `summon --unowned -- bun run dev` starts a development server wit
 the caller's agent name, launch nonce or Claude turn credentials into that server.
 
 Named-session CLI commands compare their nonce with the current activity record before routing a
-command. A replaced launch is refused. This is a cooperative session boundary, not operating-system
+command. Room posts and mail publications compare it again under the activity lock used by launch
+replacement, so an in-flight command cannot publish after its launch is replaced. A replaced launch
+is refused. This is a cooperative session boundary, not operating-system
 isolation: the launcher does not grant permission for the detached tool, and local processes with
 the same filesystem access can still modify their own environment or invoke Summon independently.
 

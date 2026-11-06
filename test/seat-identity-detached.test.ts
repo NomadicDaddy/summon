@@ -1,13 +1,60 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 
-import { localEvents } from '../src/local-room.ts';
+import { initializeActivity } from '../src/agent-activity.ts';
+import { appendLocalEvent, localEvents, localRoomPath } from '../src/local-room.ts';
+import { locked } from '../src/mail-files.ts';
+import { mailboxPath, sendMessage } from '../src/mailbox.ts';
 import { scrubSummonEnvironment } from '../src/unowned-command.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
 
 let fixture: Awaited<ReturnType<typeof mailHarness>>;
 const originalRoot = process.env.SUMMON_HOME;
+const originalAgent = process.env.SUMMON_AGENT;
+const originalNonce = process.env.SUMMON_NONCE;
+
+async function waitForLockCandidate(path: string): Promise<void> {
+	for (let attempt = 0; attempt < 100; attempt++) {
+		const entries = await readdir(dirname(path)).catch(() => [] as string[]);
+		if (
+			entries.some(
+				(entry) => entry.startsWith(`${basename(path)}.`) && entry.endsWith('.pending'),
+			)
+		)
+			return;
+		await Bun.sleep(10);
+	}
+	throw new Error('The in-flight writer did not reach its publication lock.');
+}
+
+async function holdLock(path: string): Promise<{ release: () => void; held: Promise<void> }> {
+	let release = (): void => undefined;
+	let entered = (): void => undefined;
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const ready = new Promise<void>((resolve) => {
+		entered = resolve;
+	});
+	const held = locked(path, async () => {
+		entered();
+		await gate;
+	});
+	await ready;
+	return { release, held };
+}
+
+async function expectReplacedLaunchRefusal(operation: Promise<unknown>): Promise<void> {
+	let failure: unknown;
+	try {
+		await operation;
+	} catch (error: unknown) {
+		failure = error;
+	}
+	expect(String(failure)).toContain('another launch');
+}
 
 beforeEach(async () => {
 	fixture = await mailHarness();
@@ -28,7 +75,51 @@ beforeEach(async () => {
 afterEach(async () => {
 	if (originalRoot === undefined) delete process.env.SUMMON_HOME;
 	else process.env.SUMMON_HOME = originalRoot;
+	if (originalAgent === undefined) delete process.env.SUMMON_AGENT;
+	else process.env.SUMMON_AGENT = originalAgent;
+	if (originalNonce === undefined) delete process.env.SUMMON_NONCE;
+	else process.env.SUMMON_NONCE = originalNonce;
 	await fixture.dispose();
+});
+
+test('in-flight Room and mail writes refuse after launch replacement', async () => {
+	process.env.SUMMON_AGENT = 'alpha';
+	process.env.SUMMON_NONCE = 'test-launch';
+	await initializeActivity('alpha', 'test-launch');
+
+	const roomLock = `${localRoomPath()}.lock`;
+	const roomGate = await holdLock(roomLock);
+	try {
+		const post = appendLocalEvent({
+			sender: { kind: 'agent', id: 'alpha' },
+			text: 'late Room post',
+			replyTo: null,
+			source: 'local',
+		});
+		await waitForLockCandidate(roomLock);
+		await initializeActivity('alpha', 'replacement-launch');
+		roomGate.release();
+		await expectReplacedLaunchRefusal(post);
+	} finally {
+		roomGate.release();
+		await roomGate.held;
+	}
+	const id = randomUUID();
+	const mailLock = join(mailboxPath('beta'), 'acks', `${id}.lock`);
+	await initializeActivity('alpha', 'test-launch');
+	const mailGate = await holdLock(mailLock);
+	try {
+		const mail = sendMessage('alpha', 'beta', 'late mail', { id, replaySafe: true });
+		await waitForLockCandidate(mailLock);
+		await initializeActivity('alpha', 'replacement-launch');
+		mailGate.release();
+		await expectReplacedLaunchRefusal(mail);
+	} finally {
+		mailGate.release();
+		await mailGate.held;
+	}
+	expect(await localEvents()).toHaveLength(0);
+	expect(await readdir(join(mailboxPath('beta'), 'inbox'))).not.toContain(`${id}.md`);
 });
 
 test('a replaced launch cannot post to Room or send mail as its former seat', async () => {

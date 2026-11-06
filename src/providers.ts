@@ -158,7 +158,7 @@ export function sessionPrompt(
 			? [
 					'',
 					`This launch's readiness command: summon --mail ready ${readinessNonce}`,
-					"That nonce names this launch only. It is not the provider thread id or an earlier launch's nonce. If it is refused, run summon --mail status and report the mismatch; never retry an older nonce. Readiness confirms transport only, never approval or task completion.",
+					"That nonce names this launch only. It is not the provider thread id or an earlier launch's nonce. If it is refused, report the mismatch to the operator; never retry an older nonce. Readiness confirms transport only, never approval or task completion.",
 				]
 			: []),
 		'',

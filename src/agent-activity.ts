@@ -46,6 +46,16 @@ export async function assertActiveSeat(): Promise<void> {
 		);
 }
 
+/** Serialize an agent publication with launch replacement at the actual write boundary. */
+export async function withActiveSeatWrite<T>(write: () => Promise<T>): Promise<T> {
+	if (!process.env.SUMMON_AGENT) return write();
+	const name = currentAgent();
+	return locked(`${pathFor(name)}.lock`, async () => {
+		await assertActiveSeat();
+		return write();
+	});
+}
+
 export async function initializeActivity(
 	name: string,
 	nonce: string,

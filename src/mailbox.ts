@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 
 import type { SystemMail } from './system-mail.ts';
 
+import { withActiveSeatWrite } from './agent-activity.ts';
 import {
 	CATCH_UP_THRESHOLD,
 	CHECKPOINT_STARTUP_INSTRUCTION,
@@ -124,8 +125,10 @@ async function deliverMessage(
 		try {
 			await writeFile(temporary, body, { flag: 'wx', mode: 0o600 });
 			try {
-				await assertCommunicationsOpen();
-				await link(temporary, join(inbox, `${id}.md`));
+				await withActiveSeatWrite(async () => {
+					await assertCommunicationsOpen();
+					await link(temporary, join(inbox, `${id}.md`));
+				});
 			} catch (error: unknown) {
 				if (!(explicit && errorCode(error) === 'EEXIST')) throw error;
 				if (!(await publishedMailMatches(root, id, body)))

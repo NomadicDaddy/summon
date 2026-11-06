@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 
+import { withActiveSeatWrite } from './agent-activity.ts';
 import { openLocalHistory } from './local-room-segments.ts';
 import { readLocalHistory, rotateCommittedEvents } from './local-room-storage.ts';
 import { atomicWrite, locked } from './mail-files.ts';
@@ -158,7 +159,8 @@ export async function appendLocalEvent(
 		};
 		const live = await rotateCommittedEvents(events, snapshot.liveStart);
 		live.push(event);
-		await atomicWrite(localRoomPath(), JSON.stringify(live));
+		const write = (): Promise<void> => atomicWrite(localRoomPath(), JSON.stringify(live));
+		await (input.sender.kind === 'agent' ? withActiveSeatWrite(write) : write());
 		return event;
 	});
 }
