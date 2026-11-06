@@ -28,6 +28,7 @@ Use summon clone <source> <name> [--using claude|codex|grok|kilo] to copy one na
 Use summon all to open a session for every registered agent.
 Use summon --pm [name] [--using claude|codex|grok|kilo] to add or launch the optional PM (default Steward).
 Use summon --remove <name> to remove an inactive agent and its summon files.
+Use summon --unowned -- <executable> [arguments...] to run a detached tool without inherited SUMMON_* seat variables.
 
 Team window and local conversation:
   summon --msg <text>      Post a local Team Room message as CLI (operator/scripts).

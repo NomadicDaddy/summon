@@ -85,9 +85,7 @@ test('named notes edits preserve peers and reject stale, redirected and delete r
 			)
 		).code,
 	).toBe(1);
-	expect((await request(['read'], '', 'stale-nonce')).error).toContain(
-		'current registered launch',
-	);
+	expect((await request(['read'], '', 'stale-nonce')).error).toContain('another launch');
 	await rm(join(root, 'alpha.md'));
 	expect(
 		(

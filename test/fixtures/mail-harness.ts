@@ -10,11 +10,23 @@ export async function mailHarness() {
 	await mkdir(records);
 	const capture = join(root, 'capture.jsonl');
 	await writeFile(capture, '');
-	for (const name of ['alpha', 'beta'])
+	for (const name of ['alpha', 'beta']) {
 		await writeFile(
 			join(records, `${name}.json`),
 			JSON.stringify(newRecord(name, root, 'claude')),
 		);
+		const runtime = join(records, 'runtime', name);
+		await mkdir(runtime, { recursive: true });
+		await writeFile(
+			join(runtime, 'activity.json'),
+			JSON.stringify({
+				workingOn: '',
+				state: 'idle',
+				updatedAt: new Date().toISOString(),
+				nonce: 'test-launch',
+			}),
+		);
+	}
 	return {
 		root,
 		records,

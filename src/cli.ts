@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 
 import type { AgentRecord } from './store.ts';
 
-import { activityCommand } from './agent-activity.ts';
+import { activityCommand, assertActiveSeat } from './agent-activity.ts';
 import { beforeStoreCommand } from './before-store-command.ts';
 import { boardCommand } from './board-command.ts';
 import { checkpointCommand } from './checkpoint-command.ts';
@@ -50,11 +50,17 @@ import { summonAllAgents } from './summon-all.ts';
 import { openTeam } from './team-window.ts';
 import { telegramCommand } from './telegram.ts';
 import { assertDirectory, openTerminal, terminalCommand } from './terminal.ts';
+import { unownedCommand } from './unowned-command.ts';
 import { assertNonElevated } from './windows-integrity.ts';
 
 async function main(args: string[]): Promise<void> {
 	if (process.platform === 'win32') process.env.NoDefaultCurrentDirectoryInExePath = '1';
 	args = await configureStorage(args);
+	await assertActiveSeat();
+	if (args[0] === '--unowned') {
+		await unownedCommand(args.slice(1));
+		return;
+	}
 	if (await beforeStoreCommand(args)) return;
 	if (args[0] === '--team') await assertNonElevated();
 	await initializeStore();

@@ -214,6 +214,19 @@ trust model as summon: agents must not tamper with it or remove their identity t
 
 ### Agent commands
 
+When a named session starts a separate tool or service, launch it with
+`summon --unowned -- <executable> [arguments...]`. Summon removes every environment variable
+whose name starts with `SUMMON_`, regardless of case, before starting the command. Other
+environment settings, the current directory, standard streams and the child's exit code are
+preserved. Descendants inherit the scrubbed environment. For example, from either PowerShell or
+a POSIX shell, `summon --unowned -- bun run dev` starts a development server without carrying
+the caller's agent name, launch nonce or Claude turn credentials into that server.
+
+Named-session CLI commands compare their nonce with the current activity record before routing a
+command. A replaced launch is refused. This is a cooperative session boundary, not operating-system
+isolation: the launcher does not grant permission for the detached tool, and local processes with
+the same filesystem access can still modify their own environment or invoke Summon independently.
+
 The bundled `summon-who` skill reports registered agents' observed session presence without launching
 them. Find it with `summon --skills status`; its script runs from the source checkout or installed
 package. It checks session locks, process identity, terminal or Electron team-window parent, and provider child. Older sessions,

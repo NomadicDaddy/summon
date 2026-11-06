@@ -35,6 +35,17 @@ export async function readActivity(name: string): Promise<AgentActivity | undefi
 	return value as AgentActivity;
 }
 
+/** Refuse commands from a named seat after its recorded launch has been replaced. */
+export async function assertActiveSeat(): Promise<void> {
+	if (!process.env.SUMMON_AGENT) return;
+	const name = currentAgent();
+	const activity = await readActivity(name);
+	if (!activity || activity.nonce !== process.env.SUMMON_NONCE)
+		throw new Error(
+			'Activity belongs to another launch. Restart this session to enable commands.',
+		);
+}
+
 export async function initializeActivity(
 	name: string,
 	nonce: string,

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { initializeActivity } from '../src/agent-activity.ts';
@@ -200,6 +200,7 @@ test('desktop tick targets the named running idle Kilo terminal, never an adjace
 		join(fixture.records, 'alpha.json'),
 		JSON.stringify(newRecord('alpha', fixture.root, 'kilo')),
 	);
+	await rm(join(fixture.records, 'runtime/alpha/activity.json'));
 	const inputs: string[] = [];
 	const exits: ((event: { exitCode: number }) => void)[] = [];
 	let launches = 0;

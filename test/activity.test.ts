@@ -28,7 +28,10 @@ test('self-defined activity is bounded, launch-owned, and reset on restart', asy
 	expect((await fixture.run(['--status', 'busy', 'x'.repeat(121)], 'alpha')).code).toBe(1);
 	expect((await fixture.run(['--status', 'busy', 'invalid\ntext'], 'alpha')).code).toBe(1);
 	expect((await fixture.run(['--status', 'idle', 'Available'])).code).toBe(1);
-	expect((await fixture.run(['--status', 'idle', 'Available'], 'beta')).code).toBe(1);
+	expect(
+		(await fixture.run(['--status', 'idle', 'Available'], 'beta', { SUMMON_NONCE: 'stale' }))
+			.code,
+	).toBe(1);
 	await initializeActivity('alpha', 'new-launch');
 	expect((await readActivity('alpha'))?.state).toBe('idle');
 	expect((await readActivity('alpha'))?.workingOn).toBe('');
