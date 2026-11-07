@@ -78,14 +78,16 @@ async function recordInvalidHeadDown(name: string, raw: string): Promise<void> {
 		}
 	}
 	if (prior?.digest === digest && prior.reported) return;
-	await atomicWrite(join(runtimePath(name), `head-down-invalid-${digest}.json`), raw);
-	await atomicWrite(markerPath, JSON.stringify({ digest, reported: false }));
+	if (prior?.digest !== digest) {
+		await atomicWrite(join(runtimePath(name), `head-down-invalid-${digest}.json`), raw);
+		await atomicWrite(markerPath, JSON.stringify({ digest, reported: false }));
+	}
 	await assertCommunicationsOpen();
 	await appendLocalEvent({
 		sender: { kind: 'cli', id: 'Summon' },
 		text: `${name}: invalid head-down record ignored; returned to Normal. Queued notifications may now be delivered.`,
 		replyTo: null,
-		source: `head-down-invalid-recovery:${digest}`,
+		source: `head-down-invalid-recovery:${name}:${digest}`,
 	});
 	await atomicWrite(markerPath, JSON.stringify({ digest, reported: true }));
 }

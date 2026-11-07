@@ -223,6 +223,19 @@ test('malformed-state recovery respects a communication halt', async () => {
 	expect(await optionalText(markerPath)).toContain('"reported":true');
 });
 
+test('identical corrupt bytes produce a separate recovery audit for each seat', async () => {
+	await atomicWrite(headDownPath('alpha'), '{bad json');
+	await atomicWrite(headDownPath('beta'), '{bad json');
+	expect(await headDownActive('alpha')).toBe(false);
+	expect(await headDownActive('beta')).toBe(false);
+	const recoveries = (await localEvents()).filter((event) =>
+		event.source.startsWith('head-down-invalid-recovery:'),
+	);
+	expect(recoveries).toHaveLength(2);
+	expect(recoveries[0]?.text).toContain('alpha: invalid head-down record ignored');
+	expect(recoveries[1]?.text).toContain('beta: invalid head-down record ignored');
+});
+
 test('Room failure ends an invalid grant and records recovery when the Room returns', async () => {
 	await saveTeamSettings({ autoHeadDown: true });
 	const active = await request();
