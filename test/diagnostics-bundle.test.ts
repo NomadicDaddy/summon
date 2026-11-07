@@ -129,8 +129,32 @@ test('unreadable sections are explicit and credential-shaped errors are redacted
 
 test('every source is read, but planted token, home path and message body stay out of the bundle', async () => {
 	const token = ['sk', 'test0123456789abcdef'].join('-');
+	const telegramToken = ['123456789', 'a'.repeat(35)].join(':');
+	const accessKey = ['AK', 'IA', 'A'.repeat(16)].join('');
 	const body = 'PRIVATE_MESSAGE_BODY_29cb75';
-	const poison = `${token} ${homedir()}\\.summon\\team-default\\scratch\\morgan "${body}"`;
+	const msysHome = [
+		'',
+		'c',
+		'Users',
+		'tester',
+		'.summon',
+		'team-default',
+		'mailboxes',
+		'peer',
+		'a.json',
+	].join('/');
+	const msysRepo = '/d/applications/private-repo/config.json';
+	const uncHost = '\\\\PRIVATE-HOST\\share\\secret.txt';
+	const poison = [
+		token,
+		homedir(),
+		msysHome,
+		msysRepo,
+		telegramToken,
+		accessKey,
+		uncHost,
+		body,
+	].join(' ');
 	const at = '2026-11-07T11:00:00.000Z';
 	const seen: string[] = [];
 	const bundle = await collectDiagnostics(
@@ -270,6 +294,11 @@ test('every source is read, but planted token, home path and message body stay o
 	const raw = JSON.stringify(bundle);
 	expect(raw).not.toContain(token);
 	expect(raw).not.toContain(homedir());
+	expect(raw).not.toContain(msysHome);
+	expect(raw).not.toContain(msysRepo);
+	expect(raw).not.toContain(telegramToken);
+	expect(raw).not.toContain(accessKey);
+	expect(raw).not.toContain(uncHost);
 	expect(raw).not.toContain(body);
 	for (const section of Object.values(bundle.sections)) expect(section.status).toBe('available');
 });

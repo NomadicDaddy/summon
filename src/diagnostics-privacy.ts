@@ -1,28 +1,33 @@
-import { homedir } from 'node:os';
-
-import { runtimeFaultText } from './runtime-fault-model.ts';
-
 export const DIAGNOSTIC_REDACTIONS = [
 	'message bodies and work-card contents',
 	'credentials, tokens and provider account identifiers',
 	'private paths and file contents',
 	'peer mailbox and runtime details',
-	'home directory replaced by ~',
+	'home directory replaced by ~ or omitted with unsafe detail',
 ] as const;
 
-/** A reason is useful for support, but arbitrary error payloads are never copied verbatim. */
+/** Only fixed, application-owned reasons may be copied; arbitrary text can be a message body. */
+const safeReasons = new Set([
+	'Not found on PATH',
+	'Unsafe version-check path',
+	'Version check failed or timed out',
+	'Version not reported',
+	'No live adapter attached.',
+	'Receiver process exited; mail remains queued.',
+	'Launch readiness acknowledged. Retained receiver status does not confirm delivery health.',
+	'Awaiting explicit launch readiness acknowledgment via summon --mail ready. Notices may already be arriving.',
+	'An owned running member could not be observed; launch status is incomplete.',
+	'Public launch snapshot is stale or its clock is unverifiable.',
+	'Owning window process identity is unavailable or no longer matches.',
+	'Public launch snapshot expired during identity verification.',
+	'Public launch snapshot is missing, unreadable or invalid.',
+	'Own presence row is absent.',
+]);
+
 export function diagnosticReason(value: unknown): string {
-	if (typeof value !== 'string') return 'Unavailable; no safe error detail was supplied.';
-	const home = homedir();
-	const withoutHome = home
-		? value.replaceAll(home, '~').replaceAll(home.replaceAll('\\', '/'), '~')
-		: value;
-	return runtimeFaultText(withoutHome)
-		.replace(/~[\\/]\.summon[\\/][^\s"'<>]+/gi, '[private path omitted]')
-		.replace(/\b[a-z]:[\\/][^\s"'<>]+/gi, '[path omitted]')
-		.replace(/\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b/gi, '[account omitted]')
-		.replace(/\b(?:acct|account|org|user)[_-][a-z0-9_-]{6,}\b/gi, '[account omitted]')
-		.replace(/\b(?:sk|gh[pousr]|github_pat)[-_][a-z0-9_-]{8,}\b/gi, '[token omitted]');
+	return typeof value === 'string' && safeReasons.has(value)
+		? value
+		: 'Details omitted for privacy.';
 }
 
 export function diagnosticError(error: unknown): string {
