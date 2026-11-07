@@ -31,6 +31,7 @@ beforeEach(async () => {
 	process.env.SUMMON_HOME = fixture.records;
 	process.env.SUMMON_AGENT = 'alpha';
 	process.env.SUMMON_NONCE = 'watchdog-fixture';
+	await initializeActivity('alpha', 'watchdog-fixture');
 	now = 1000000;
 	clock = spyOn(Date, 'now').mockImplementation(() => now);
 	monotonic = spyOn(performance, 'now').mockImplementation(() => now);

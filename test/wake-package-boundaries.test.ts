@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { Hold } from '../src/mail-attention.ts';
 import type { ReceiverLease } from '../src/mail-session.ts';
 
+import { initializeActivity } from '../src/agent-activity.ts';
 import { checkpoint } from '../src/checkpoint.ts';
 import { prepareLocalRoomNotice } from '../src/local-room-live.ts';
 import { appendLocalEvent } from '../src/local-room.ts';
@@ -25,6 +26,7 @@ const previous = {
 	home: process.env.SUMMON_HOME,
 	agent: process.env.SUMMON_AGENT,
 	nonce: process.env.SUMMON_NONCE,
+	roomQuiet: process.env.SUMMON_ROOM_WAKE_QUIET_MS,
 };
 const config = { botToken: '123:fixture', chatId: '456', allowedUserIds: ['456'] };
 beforeEach(async () => {
@@ -32,6 +34,8 @@ beforeEach(async () => {
 	process.env.SUMMON_HOME = fixture.records;
 	process.env.SUMMON_AGENT = 'alpha';
 	process.env.SUMMON_NONCE = 'boundary-fixture';
+	process.env.SUMMON_ROOM_WAKE_QUIET_MS = '0';
+	await initializeActivity('alpha', 'boundary-fixture');
 	globalThis.fetch = Object.assign(
 		() => Promise.resolve(Response.json({ ok: true, result: [] })),
 		{ preconnect: originalFetch.preconnect },
@@ -47,6 +51,8 @@ afterEach(async () => {
 	else process.env.SUMMON_AGENT = previous.agent;
 	if (previous.nonce === undefined) delete process.env.SUMMON_NONCE;
 	else process.env.SUMMON_NONCE = previous.nonce;
+	if (previous.roomQuiet === undefined) delete process.env.SUMMON_ROOM_WAKE_QUIET_MS;
+	else process.env.SUMMON_ROOM_WAKE_QUIET_MS = previous.roomQuiet;
 	await fixture.dispose();
 });
 
@@ -87,6 +93,9 @@ async function receiver(notices: string[]) {
 
 test('mail, local room, Telegram and approval decisions share one bounded notice', async () => {
 	await atomicWrite(join(fixture.records, 'integrations/telegram.json'), JSON.stringify(config));
+	process.env.SUMMON_AGENT = '';
+	await saveRoomWakePolicy(['alpha']);
+	process.env.SUMMON_AGENT = 'alpha';
 	await sendMessage('alpha', 'alpha', 'PRIVATE_MAIL');
 	await post('PRIVATE_ROOM');
 	await recordRoomEvent(config, {
@@ -149,6 +158,7 @@ test('active frozen pages suppress their covered work and later addressed arriva
 	expect(await Bun.file(join(fixture.records, 'runtime/alpha/room.cursor')).exists()).toBe(false);
 	await lease?.();
 	process.env.SUMMON_NONCE = 'replacement-boundary';
+	await initializeActivity('alpha', 'replacement-boundary');
 	const restarted: string[] = [];
 	const nextCycle = await receiver(restarted);
 	await nextCycle();
