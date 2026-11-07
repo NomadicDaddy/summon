@@ -16,6 +16,7 @@ import { archiveMessage } from './mail-archive.ts';
 import { errorCode, locked, missing } from './mail-files.ts';
 import { coveringInbox, messageId, ownMailbox } from './mail-identity.ts';
 import { publishedMailMatches } from './mail-replay.ts';
+import { markSentPublished, prepareSentStatus } from './mail-sent-status.ts';
 import { startupOperatorDisplay } from './operator-identity.ts';
 import { loadAgent, slugFor, storageRoot } from './store.ts';
 import { parseSystemMail } from './system-mail.ts';
@@ -119,6 +120,7 @@ async function deliverMessage(
 	// refused instead of being dropped as if it were. Each attempt uses its own temporary file.
 	const explicit = options.id !== undefined;
 	const body = messageBody(sender, recipient, text, options, id);
+	await prepareSentStatus(sender, recipient, id);
 	const publish = async (): Promise<string> => {
 		if (explicit && (await publishedMailMatches(root, id, body))) return id;
 		const temporary = join(inbox, `${id}${explicit ? `.${randomUUID()}` : ''}.tmp`);
@@ -143,7 +145,13 @@ async function deliverMessage(
 	};
 	// The check and the link hold the recipient's per-message lock, which acknowledgement also
 	// takes, so no other publication or acknowledgement of that ID can run between them.
-	return explicit ? locked(join(root, 'acks', `${id}.lock`), publish) : publish();
+	const published = explicit
+		? await locked(join(root, 'acks', `${id}.lock`), publish)
+		: await publish();
+	await markSentPublished(sender, id).catch(() => {
+		console.error('Sender read status could not be finalized; mail remains delivered.');
+	});
+	return published;
 }
 
 export async function acknowledgeMessage(name: string, id: string): Promise<void> {

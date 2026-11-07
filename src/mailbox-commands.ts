@@ -10,6 +10,7 @@ import { locked } from './mail-files.ts';
 import { currentAgent } from './mail-identity.ts';
 import { confirmMessage, header, readOwnChunk, receiveMail, statePath } from './mail-read.ts';
 import { parseReceiveArgs, receiveFiltered } from './mail-receive-filter.ts';
+import { sentStatus } from './mail-sent-status.ts';
 import { bindSession } from './mail-session-hook.ts';
 import { deliveryView, markReady } from './mail-session.ts';
 import { acknowledgeMessage, operatorMailCommand, sendMessage } from './mailbox.ts';
@@ -34,6 +35,7 @@ const actions = new Set([
 	'read-self',
 	'read-history',
 	'read-hold',
+	'sent-status',
 	'reply',
 	'confirm',
 	'ack-self',
@@ -53,6 +55,7 @@ export type ScopedMailResult =
 	| Awaited<ReturnType<typeof readOwnChunk>>
 	| Awaited<ReturnType<typeof holdMessage>>
 	| Awaited<ReturnType<typeof recordDecision>>
+	| Awaited<ReturnType<typeof sentStatus>>
 	| (Awaited<ReturnType<typeof deliveryView>> &
 			Awaited<ReturnType<typeof responseStatusView>> & {
 				wakeErrors: Awaited<ReturnType<typeof wakeErrors>>;
@@ -76,6 +79,7 @@ export async function scopedMail(args: string[]): Promise<ScopedMailResult> {
 	if (action === 'receive') return receiveFiltered(name, parseReceiveArgs(args.slice(1)));
 	if (action === 'history' && args.length <= 2) return receiveMail(name, first, false, 'history');
 	if (action === 'holds' && args.length <= 2) return receiveHolds(name, first);
+	if (action === 'sent-status' && first && args.length === 2) return sentStatus(name, first);
 	if (
 		(action === 'read-self' || action === 'read-history') &&
 		first &&

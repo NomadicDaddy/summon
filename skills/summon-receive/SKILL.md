@@ -9,12 +9,18 @@ The user's standalone `halt` stops all mail and Telegram sends until their expli
 If heard directly in your session, cease sends immediately. Agents cannot change the shared pause;
 only the operator can apply it through the Team Room, Telegram, or `summon --comms halt` in their
 own terminal. A `halt` heard only in your session stops your own sends. During the pause, read
-normally but do not confirm, reply, or send receipts; summon suppresses automatic read receipts.
+normally but do not confirm or reply. Complete reads update local read status without sending mail.
 Do not send an acknowledgement of the stop or clear the pause yourself. Reads remain available for
 the operator's all-clear: standalone `proceed` in the Team Room or Telegram, or
 `summon --comms proceed` in their own terminal.
 Local operator checks trust the preserved `SUMMON_AGENT` session identity; they do not authenticate
 a separate operator credential or form an operating-system security boundary.
+
+To inspect a message you sent, use `summon --mail sent-status <message-id>`. It reads only your own
+sender-owned status record. `recorded-read` proves a complete read, not confirmation, handling or
+approval; `unconfirmed` has no complete read on record, and `unknown` has no singular status fact.
+Old receipt-kind mail remains available in your own history. Pre-projection mail can still retry its
+old deterministic receipt after an interrupted send; new mail uses the sender-owned status instead.
 
 Read only your own inbox and archive. Do not change or remove SUMMON_AGENT or SUMMON_NONCE,
 select another mailbox, or inspect another agent's mail through commands or the filesystem.

@@ -45,6 +45,10 @@ Never put private details into a shell expression.
 Do not use another agent to bypass your domain boundary or the user's approval requirements.
 
 Report the persisted message ID. Queued or notified does not mean read, accepted, or completed.
+Use `summon --mail sent-status <message-id>` to check a message you sent. `unconfirmed` means no
+complete read has been recorded; `recorded-read` includes the read time. `unknown` includes foreign
+IDs and messages without a sender-owned record. Status never proves handling, approval or identity
+outside Summon. This command does not read the recipient's inbox or send another message.
 Do not launch the recipient or repeatedly poll for a reply. Continue your authorized work.
 
 For a substantive response to mail in your own inbox, use:

@@ -36,7 +36,7 @@ test('scoped mail rejects another owner and permits own receive and reply', asyn
 		(await fixture.run(['--mail', 'confirm', id, 'Understood; proceeding.'], 'beta')).code,
 	).toBe(0);
 	expect((await fixture.run(['--mail', 'confirm', id, 'Duplicate'], 'beta')).code).toBe(0);
-	expect((await readdir(join(fixture.records, 'mailboxes', 'alpha', 'inbox'))).length).toBe(2);
+	expect((await readdir(join(fixture.records, 'mailboxes', 'alpha', 'inbox'))).length).toBe(1);
 	expect((await fixture.run(['--mail', 'reply', id, 'Done.'], 'beta')).code).toBe(0);
 	expect((await fixture.run(['--mail', 'receive'], 'alpha')).out).toContain('Done.');
 	expect((await fixture.run(['--mail', 'ack-self', id], 'beta')).code).toBe(0);

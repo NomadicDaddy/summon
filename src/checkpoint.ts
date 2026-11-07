@@ -24,6 +24,7 @@ import { HIBERNATE_INSTRUCTION, isHibernated } from './hibernation.ts';
 import { ackLocalRoom, localAgent } from './local-room-access.ts';
 import { locked, optionalText } from './mail-files.ts';
 import { recordRead } from './mail-read.ts';
+import { recoverReadProjections } from './mail-sent-status.ts';
 import { ackRoom } from './telegram.ts';
 
 function receiptError(kind: 'Invalid' | 'Unknown'): Error {
@@ -77,6 +78,7 @@ export async function checkpoint(token?: string, work = false): Promise<Record<s
 			instruction: HIBERNATE_INSTRUCTION,
 		};
 	await dailyClaims(name);
+	await recoverReadProjections(name);
 	if (token !== undefined && !checkpointId.safeParse(token).success)
 		throw receiptError('Invalid');
 	return locked(`${checkpointStatePath(name)}.lock`, async () => {

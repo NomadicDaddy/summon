@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto';
 import type { MailChunk } from './mail-read-bytes.ts';
 import type { MailHeader } from './mail-read-index.ts';
 
-import { CommunicationsPausedError, communicationState } from './communication-state.ts';
 import { archiveMessage } from './mail-archive.ts';
 import { notInInbox } from './mail-confirm-missing.ts';
 import { atomicWrite, locked, missing, optionalText } from './mail-files.ts';
@@ -11,6 +10,11 @@ import { messageId, ownMailbox } from './mail-identity.ts';
 import { readChunk } from './mail-read-bytes.ts';
 import { header, readMailIndex, statePath } from './mail-read-index.ts';
 import { alreadyPublished } from './mail-replay.ts';
+import {
+	finishReadProjection,
+	queueReadProjection,
+	recoverReadProjections,
+} from './mail-sent-status.ts';
 import { mailboxPath, sendMessage } from './mailbox.ts';
 import { slugFor } from './store.ts';
 
@@ -40,29 +44,14 @@ export async function recordRead(
 	name: string,
 	mail: Pick<MailHeader, 'id' | 'kind' | 'from'>,
 ): Promise<void> {
+	await queueReadProjection(name, mail.from, mail.id, mail.kind);
+	await finishReadProjection(name, mail.id).catch(async (error: unknown) => {
+		if (!(await optionalText(statePath(name, mail.id, 'read')))) throw error;
+		console.error('Read-status delivery remains pending; local read coverage remains durable.');
+	});
+	if (mail.kind !== 'receipt') return;
 	const path = statePath(name, mail.id, 'read');
 	await locked(`${path}.lock`, async () => {
-		if (!(await optionalText(path))) {
-			if (
-				(mail.kind === 'request' || mail.kind === 'reply') &&
-				!(await communicationState()).paused
-			) {
-				try {
-					await sendMessage(name, mail.from, `Read receipt for ${mail.id}.`, {
-						kind: 'receipt',
-						replyTo: mail.id,
-						id: eventId(`${slugFor(name)}:${mail.id}`, 'read'),
-					});
-				} catch (error: unknown) {
-					if (!(error instanceof CommunicationsPausedError))
-						console.error(
-							'Read receipt could not be delivered; mail remains readable.',
-						);
-				}
-			}
-			await atomicWrite(path, new Date().toISOString());
-		}
-		if (mail.kind !== 'receipt') return;
 		const actual = await header(name, mail.id).catch((error: unknown) => {
 			if (!missing(error)) throw error;
 			return header(name, mail.id, true);
@@ -136,6 +125,7 @@ export async function receiveMail(
 	view: MailView = 'pending',
 	select: (mail: MailHeader) => boolean = () => true,
 ): Promise<ReceivedMail> {
+	if (markRead && view !== 'history') await recoverReadProjections(name);
 	if (cursor) messageId(cursor);
 	if (view !== 'pending') ownMailbox(name);
 	const archive = view === 'history';

@@ -121,6 +121,7 @@ Mailbox (does not launch a session):
                           received. Omitted mail keeps its state; not complete coverage.
   summon --mail history [cursor]             Own archive, newest first; read-only.
   summon --mail holds [cursor]
+  summon --mail sent-status <message-id>       Own sent mail: unknown, unconfirmed, or recorded-read.
   summon --mail reply|confirm <message-id> <text>
   send, send-self and reply also accept --body-file <UTF-8-path> instead of <text>.
   summon --mail ack-self <message-id>

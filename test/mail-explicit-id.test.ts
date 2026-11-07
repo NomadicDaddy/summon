@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { CommunicationsPausedError, setCommunicationPause } from '../src/communication-state.ts';
 import { confirmMessage, recordRead, statePath } from '../src/mail-read.ts';
+import { sentStatus } from '../src/mail-sent-status.ts';
 import { sendMessage } from '../src/mailbox.ts';
 import { newRecord } from '../src/store.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
@@ -91,7 +92,7 @@ test('random-ID mail is unchanged: identical text twice is two messages', async 
 	expect((await files('alpha', 'inbox')).sort()).toEqual([`${first}.md`, `${second}.md`].sort());
 });
 
-test('two readers of one message ID send the sender two distinct receipts and confirmations', async () => {
+test('two readers of one message ID retain distinct confirmations and ambiguous status', async () => {
 	await writeFile(
 		join(fixture.records, 'gamma.json'),
 		JSON.stringify(newRecord('gamma', fixture.root, 'claude')),
@@ -117,11 +118,15 @@ test('two readers of one message ID send the sender two distinct receipts and co
 		for (const kind of ['receipt', 'confirmation'])
 			if (text.includes(`Kind: ${kind}`)) kinds[kind]?.push(text);
 	}
-	for (const kind of ['receipt', 'confirmation']) {
-		expect(kinds[kind]).toHaveLength(2);
-		expect(kinds[kind]?.some((text) => text.includes('From: alpha'))).toBe(true);
-		expect(kinds[kind]?.some((text) => text.includes('From: beta'))).toBe(true);
-	}
+	expect(kinds.receipt).toHaveLength(0);
+	expect(kinds.confirmation).toHaveLength(2);
+	expect(kinds.confirmation?.some((text) => text.includes('From: alpha'))).toBe(true);
+	expect(kinds.confirmation?.some((text) => text.includes('From: beta'))).toBe(true);
+	expect(await sentStatus('gamma', shared)).toEqual({
+		id: shared,
+		status: 'unknown',
+		readAt: null,
+	});
 });
 
 /** A confirmation delivered by an attempt that then died before writing its confirmed state. */
@@ -142,7 +147,7 @@ test('an archived confirmation from an interrupted attempt also stands, whatever
 	expect((await fixture.run(['--mail', 'ack-self', confirmation], 'alpha')).code).toBe(0);
 	expect(await confirmMessage('beta', id, 'Different wording.')).toBe(confirmation);
 	expect(await readFile(statePath('beta', id, 'confirmed'), 'utf8')).toBe(confirmation);
-	// Only beta's read receipt is still pending at alpha; the confirmation is not delivered again.
+	// The archived confirmation is not delivered again; read status created no receipt mail.
 	expect(await files('alpha', 'inbox')).not.toContain(`${confirmation}.md`);
 	expect(await body('alpha', 'archive', confirmation)).toContain('First wording.');
 });

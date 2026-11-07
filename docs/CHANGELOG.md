@@ -4,6 +4,12 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ## [Unreleased]
 
+### Added
+
+- Senders can check whether their own mail has a recorded complete read and when it occurred, without
+  opening the recipient's mailbox. New complete reads no longer create a separate receipt message;
+  pre-projection mail retains a retryable receipt path for interrupted legacy reads.
+
 ### Changed
 
 - Checkpoint output explains an incomplete Telegram refresh in detail on the first page, then uses
