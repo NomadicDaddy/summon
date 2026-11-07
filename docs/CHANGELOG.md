@@ -17,21 +17,21 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
   held and other substantive mail retains explicit handling.
 - Mail reading byte-window and index helpers now live in smaller modules with the same public exports.
 
-## [1.0.4] - 2026-11-04
+## [1.0.4] - Internal build, unshipped, folded into 1.1.0
 
 ### Removed
 
 - The old GitHub Pages workflow and standalone `site/` have been removed after the Summon page
   moved to beazley.org. This source change does not switch off Pages in repository settings.
 
-## [1.0.3] - 2026-11-04
+## [1.0.3] - Internal build, unshipped, folded into 1.1.0
 
 ### Changed
 
 - Team rules may now contain up to 10,000 characters while keeping the 40-line and provenance
   checks. Valid rules above that budget still load in full with a startup warning.
 
-## [1.0.2] - 2026-11-03
+## [1.0.2] - Internal build, unshipped, folded into 1.1.0
 
 ### Fixed
 
@@ -40,7 +40,7 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
   names that same directory. Unrelated aliases, links, outside targets and private paths remain
   refused.
 
-## [1.0.1] - 2026-11-03
+## [1.0.1] - Internal build, unshipped, folded into 1.1.0
 
 ### Fixed
 
