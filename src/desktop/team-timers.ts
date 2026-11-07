@@ -5,7 +5,7 @@ import { readBoard } from '../board.ts';
 import { communicationState } from '../communication-state.ts';
 import { cachedLocalEvents } from '../local-room.ts';
 import { saveMentionCursor } from '../team-mentions.ts';
-import { readTeamSettings } from '../team-settings.ts';
+import { readWakeOnMention } from '../team-settings.ts';
 import { tickRest } from './rest.ts';
 import { tickSchedules } from './schedules.ts';
 import { syncTerminalReceivers } from './terminal-receivers.ts';
@@ -52,7 +52,7 @@ export function createTeamTimers(deps: TimerDependencies): {
 			await tickSchedules(team).catch((error: unknown) => team.error(error));
 			await tickRest(team).catch((error: unknown) => team.error(error));
 			if (!recoveredMentions) {
-				if ((await readTeamSettings()).wakeOnMention)
+				if (await readWakeOnMention())
 					await team.recoverMissedMentionWakes(
 						await cachedLocalEvents(),
 						deps.previousTeamStart,
@@ -62,12 +62,12 @@ export function createTeamTimers(deps: TimerDependencies): {
 			for (const event of await cachedLocalEvents()) {
 				if (event.id <= mentionCursor) continue;
 				if ((await communicationState()).paused) return;
-				if ((await readTeamSettings()).wakeOnMention) await team.wakeMentions(event);
+				if (await readWakeOnMention()) await team.wakeMentions(event);
 				mentionCursor = event.id;
 				await saveMentionCursor(mentionCursor);
 			}
 			if ((await communicationState()).paused) return;
-			if ((await readTeamSettings()).wakeOnMention) await team.flushPendingMentionWakes();
+			if (await readWakeOnMention()) await team.flushPendingMentionWakes();
 		});
 	const checkRoster = (): Promise<void> =>
 		run('roster', async () => {

@@ -165,7 +165,7 @@ export async function appendAutoGrant(name: string, grant: GrantDetails): Promis
 
 export async function validAutoGrant(name: string, state: HeadDownState): Promise<boolean> {
 	const grant = state.autoApproval;
-	if (!grant || state.approvedBy !== 'operator-setting') return false;
+	if (!grant?.revision || state.approvedBy !== 'operator-setting') return false;
 	try {
 		const settingEvent = await roomEvent(grant.settingAuditId);
 		const setting = settingEvent && settingAudit(settingEvent);
@@ -174,6 +174,7 @@ export async function validAutoGrant(name: string, state: HeadDownState): Promis
 		const event = await roomEvent(grant.grantEventId);
 		return (
 			settingMatch &&
+			grant.settingAuditId < grant.grantEventId &&
 			event?.sender.kind === 'agent' &&
 			event.sender.id === name &&
 			event.source === 'local' &&

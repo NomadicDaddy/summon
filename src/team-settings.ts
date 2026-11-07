@@ -68,6 +68,12 @@ async function readWindowSettings(): Promise<Partial<WindowSettings>> {
 	return text === undefined ? {} : validate(JSON.parse(text));
 }
 
+/** Mention scans need only the window setting, not the Room-audited grant setting. */
+export async function readWakeOnMention(): Promise<boolean> {
+	operatorOnly();
+	return (await readWindowSettings()).wakeOnMention ?? WINDOW_DEFAULTS.wakeOnMention;
+}
+
 export async function readTeamSettings(): Promise<TeamSettings> {
 	operatorOnly();
 	const auto = await readAutoHeadDownSetting();

@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { readTeamSettings, saveTeamSettings } from '../src/team-settings.ts';
+import { localRoomPath } from '../src/local-room.ts';
+import { readTeamSettings, readWakeOnMention, saveTeamSettings } from '../src/team-settings.ts';
 
 const previousRoot = process.env.SUMMON_HOME;
 let root: string;
@@ -54,6 +55,15 @@ describe('team settings carry Claude delivery', () => {
 		});
 		// The window's own file keeps its one key, so an older build still reads it.
 		expect(JSON.parse(await readFile(window(), 'utf8'))).toEqual({ wakeOnMention: false });
+	});
+
+	test('mention scans read their setting without validating the auto grant audit', async () => {
+		await saveTeamSettings({ autoHeadDown: true });
+		await saveTeamSettings({ wakeOnMention: false });
+		await writeFile(localRoomPath(), '{bad json');
+		expect(await readWakeOnMention()).toBe(false);
+		await writeFile(window(), JSON.stringify({ wakeOnMention: true }));
+		expect(await readWakeOnMention()).toBe(true);
 	});
 
 	// The automatic hold preference (Phillip #7266) shares the window file with the mention switch.

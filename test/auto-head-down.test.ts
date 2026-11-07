@@ -3,9 +3,11 @@ import { join } from 'node:path';
 
 import { initializeActivity } from '../src/agent-activity.ts';
 import { readAutoHeadDownSetting } from '../src/auto-head-down.ts';
+import { automaticNoticeSuppressed } from '../src/automatic-notice.ts';
 import { setCommunicationPause } from '../src/communication-state.ts';
 import {
 	headDownActive,
+	headDownPath,
 	readHeadDown,
 	saveHeadDown,
 	sessionHeartbeat,
@@ -159,6 +161,66 @@ test('invalid grant audit and stale launch recover to Normal and expose notices'
 	await initializeActivity('alpha', 'next-launch');
 	expect(await headDownActive('alpha')).toBe(false);
 	expect((await readHeadDown('alpha'))?.phase).toBe('ended');
+});
+
+test('an active auto grant with no revision recovers and exposes queued notices', async () => {
+	await saveTeamSettings({ autoHeadDown: true });
+	const active = await request();
+	if (!active.state?.autoApproval) throw new Error('Missing auto grant');
+	const incompleteGrant = {
+		settingAuditId: active.state.autoApproval.settingAuditId,
+		grantEventId: active.state.autoApproval.grantEventId,
+	};
+	await atomicWrite(
+		headDownPath('alpha'),
+		JSON.stringify({ ...active.state, autoApproval: incompleteGrant }),
+	);
+	expect(await automaticNoticeSuppressed('alpha')).toBe(false);
+	expect((await readHeadDown('alpha'))?.phase).toBe('ended');
+	expect((await localEvents()).at(-1)?.text).toContain('grant recovered');
+});
+
+test('malformed head-down bytes fail off, preserve evidence, and audit recovery', async () => {
+	await saveTeamSettings({ autoHeadDown: true });
+	const active = await request();
+	expect(active.state?.phase).toBe('active');
+	await atomicWrite(headDownPath('alpha'), '{bad json');
+	expect(await automaticNoticeSuppressed('alpha')).toBe(false);
+	expect(await readHeadDown('alpha')).toBeUndefined();
+	expect((await localEvents()).at(-1)?.text).toContain('invalid head-down record ignored');
+	const marker = await optionalText(
+		join(fixture.records, 'runtime/alpha/head-down-invalid-recovery.json'),
+	);
+	expect(marker).toContain('"reported":true');
+});
+
+test('malformed state keeps recovery queued while the Room is unavailable', async () => {
+	await saveTeamSettings({ autoHeadDown: true });
+	await request();
+	const room = await optionalText(localRoomPath());
+	if (!room) throw new Error('Missing Room history');
+	await atomicWrite(headDownPath('alpha'), '{bad json');
+	await atomicWrite(localRoomPath(), '{bad json');
+	expect(await automaticNoticeSuppressed('alpha')).toBe(false);
+	const markerPath = join(fixture.records, 'runtime/alpha/head-down-invalid-recovery.json');
+	expect(await optionalText(markerPath)).toContain('"reported":false');
+	await atomicWrite(localRoomPath(), room);
+	expect(await automaticNoticeSuppressed('alpha')).toBe(false);
+	expect(await optionalText(markerPath)).toContain('"reported":true');
+	expect((await localEvents()).at(-1)?.text).toContain('invalid head-down record ignored');
+});
+
+test('malformed-state recovery respects a communication halt', async () => {
+	await saveTeamSettings({ autoHeadDown: true });
+	await request();
+	await atomicWrite(headDownPath('alpha'), '{bad json');
+	await setCommunicationPause(true);
+	expect(await readHeadDown('alpha')).toBeUndefined();
+	const markerPath = join(fixture.records, 'runtime/alpha/head-down-invalid-recovery.json');
+	expect(await optionalText(markerPath)).toContain('"reported":false');
+	await setCommunicationPause(false);
+	expect(await automaticNoticeSuppressed('alpha')).toBe(false);
+	expect(await optionalText(markerPath)).toContain('"reported":true');
 });
 
 test('Room failure ends an invalid grant and records recovery when the Room returns', async () => {
