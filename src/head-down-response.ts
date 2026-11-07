@@ -15,7 +15,13 @@ import { restSuppressed } from './rest.ts';
 
 async function decision(name: string, nonce: string): Promise<HeadDownState | undefined> {
 	const state = await readHeadDown(name);
-	if (!state || state.nonce !== nonce || !state.approvedBy) return undefined;
+	if (
+		!state ||
+		state.nonce !== nonce ||
+		!state.approvedBy ||
+		state.approvedBy === 'operator-setting'
+	)
+		return undefined;
 	if ((await readActivity(name))?.nonce !== nonce) return undefined;
 	if (state.phase === 'active' && state.decision === 'approved') {
 		if ((await headDownView(name))?.id === state.id) return state;

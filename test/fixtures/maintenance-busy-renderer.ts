@@ -49,6 +49,8 @@ const api: Record<string, (...args: never[]) => Promise<unknown>> = {
 	},
 	saveSettings: () =>
 		Promise.resolve({
+			autoHeadDown: false,
+			autoHeadDownRevision: 0,
 			autoHold: true,
 			claudeDelivery: 'checkpoint',
 			holdSeconds: 30,
@@ -57,6 +59,8 @@ const api: Record<string, (...args: never[]) => Promise<unknown>> = {
 	select: () => Promise.resolve(),
 	settings: () =>
 		Promise.resolve({
+			autoHeadDown: false,
+			autoHeadDownRevision: 0,
 			autoHold: true,
 			claudeDelivery: 'checkpoint',
 			holdSeconds: 30,

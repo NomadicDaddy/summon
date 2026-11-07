@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 
 import { readActivity } from './agent-activity.ts';
+import { validAutoGrant } from './auto-head-down.ts';
 import { atomicWrite, optionalText } from './mail-files.ts';
 import { runtimePath } from './mail-session.ts';
 import { processAlive } from './process-owner.ts';
@@ -17,6 +18,14 @@ export const headDownSchema = z.object({
 	decision: z.enum(['approved', 'declined']).optional(),
 	reason: z.string().optional(),
 	steeringId: z.number().int().positive().optional(),
+	recoveryPending: z.boolean().optional(),
+	autoApproval: z
+		.object({
+			revision: z.number().int().positive(),
+			settingAuditId: z.number().int().positive(),
+			grantEventId: z.number().int().positive(),
+		})
+		.optional(),
 });
 export type HeadDownState = z.infer<typeof headDownSchema>;
 export interface HeadDownView {
@@ -57,8 +66,26 @@ export async function headDownView(
 	now = Date.now(),
 ): Promise<HeadDownView | undefined> {
 	const state = await readHeadDown(name);
-	if (!state || state.phase === 'ended') return undefined;
+	if (!state) return undefined;
+	if (state.phase === 'ended') {
+		if (state.recoveryPending)
+			await import('./head-down.ts')
+				.then(({ flushAutoHeadDownRecovery }) => flushAutoHeadDownRecovery(name))
+				.catch(() => undefined);
+		return undefined;
+	}
 	const activity = await readActivity(name);
+	if (
+		state.phase === 'active' &&
+		(state.autoApproval !== undefined || state.approvedBy === 'operator-setting') &&
+		(activity?.nonce !== state.nonce || !(await validAutoGrant(name, state)))
+	) {
+		// The view fails closed even if the recovery audit cannot be written yet.
+		await import('./head-down.ts')
+			.then(({ recoverAutoHeadDown }) => recoverAutoHeadDown(name, state.id))
+			.catch(() => undefined);
+		return undefined;
+	}
 	if (activity?.nonce !== state.nonce) return undefined;
 	const raw = await optionalText(heartbeatPath(name));
 	const heartbeat = raw ? heartbeatSchema.parse(JSON.parse(raw) as unknown) : undefined;

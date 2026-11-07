@@ -55,6 +55,7 @@ describe('the dialog markup', () => {
 			'maint-wake-mentions',
 			'maint-claude-live',
 			'maint-auto-hold',
+			'maint-auto-head-down',
 			'maint-hold-seconds',
 			'maint-show-coverage',
 			'maint-show-progress',
@@ -76,6 +77,7 @@ describe('the dialog markup', () => {
 		const order = [
 			'id="maint-wake-mentions"',
 			'id="maint-auto-hold"',
+			'id="maint-auto-head-down"',
 			'id="maint-show-coverage"',
 			'id="maint-show-progress"',
 			'id="maint-show-delivery"',

@@ -1,3 +1,4 @@
+import { readAutoHeadDownSetting, saveAutoHeadDownSetting } from './auto-head-down.ts';
 import { claudeDelivery, type ClaudeDelivery, setClaudeDelivery } from './claude-delivery.ts';
 import { atomicWrite, locked, optionalText } from './mail-files.ts';
 import { operatorOnly } from './mail-identity.ts';
@@ -14,6 +15,9 @@ export interface TeamSettings {
 	autoHold: boolean;
 	/** How long that automatic hold lasts, in whole seconds. */
 	holdSeconds: number;
+	/** Operator-only switch; an unaudited or missing setting is always off. */
+	autoHeadDown: boolean;
+	autoHeadDownRevision: number;
 }
 
 type WindowSettings = Pick<TeamSettings, 'autoHold' | 'holdSeconds' | 'wakeOnMention'>;
@@ -66,9 +70,12 @@ async function readWindowSettings(): Promise<Partial<WindowSettings>> {
 
 export async function readTeamSettings(): Promise<TeamSettings> {
 	operatorOnly();
+	const auto = await readAutoHeadDownSetting();
 	return {
 		...WINDOW_DEFAULTS,
 		...(await readWindowSettings()),
+		autoHeadDown: auto.enabled,
+		autoHeadDownRevision: auto.revision,
 		claudeDelivery: await claudeDelivery(),
 	};
 }
@@ -77,9 +84,14 @@ export async function readTeamSettings(): Promise<TeamSettings> {
 export async function saveTeamSettings(value: unknown): Promise<TeamSettings> {
 	operatorOnly();
 	if (!value || typeof value !== 'object') throw new Error('Invalid team settings.');
-	const { claudeDelivery: delivery, ...window } = value as Record<string, unknown>;
-	if (delivery === undefined && Object.keys(window).length === 0)
+	const { autoHeadDown, claudeDelivery: delivery, ...window } = value as Record<string, unknown>;
+	if (delivery === undefined && autoHeadDown === undefined && Object.keys(window).length === 0)
 		throw new Error('Invalid team settings.');
+	if (
+		autoHeadDown !== undefined &&
+		(typeof autoHeadDown !== 'boolean' || delivery !== undefined || Object.keys(window).length)
+	)
+		throw new Error('Auto head-down must be changed by itself.');
 	// Both parts are checked before either is written, so a refused change alters nothing.
 	const changed = Object.keys(window).length === 0 ? undefined : validate(window);
 	if (delivery !== undefined && delivery !== 'checkpoint' && delivery !== 'live')
@@ -91,5 +103,6 @@ export async function saveTeamSettings(value: unknown): Promise<TeamSettings> {
 			await atomicWrite(settingsPath(), JSON.stringify(stored));
 		});
 	if (delivery !== undefined) await setClaudeDelivery(delivery);
+	if (autoHeadDown !== undefined) await saveAutoHeadDownSetting(autoHeadDown);
 	return readTeamSettings();
 }

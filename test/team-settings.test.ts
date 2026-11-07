@@ -18,11 +18,13 @@ afterEach(async () => {
 });
 const delivery = () => join(root, 'settings', 'claude-delivery.json');
 const window = () => join(root, 'runtime', 'team-window', 'settings.json');
+const autoDefaults = { autoHeadDown: false, autoHeadDownRevision: 0 };
 
 // The Team Window reads and changes Claude delivery through the settings it already has.
 describe('team settings carry Claude delivery', () => {
 	test('a team with neither file reads the defaults it always had', async () => {
 		expect(await readTeamSettings()).toEqual({
+			...autoDefaults,
 			autoHold: true,
 			claudeDelivery: 'live',
 			holdSeconds: 30,
@@ -32,6 +34,7 @@ describe('team settings carry Claude delivery', () => {
 
 	test('changing one setting leaves the other as it was', async () => {
 		expect(await saveTeamSettings({ wakeOnMention: false })).toEqual({
+			...autoDefaults,
 			autoHold: true,
 			claudeDelivery: 'live',
 			holdSeconds: 30,
@@ -39,6 +42,7 @@ describe('team settings carry Claude delivery', () => {
 		});
 		expect(await Bun.file(delivery()).exists()).toBe(false);
 		expect(await saveTeamSettings({ claudeDelivery: 'checkpoint' })).toEqual({
+			...autoDefaults,
 			autoHold: true,
 			claudeDelivery: 'checkpoint',
 			holdSeconds: 30,
@@ -56,6 +60,7 @@ describe('team settings carry Claude delivery', () => {
 	test('the hold settings merge into the window file beside the keys already there', async () => {
 		await saveTeamSettings({ wakeOnMention: false });
 		expect(await saveTeamSettings({ holdSeconds: 45 })).toEqual({
+			...autoDefaults,
 			autoHold: true,
 			claudeDelivery: 'live',
 			holdSeconds: 45,
@@ -66,6 +71,7 @@ describe('team settings carry Claude delivery', () => {
 			wakeOnMention: false,
 		});
 		expect(await saveTeamSettings({ autoHold: false })).toEqual({
+			...autoDefaults,
 			autoHold: false,
 			claudeDelivery: 'live',
 			holdSeconds: 45,
@@ -74,6 +80,7 @@ describe('team settings carry Claude delivery', () => {
 		// A file written by an older build, with only the mention key, reads with the defaults.
 		await writeFile(window(), JSON.stringify({ wakeOnMention: true }));
 		expect(await readTeamSettings()).toEqual({
+			...autoDefaults,
 			autoHold: true,
 			claudeDelivery: 'live',
 			holdSeconds: 30,
@@ -94,6 +101,7 @@ describe('team settings carry Claude delivery', () => {
 			wakeOnMention: false,
 		});
 		expect(await readTeamSettings()).toEqual({
+			...autoDefaults,
 			autoHold: false,
 			claudeDelivery: 'checkpoint',
 			holdSeconds: 45,

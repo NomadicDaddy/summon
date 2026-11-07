@@ -176,6 +176,7 @@ export function setupTeamSettings(
 	const wakeMentions = get('maint-wake-mentions') as HTMLInputElement;
 	const claudeLive = get('maint-claude-live') as HTMLInputElement;
 	const autoHold = get('maint-auto-hold') as HTMLInputElement;
+	const autoHeadDown = get('maint-auto-head-down') as HTMLInputElement;
 	const holdSeconds = get('maint-hold-seconds') as HTMLInputElement;
 	// A refused save puts the box back, so the dialog never shows a state the file does not hold.
 	const bind = (box: HTMLInputElement, change: (checked: boolean) => Promise<unknown>): void => {
@@ -196,6 +197,7 @@ export function setupTeamSettings(
 		window.team.saveSettings({ claudeDelivery: live ? 'live' : 'checkpoint' }),
 	);
 	bind(autoHold, (hold) => window.team.saveSettings({ autoHold: hold }));
+	bind(autoHeadDown, (enabled) => window.team.saveSettings({ autoHeadDown: enabled }));
 	// The seconds field saves on change; a refused value (blank, fraction, out of range) goes
 	// back to the saved one, so the dialog never shows a countdown the file does not hold.
 	let savedSeconds = holdSeconds.value;
@@ -218,6 +220,7 @@ export function setupTeamSettings(
 			wakeMentions.checked = settings.wakeOnMention;
 			claudeLive.checked = settings.claudeDelivery === 'live';
 			autoHold.checked = settings.autoHold;
+			autoHeadDown.checked = settings.autoHeadDown;
 			savedSeconds = String(settings.holdSeconds);
 			holdSeconds.value = savedSeconds;
 		},
@@ -225,6 +228,7 @@ export function setupTeamSettings(
 			wakeMentions.disabled = busy;
 			claudeLive.disabled = busy;
 			autoHold.disabled = busy;
+			autoHeadDown.disabled = busy;
 			holdSeconds.disabled = busy;
 		},
 	};

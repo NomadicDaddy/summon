@@ -469,6 +469,21 @@
 						held until you press Hold Interruptions. Switching to another window never
 						starts the countdown.
 					</p>
+					<label class="maint-setting">
+						<input
+							id="maint-auto-head-down"
+							type="checkbox"
+							aria-describedby="maint-auto-head-down-hint"
+						/>
+						Auto-approve new head-down requests
+					</label>
+					<p class="maint-hint" id="maint-auto-head-down-hint">
+						Off by default. When on, new requests with a goal, completion condition,
+						current launch, and return-to-Normal commitment start immediately and are
+						recorded in the Room. Earlier pending requests still need a human answer.
+						Turning this off stops new auto-approvals; active goals continue until
+						ended.
+					</p>
 					<h3 class="maint-group">Display</h3>
 					<label class="maint-setting">
 						<input id="maint-show-coverage" type="checkbox" checked />
