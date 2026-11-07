@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import { version } from '../package.json';
 import { cliStatuses } from './desktop/cli-status.ts';
 import { DIAGNOSTIC_REDACTIONS, diagnosticError, diagnosticReason } from './diagnostics-privacy.ts';
@@ -16,6 +18,14 @@ export interface DiagnosticSection {
 	value?: unknown;
 	error?: string;
 }
+
+const buildIdentity = z.object({
+	kind: z.string().max(100),
+	version: z.string().regex(/^\d+\.\d+\.\d+(?:[-+][a-z0-9.-]+)?$/i),
+	revision: z.string().regex(/^(?:[a-f0-9]{7,40}|unversioned)(?:\+dirty)?$/),
+	buildId: z.string().regex(/^[a-f0-9]{10}$/),
+	builtAt: z.iso.datetime(),
+});
 
 export interface DiagnosticSources {
 	build: () => Promise<unknown>;
@@ -97,7 +107,7 @@ export async function collectDiagnostics(
 				arch: process.arch,
 			},
 		}),
-		build: await inspect(build),
+		build: await inspect(async () => buildIdentity.parse(await build())),
 		prerequisites: await inspect(async () =>
 			(await readers.prerequisites()).map(({ id, status, detail }) => ({
 				id,

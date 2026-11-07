@@ -10,25 +10,15 @@ import { slugFor, storageRoot } from './store.ts';
 import { teamDist } from './team-build-options.ts';
 
 const usage = 'Usage: summon --diagnostics [--member name] [--since ISO-time] [--out path]';
-const buildSchema = z.object({
-	version: z.string().regex(/^\d+\.\d+\.\d+(?:[-+][a-z0-9.-]+)?$/i),
-	revision: z.string().regex(/^(?:[a-f0-9]{7,40}|unversioned)(?:\+dirty)?$/),
-	buildId: z.string().regex(/^[a-f0-9]{10}$/),
-	builtAt: z.iso.datetime(),
-});
-
 async function bundledBuild() {
 	const path = join(teamDist, 'build.json');
 	const stat = await lstat(path);
 	if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.size > 4096)
 		throw new Error('Bundled Team Window build identity is unavailable.');
-	const value = buildSchema.parse(JSON.parse(await readFile(path, 'utf8')) as unknown);
+	const value = JSON.parse(await readFile(path, 'utf8')) as unknown;
 	return {
+		...(value && typeof value === 'object' ? value : {}),
 		kind: 'bundle beside this CLI source; running Window identity is not established',
-		version: value.version,
-		revision: value.revision,
-		buildId: value.buildId,
-		builtAt: value.builtAt,
 	};
 }
 

@@ -1,10 +1,11 @@
 import { expect, test } from 'bun:test';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { initializeActivity } from '../src/agent-activity.ts';
-import { collectDiagnostics } from '../src/diagnostics-collect.ts';
+import { collectDiagnostics, type DiagnosticSources } from '../src/diagnostics-collect.ts';
 import { newRecord, saveAgent } from '../src/store.ts';
 import { runtimeFaultFixture } from './fixtures/runtime-fault-test.ts';
 
@@ -110,11 +111,165 @@ test('unreadable sections are explicit and credential-shaped errors are redacted
 		'2026-11-06T00:00:00.000Z',
 		() => Promise.reject(new Error(`token=${secret}`)),
 		{
+			prerequisites: () => Promise.resolve([]),
 			providers: () => Promise.reject(new Error(`token=${secret}`)),
+			launch: () => Promise.reject(new Error('Launch unavailable.')),
+			presence: () => Promise.reject(new Error('Presence unavailable.')),
+			mail: () => Promise.reject(new Error('Mail unavailable.')),
+			work: () => Promise.reject(new Error('Work unavailable.')),
+			faults: () => Promise.reject(new Error('Faults unavailable.')),
+			history: () => Promise.reject(new Error('History unavailable.')),
 		},
 	);
 	expect(bundle.sections.build).toMatchObject({ status: 'unavailable' });
 	expect(bundle.sections.providerClis).toMatchObject({ status: 'unavailable' });
 	expect(JSON.stringify(bundle)).not.toContain(secret);
 	expect(bundle.summary).toContain('build');
+});
+
+test('every source is read, but planted token, home path and message body stay out of the bundle', async () => {
+	const token = ['sk', 'test0123456789abcdef'].join('-');
+	const body = 'PRIVATE_MESSAGE_BODY_29cb75';
+	const poison = `${token} ${homedir()}\\.summon\\team-default\\scratch\\morgan "${body}"`;
+	const at = '2026-11-07T11:00:00.000Z';
+	const seen: string[] = [];
+	const bundle = await collectDiagnostics(
+		'morgan',
+		'2026-11-06T11:00:00.000Z',
+		() => {
+			seen.push('build');
+			return Promise.resolve({
+				kind: 'test',
+				version: '1.0.4',
+				revision: '7466aa1',
+				buildId: '1234567890',
+				builtAt: at,
+				messageBody: poison,
+			});
+		},
+		{
+			prerequisites: () => {
+				seen.push('prerequisites');
+				return Promise.resolve([
+					{ id: 'bun', status: 'available', detail: poison },
+				] as Awaited<ReturnType<DiagnosticSources['prerequisites']>>);
+			},
+			providers: () => {
+				seen.push('providers');
+				return Promise.resolve([
+					{ provider: 'codex', status: 'available', detail: poison },
+				] as Awaited<ReturnType<DiagnosticSources['providers']>>);
+			},
+			launch: () => {
+				seen.push('launch');
+				return Promise.resolve({
+					current: true,
+					observedAt: at,
+					windowStartedAt: at,
+					members: [
+						{
+							slug: 'morgan',
+							provider: 'codex',
+							launch: { phase: 'ready', since: at, evidence: poison },
+						},
+						{
+							slug: 'alice',
+							provider: 'claude',
+							launch: { phase: 'ready', since: at, evidence: poison },
+						},
+					],
+				} as unknown as Awaited<ReturnType<DiagnosticSources['launch']>>);
+			},
+			presence: () => {
+				seen.push('presence');
+				return Promise.resolve([
+					{
+						slug: 'morgan',
+						name: 'Morgan',
+						provider: 'codex',
+						state: 'online',
+						reason: poison,
+						observedAt: at,
+						hibernated: false,
+					},
+					{
+						slug: 'alice',
+						name: poison,
+						provider: 'claude',
+						state: 'online',
+						reason: poison,
+						observedAt: at,
+						hibernated: false,
+					},
+				] as Awaited<ReturnType<DiagnosticSources['presence']>>);
+			},
+			mail: () => {
+				seen.push('mail');
+				return Promise.resolve({
+					state: 'live',
+					readinessConfirmed: true,
+					reason: poison,
+					wakeErrors: [],
+					wakeDelivery: { latest: null, unresolved: 0 },
+					messageBody: poison,
+				});
+			},
+			work: () => {
+				seen.push('work');
+				return Promise.resolve({
+					activity: { currentLaunch: true, state: 'busy', workingOn: poison },
+					cards: { count: 1, items: [{ text: poison }] },
+					mail: { pending: 1, unread: 1, invalid: [] },
+					holds: { pending: 0, decisions: 0 },
+					checkpoint: { phase: 'page', page: 1, pages: 1 },
+					schedules: { counts: { unfinished: 0, due: 0, next: 0, paused: 0 } },
+					rest: null,
+					headDown: null,
+					roomAcknowledgedThrough: 1,
+				} as unknown as Awaited<ReturnType<DiagnosticSources['work']>>);
+			},
+			faults: () => {
+				seen.push('faults');
+				return Promise.resolve({
+					more: false,
+					matchingOccurrences: 1,
+					entries: [
+						{ at, lastAt: at, level: 'error', source: 'test', count: 1, text: poison },
+					],
+				} as Awaited<ReturnType<DiagnosticSources['faults']>>);
+			},
+			history: () => {
+				seen.push('history');
+				return Promise.resolve({
+					more: false,
+					entries: [
+						{
+							at,
+							state: 'started',
+							reason: 'unknown',
+							provider: 'codex',
+							messageBody: poison,
+						},
+					],
+				} as unknown as Awaited<ReturnType<DiagnosticSources['history']>>);
+			},
+		},
+		at,
+	);
+	expect(seen).toEqual([
+		'build',
+		'prerequisites',
+		'providers',
+		'launch',
+		'presence',
+		'mail',
+		'work',
+		'faults',
+		'history',
+	]);
+	const raw = JSON.stringify(bundle);
+	expect(raw).not.toContain(token);
+	expect(raw).not.toContain(homedir());
+	expect(raw).not.toContain(body);
+	for (const section of Object.values(bundle.sections)) expect(section.status).toBe('available');
 });
