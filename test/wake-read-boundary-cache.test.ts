@@ -35,10 +35,10 @@ afterEach(async () => {
 	await fixture.dispose();
 });
 
-function packageFixture(body = 'x'.repeat(20_000)): CheckpointPackage {
+function packageFixture(body = 'x'.repeat(20_000), owner = 'alpha'): CheckpointPackage {
 	return {
 		version: 1,
-		owner: 'alpha',
+		owner,
 		id: randomUUID(),
 		createdAt: new Date().toISOString(),
 		items: [],
@@ -54,8 +54,8 @@ async function publish(packet: CheckpointPackage, raw = JSON.stringify(packet)):
 		current: { id: packet.id, sha256: checkpointHash(packet), page: 0 },
 		seenHolds: {},
 	};
-	await atomicWrite(checkpointPackagePath('alpha'), raw);
-	await atomicWrite(checkpointStatePath('alpha'), JSON.stringify(state));
+	await atomicWrite(checkpointPackagePath(packet.owner), raw);
+	await atomicWrite(checkpointStatePath(packet.owner), JSON.stringify(state));
 }
 
 async function rejectsWith(operation: Promise<unknown>, message: string): Promise<void> {
@@ -106,6 +106,26 @@ test('unchanged large package parses once, but same-size same-mtime new bytes pa
 				replacement,
 			),
 		).toBe(false);
+	} finally {
+		parse.mockRestore();
+	}
+});
+
+test('six seats and alternating watchdog/receiver starts each parse only once', async () => {
+	process.env.SUMMON_AGENT = '';
+	const names = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta'];
+	for (const name of names) await publish(packageFixture('wake', name));
+	const startedAt = Date.now() - 1000;
+	const parse = spyOn(checkpointModel, 'parseCheckpointPackage');
+	try {
+		for (let round = 0; round < 3; round++) {
+			for (const name of names) {
+				const watchdog = await activeWakeReadBoundary(name, 0);
+				expect(watchdog).toBeDefined();
+				expect(await activeWakeReadBoundary(name, startedAt)).toBe(watchdog);
+			}
+		}
+		expect(parse).toHaveBeenCalledTimes(names.length);
 	} finally {
 		parse.mockRestore();
 	}
@@ -174,7 +194,9 @@ test('page, restart, corrupt bytes and missing package never inherit a stale val
 		expect(
 			await activeWakeReadBoundary('alpha', Date.parse(packet.createdAt) + 1),
 		).toBeUndefined();
-		expect(parse).toHaveBeenCalledTimes(3);
+		expect(parse).toHaveBeenCalledTimes(2);
+		expect(await activeWakeReadBoundary('alpha', 0)).toBeDefined();
+		expect(parse).toHaveBeenCalledTimes(2);
 
 		await writeFile(
 			checkpointPackagePath('alpha'),
@@ -186,7 +208,7 @@ test('page, restart, corrupt bytes and missing package never inherit a stale val
 		);
 		await writeFile(checkpointPackagePath('alpha'), raw);
 		expect(await activeWakeReadBoundary('alpha', startedAt)).toBeDefined();
-		expect(parse).toHaveBeenCalledTimes(5);
+		expect(parse).toHaveBeenCalledTimes(4);
 
 		await unlink(checkpointPackagePath('alpha'));
 		await rejectsWith(
@@ -195,7 +217,7 @@ test('page, restart, corrupt bytes and missing package never inherit a stale val
 		);
 		await writeFile(checkpointPackagePath('alpha'), raw);
 		expect(await activeWakeReadBoundary('alpha', startedAt)).toBeDefined();
-		expect(parse).toHaveBeenCalledTimes(6);
+		expect(parse).toHaveBeenCalledTimes(5);
 	} finally {
 		parse.mockRestore();
 	}

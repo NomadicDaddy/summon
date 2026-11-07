@@ -19,30 +19,19 @@ import { ownMailbox } from './mail-identity.ts';
 import { localCursorPath, roomCursor } from './room-cursor.ts';
 
 interface CachedPackage {
-	path: string;
-	receiverStartedAt: number;
 	rawHash: string;
 	packageId: string;
 	expectedHash: string;
 	page: number;
+	createdAt: number;
 	packet: CheckpointPackage;
 }
 
-const MAX_CACHED_PACKAGES = 4;
+// One current package per receiver path; terminal seats share this process.
 const cachedPackages = new Map<string, CachedPackage>();
 
 function evictPath(path: string): void {
-	for (const [key, entry] of cachedPackages) if (entry.path === path) cachedPackages.delete(key);
-}
-
-function remember(key: string, entry: CachedPackage): void {
-	cachedPackages.delete(key);
-	cachedPackages.set(key, entry);
-	while (cachedPackages.size > MAX_CACHED_PACKAGES) {
-		const oldest = cachedPackages.keys().next().value;
-		if (oldest === undefined) break;
-		cachedPackages.delete(oldest);
-	}
+	cachedPackages.delete(path);
 }
 
 function freezeValue(value: unknown): void {
@@ -94,22 +83,17 @@ export async function activeWakeReadBoundary(
 		}
 		if (!bytes.length) throw new Error('Active checkpoint package is missing.');
 		const rawHash = createHash('sha256').update(bytes).digest('hex');
-		const key = `${path}\0${receiverStartedAt}`;
-		for (const [entryKey, entry] of cachedPackages) {
-			if (
-				entry.path === path &&
-				(entry.rawHash !== rawHash ||
-					entry.packageId !== state.current.id ||
-					entry.expectedHash !== state.current.sha256 ||
-					entry.page !== state.current.page)
-			)
-				cachedPackages.delete(entryKey);
+		const cached = cachedPackages.get(path);
+		if (
+			cached &&
+			cached.rawHash === rawHash &&
+			cached.packageId === state.current.id &&
+			cached.expectedHash === state.current.sha256 &&
+			cached.page === state.current.page
+		) {
+			return cached.createdAt >= receiverStartedAt ? cached.packet : undefined;
 		}
-		const cached = cachedPackages.get(key);
-		if (cached) {
-			remember(key, cached);
-			return cached.packet;
-		}
+		evictPath(path);
 		let raw: string;
 		try {
 			raw = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
@@ -127,20 +111,18 @@ export async function activeWakeReadBoundary(
 			!Number.isFinite(createdAt)
 		)
 			throw new Error('Active checkpoint package is invalid.');
-		// A restarted receiver must surface retained work rather than inheriting a stuck drain flag.
-		if (createdAt < receiverStartedAt) return undefined;
 		// A caller cannot turn a cached validated source bound into a later one.
 		freezeValue(packet);
-		remember(key, {
-			path,
-			receiverStartedAt,
+		cachedPackages.set(path, {
 			rawHash,
 			packageId: state.current.id,
 			expectedHash: state.current.sha256,
 			page: state.current.page,
+			createdAt,
 			packet,
 		});
-		return packet;
+		// A restarted receiver must surface retained work rather than inheriting a stuck drain flag.
+		return createdAt >= receiverStartedAt ? packet : undefined;
 	} catch (error: unknown) {
 		evictPath(path);
 		throw error;
