@@ -2,7 +2,7 @@
 
 Notable changes to summon are recorded here using Keep a Changelog categories and semantic versions.
 
-## [1.1.0] - Unreleased
+## [Unreleased]
 
 ### Changed
 
