@@ -2,7 +2,12 @@ import { z } from 'zod';
 
 import { version } from '../package.json';
 import { cliStatuses } from './desktop/cli-status.ts';
-import { DIAGNOSTIC_REDACTIONS, diagnosticError, diagnosticReason } from './diagnostics-privacy.ts';
+import {
+	DIAGNOSTIC_REDACTIONS,
+	diagnosticError,
+	diagnosticReason,
+	diagnosticRuntimeDetail,
+} from './diagnostics-privacy.ts';
 import { readLaunchStatus } from './launch-status.ts';
 import { deliveryView } from './mail-session.ts';
 import { presenceRows } from './presence-command.ts';
@@ -112,7 +117,7 @@ export async function collectDiagnostics(
 			(await readers.prerequisites()).map(({ id, status, detail }) => ({
 				id,
 				status,
-				detail: diagnosticReason(detail),
+				detail: diagnosticRuntimeDetail(id, status, detail),
 			})),
 		),
 		providerClis: await inspect(async () =>

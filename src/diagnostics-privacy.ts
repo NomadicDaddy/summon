@@ -1,3 +1,5 @@
+import { runtimePrerequisites, type RuntimePrerequisiteStatus } from './runtime-prerequisites.ts';
+
 export const DIAGNOSTIC_REDACTIONS = [
 	'message bodies and work-card contents',
 	'credentials, tokens and provider account identifiers',
@@ -28,6 +30,29 @@ export function diagnosticReason(value: unknown): string {
 	return typeof value === 'string' && safeReasons.has(value)
 		? value
 		: 'Details omitted for privacy.';
+}
+
+/** Preserve only the probe's bounded version shape; never copy arbitrary command output. */
+export function diagnosticRuntimeDetail(
+	id: RuntimePrerequisiteStatus['id'],
+	status: RuntimePrerequisiteStatus['status'],
+	detail: string,
+): string {
+	if (status !== 'available' && status !== 'outdated') return diagnosticReason(detail);
+	const prerequisite = runtimePrerequisites.find((item) => item.id === id);
+	const match =
+		/^(Bun|PowerShell) (\d{1,9}\.\d{1,9}\.\d{1,9}) \(requires (\d{1,9}\.\d{1,9}\.\d{1,9}) or later\)$/.exec(
+			detail,
+		);
+	if (
+		!prerequisite ||
+		!match ||
+		match[1] !== prerequisite.name ||
+		match[3] !== prerequisite.minimumVersion ||
+		!match[2]
+	)
+		return diagnosticReason(detail);
+	return `${prerequisite.name} ${match[2]} (requires ${prerequisite.minimumVersion} or later)`;
 }
 
 export function diagnosticError(error: unknown): string {

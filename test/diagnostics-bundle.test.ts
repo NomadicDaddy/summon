@@ -86,18 +86,9 @@ test('named CLI writes a bounded own-only bundle without peer mail or planted cr
 		expect(bundle.member).toBe('morgan');
 		expect(Date.now() - Date.parse(bundle.since)).toBeGreaterThan(23 * 60 * 60 * 1000);
 		expect(bundle.sections.faults?.value?.entries).toHaveLength(1);
-		for (const name of [
-			'identity',
-			'build',
-			'prerequisites',
-			'providerClis',
-			'launchStatus',
-			'presence',
-			'mailStatus',
-			'work',
-			'faults',
-			'sessionHistory',
-		])
+		const names =
+			'identity build prerequisites providerClis launchStatus presence mailStatus work faults sessionHistory';
+		for (const name of names.split(' '))
 			expect(bundle.sections[name]?.status).toMatch(/^(available|unavailable)$/);
 		expect(bundle.redactions).toContain('peer mailbox and runtime details');
 		const rejected = await run(root, ['--member', 'alice', '--out', join(root, 'peer.json')]);
@@ -175,6 +166,16 @@ test('every source is read, but planted token, home path and message body stay o
 			prerequisites: () => {
 				seen.push('prerequisites');
 				return Promise.resolve([
+					{
+						id: 'bun',
+						status: 'available',
+						detail: 'Bun 1.4.3 (requires 1.4.3 or later)',
+					},
+					{
+						id: 'pwsh',
+						status: 'available',
+						detail: 'PowerShell 7.6.9 (requires 7.6.0 or later)',
+					},
 					{ id: 'bun', status: 'available', detail: poison },
 				] as Awaited<ReturnType<DiagnosticSources['prerequisites']>>);
 			},
@@ -280,25 +281,13 @@ test('every source is read, but planted token, home path and message body stay o
 		},
 		at,
 	);
-	expect(seen).toEqual([
-		'build',
-		'prerequisites',
-		'providers',
-		'launch',
-		'presence',
-		'mail',
-		'work',
-		'faults',
-		'history',
-	]);
+	expect(seen).toEqual(
+		'build prerequisites providers launch presence mail work faults history'.split(' '),
+	);
 	const raw = JSON.stringify(bundle);
-	expect(raw).not.toContain(token);
-	expect(raw).not.toContain(homedir());
-	expect(raw).not.toContain(msysHome);
-	expect(raw).not.toContain(msysRepo);
-	expect(raw).not.toContain(telegramToken);
-	expect(raw).not.toContain(accessKey);
-	expect(raw).not.toContain(uncHost);
-	expect(raw).not.toContain(body);
+	expect(raw).toContain('Bun 1.4.3 (requires 1.4.3 or later)');
+	expect(raw).toContain('PowerShell 7.6.9 (requires 7.6.0 or later)');
+	for (const value of [token, homedir(), msysHome, msysRepo]) expect(raw).not.toContain(value);
+	for (const value of [telegramToken, accessKey, uncHost, body]) expect(raw).not.toContain(value);
 	for (const section of Object.values(bundle.sections)) expect(section.status).toBe('available');
 });
