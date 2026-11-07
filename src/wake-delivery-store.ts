@@ -196,6 +196,23 @@ export async function wakeDeliveryStatus(name: string, nonce: string) {
 	}));
 }
 
+/** Diagnostics must not reconcile outcomes or write an index while gathering a bundle. */
+export async function wakeDeliverySnapshot(name: string, nonce: string) {
+	ownMailbox(name);
+	const id = await optionalText(pointerPath(name, nonce));
+	if (id !== undefined && !hash.safeParse(id).success)
+		throw new Error('Invalid wake delivery pointer.');
+	const latest = id === undefined ? undefined : await loadWakeOutcome(name, nonce, id);
+	const unresolved = await unresolvedWakeIndex(name);
+	const own = unresolved.filter((entry) => entry.nonce === nonce);
+	return {
+		latest: latest
+			? { state: latest.state, attempts: latest.attempts, updatedAt: latest.updatedAt }
+			: null,
+		unresolved: own.length,
+	};
+}
+
 /** The receiver's per-cycle read: the same retained outcomes, without opening failure notes. */
 export async function wakeDeliveryRetained(name: string, nonce: string) {
 	return retainedOutcomes(name, nonce, (value) => Promise.resolve(compact(value)));

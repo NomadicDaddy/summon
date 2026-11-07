@@ -4,6 +4,13 @@ Retain the exact error, time, affected teammate, provider and displayed build be
 anything. A provider pane, Summon controls, launch readiness and notification delivery can fail
 independently. Record which surface stopped responding and whether the session was busy.
 
+From the affected named session, run `summon --diagnostics` and attach the printed bundle file
+when reporting the problem to Morgan and Carl. It gathers a bounded, redacted snapshot without
+retrying delivery or changing Summon state. Include the exact error, time and what you were doing
+separately; the bundle deliberately omits message bodies and private file contents. Use
+`--since <ISO time>` to extend or narrow the default 24-hour window. If the bundle cannot be
+produced, use the individual read-only commands below.
+
 ## Establish what started
 
 The header distinguishes Connecting, Logging in and Summon startup. Logging in means only that

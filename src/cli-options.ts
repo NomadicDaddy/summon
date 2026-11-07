@@ -51,6 +51,8 @@ Team window and local conversation:
   summon --current-requests [cursor] [--format text]
                           Exact addressed bodies before catch-up; no receipts or mail read markers.
   summon --work             Compact own snapshot; no reads acknowledged or work completed.
+  summon --diagnostics [--member name] [--since ISO-time] [--out path]
+                          Write one redacted support bundle for your own named session.
   summon --compactions [--member name] [--limit 1..200] [--before id]
                           Retained observed compaction metadata; named sessions read only their own.
   summon --launch-status    Read public owned startup phases; stale/unverifiable views are explicit.
