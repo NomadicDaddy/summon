@@ -1,0 +1,25 @@
+# Weekly version updates for Bun packages and GitHub Actions (audit-devops-1790855699).
+# package.json pins every dependency exactly; no versioning-strategy is set, so updates stay exact pins.
+version: 2
+updates:
+    - package-ecosystem: 'bun'
+      directory: '/'
+      schedule:
+          interval: 'weekly'
+      open-pull-requests-limit: 5
+      ignore:
+          # Standing rule: typescript stays at exactly 6.0.3 (typescript-eslint has no TypeScript 7 support).
+          # No update-types, so Dependabot never opens a pull request that moves it.
+          - dependency-name: 'typescript'
+      groups:
+          lint-and-format:
+              patterns:
+                  - 'eslint'
+                  - '@eslint/js'
+                  - 'typescript-eslint'
+                  - 'eslint-plugin-*'
+                  - 'prettier'
+    - package-ecosystem: 'github-actions'
+      directory: '/'
+      schedule:
+          interval: 'weekly'
