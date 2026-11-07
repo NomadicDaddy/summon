@@ -1,5 +1,6 @@
 # Weekly version updates for Bun packages and GitHub Actions (audit-devops-1790855699).
-# package.json pins every dependency exactly; no versioning-strategy is set, so updates stay exact pins.
+# package.json pins every dependency exactly, and no versioning-strategy is set. GitHub doesn't document
+# versioning-strategy for bun, so exact pins in updates are expected, not documented: checked on the first PR.
 version: 2
 updates:
     - package-ecosystem: 'bun'

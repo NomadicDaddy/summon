@@ -55,7 +55,8 @@ test('typescript is never moved: every typescript version update is ignored', ()
 	expect({ ...pkg.dependencies, ...pkg.devDependencies }.typescript).toBe('6.0.3');
 });
 
-test('bun updates keep exact pins and group the lint and format tools', () => {
+test('bun updates set no versioning-strategy and group the lint and format tools', () => {
+	// Exact pins in Dependabot's bun updates are expected, not documented; the first real PR checks them.
 	expect(entry('bun')['versioning-strategy']).toBeUndefined();
 	const patterns = Object.values(entry('bun').groups ?? {}).flatMap((group) => group.patterns);
 	for (const name of ['eslint', '@eslint/js', 'typescript-eslint', 'eslint-plugin-*', 'prettier'])
