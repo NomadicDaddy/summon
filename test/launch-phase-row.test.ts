@@ -73,6 +73,21 @@ test('no stale task shows under a phase, whatever the record says', () => {
 	);
 });
 
+test('a provider limit is visible separately from process and turn state', () => {
+	const limited = agent({
+		provider: 'kilo',
+		providerLimit: {
+			provider: 'zai-coding-plan',
+			status: 429,
+			code: '1310',
+			observedAt: '2026-11-08T18:05:59.000Z',
+		},
+	});
+	expect(memberWorkingText(limited)).toBe('Provider limit observed');
+	expect(memberStateLabel(limited)).toBe('Ready');
+	expect(memberStateLabel({ ...limited, activity: 'busy' })).toBe('Busy');
+});
+
 test('the tooltip names the observation and never claims a sign-in', () => {
 	const text = launchTooltip(view({ evidence: 'claude-mcp-initialized', phase: 'logging-in' }));
 	expect(text).toContain('Logging in since');

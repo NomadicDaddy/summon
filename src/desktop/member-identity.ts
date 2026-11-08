@@ -4,7 +4,7 @@ import { headDownRow } from './head-down-row.ts';
 import { labels, offlineTitle } from './hibernation-controls.ts';
 import { connectingSince, markElapsed } from './launch-elapsed.ts';
 import { launchEndedNote, launchLabel, launchTooltip } from './launch-phase-label.ts';
-import { claudeAccountLabel } from './member-facts.ts';
+import { claudeAccountLabel, providerLimitFact } from './member-facts.ts';
 import { memberIdentity } from './member-heading.ts';
 import { COMPACTION_TITLE, nativeCompacting } from './native-compaction.ts';
 import {
@@ -123,6 +123,7 @@ function statusText(value?: string): string {
  */
 export function memberWorkingText(agent: TeamAgent): string {
 	if (observationUnavailable(agent) || launchLabel(agent)) return '';
+	if (agent.providerLimit) return 'Provider limit observed';
 	const task = statusText(agent.workingOn);
 	const readyAddsNothing =
 		agent.status === 'running' ? agent.activity === 'idle' : agent.status !== 'elsewhere';
@@ -158,6 +159,7 @@ export function memberRow(agent: TeamAgent, selected: string): HTMLButtonElement
 	button.dataset.provider = agent.provider;
 	if (agent.memberType === 'pm') button.dataset.role = 'pm';
 	button.title = [
+		providerLimitFact(agent),
 		agent.expertise?.trim() ? `Expertise: ${agent.expertise.trim()}` : '',
 		agent.domain?.trim() ? `Domain: ${agent.domain.trim()}` : '',
 	]

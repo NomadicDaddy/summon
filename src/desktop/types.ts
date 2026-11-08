@@ -1,6 +1,7 @@
 import type { CommunicationStatus } from '../communication-state.ts';
 import type { DiaryPage } from '../diary.ts';
 import type { HeadDownView } from '../head-down-model.ts';
+import type { KiloProviderLimit } from '../kilo-provider-limit.ts';
 import type { LaunchPhaseView } from '../launch-phase-model.ts';
 import type { ModelInfo } from '../model-info.ts';
 import type { NotepadSnapshot } from '../notepad.ts';
@@ -23,6 +24,9 @@ import type { PageState } from './page-state.ts';
 export type { RuntimeFaultInput } from '../runtime-fault-model.ts';
 
 export interface TeamAgent {
+	/** A validated, completed provider error from this exact owned Kilo launch. */
+	providerLimit?: KiloProviderLimit;
+	providerLimitError?: true;
 	responseWatchdog?: Awaited<ReturnType<typeof responseStatus>>;
 	responseWatchdogError?: string;
 	launch?: LaunchPhaseView;

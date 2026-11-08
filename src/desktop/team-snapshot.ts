@@ -10,6 +10,7 @@ import { claudeTurn } from '../claude-turn-state.ts';
 import { codexRosterTurns } from '../codex-turn.ts';
 import { canManageHeadDown } from '../head-down-access.ts';
 import { headDownView } from '../head-down-model.ts';
+import { currentKiloProviderLimit } from '../kilo-provider-limit.ts';
 import { observeGrokSession } from '../launch-phase.ts';
 import { memberLabel } from '../member-role.ts';
 import { refreshModelInfo } from '../provider-model-info.ts';
@@ -169,6 +170,20 @@ export async function teamSnapshot(context: SnapshotContext): Promise<TeamSnapsh
 							: (codexPhase ?? 'unknown')
 						: await providerTurn(session.agent.provider, slug, session.launch.nonce)
 					: undefined;
+			let providerLimit: TeamAgent['providerLimit'];
+			let providerLimitError = false;
+			if (session?.agent.status === 'running' && session.agent.provider === 'kilo') {
+				try {
+					providerLimit = await currentKiloProviderLimit(
+						slug,
+						session.launch.nonce,
+						session.launch.since,
+						record,
+					);
+				} catch {
+					providerLimitError = true;
+				}
+			}
 			const progress = await roomProgress(slug);
 			agents.push({
 				...(session?.agent.status === 'running'
@@ -194,6 +209,8 @@ export async function teamSnapshot(context: SnapshotContext): Promise<TeamSnapsh
 					? { nativeCompacting: true as const }
 					: {}),
 				...(turn ? { providerTurn: turn } : {}),
+				...(providerLimit ? { providerLimit } : {}),
+				...(providerLimitError ? { providerLimitError: true as const } : {}),
 				...(launch ? { launch } : {}),
 				name: memberLabel(record),
 				memberType: record.memberType ?? 'teammate',

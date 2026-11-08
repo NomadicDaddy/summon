@@ -11,6 +11,8 @@ export type MemberFactsSource = Pick<
 	| 'cwd'
 	| 'modelInfo'
 	| 'provider'
+	| 'providerLimit'
+	| 'providerLimitError'
 	| 'responseWatchdog'
 	| 'responseWatchdogError'
 >;
@@ -23,6 +25,16 @@ export function claudeAccountLabel(agent: Omit<MemberFactsSource, 'cwd' | 'model
 	if (agent.provider !== 'claude' || !agent.claudeConfigDir) return '';
 	const directory = agent.claudeConfigDir.split(/[\\/]/).filter(Boolean).at(-1);
 	return `Account: ${agent.claudeConfigInherited ? 'Default' : (directory ?? agent.claudeConfigDir)}`;
+}
+
+export function providerLimitFact(
+	agent: Pick<TeamAgent, 'providerLimit' | 'providerLimitError'>,
+): string {
+	if (agent.providerLimitError) return 'Provider limit observation unavailable';
+	const limit = agent.providerLimit;
+	return limit
+		? `Provider limit observed: ${limit.provider} HTTP ${limit.status} code ${limit.code} at ${new Date(limit.observedAt).toLocaleString()}`
+		: '';
 }
 
 /**
@@ -40,6 +52,7 @@ export function memberFacts(agent: MemberFactsSource): string[] {
 		reasoning,
 		capacity,
 		claudeAccountLabel(agent),
+		providerLimitFact(agent),
 		agent.responseWatchdogError ?? responseFact(agent.responseWatchdog),
 		agent.cwd,
 	].filter(Boolean);
