@@ -11,3 +11,10 @@ test('Windows start probe uses CIM when Get-Process StartTime is inaccessible', 
 	});
 	expect(started).toBe(1794099958000);
 });
+
+test('Windows start probe refuses unavailable or malformed process evidence', async () => {
+	expect(await windowsStart(25180, () => Promise.resolve('not a timestamp'))).toBeUndefined();
+	expect(
+		windowsStart(25180, () => Promise.reject(new Error('CreationDate unavailable'))),
+	).rejects.toThrow('CreationDate unavailable');
+});
