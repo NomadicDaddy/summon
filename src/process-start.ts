@@ -5,18 +5,25 @@ import { requireExecutable } from './executable.ts';
 const execute = promisify(execFile);
 const snapshots = new Map<number, { expires: number; value: Promise<number | undefined> }>();
 
-async function windowsStart(pid: number): Promise<number | undefined> {
-	const script = [
-		`$p = Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}' -ErrorAction Stop`,
-		"if ($null -eq $p -or $null -eq $p.CreationDate) { throw 'Process start unavailable' }",
-		'([DateTimeOffset]$p.CreationDate.ToUniversalTime()).ToUnixTimeMilliseconds()',
-	].join('; ');
+async function queryWindowsStart(script: string): Promise<string> {
 	const { stdout } = await execute(
 		requireExecutable('pwsh'),
 		['-NoProfile', '-NonInteractive', '-Command', script],
 		{ windowsHide: true, timeout: 5000, maxBuffer: 4096 },
 	);
-	const value = Number(stdout.trim());
+	return stdout;
+}
+
+export async function windowsStart(
+	pid: number,
+	query: (script: string) => Promise<string> = queryWindowsStart,
+): Promise<number | undefined> {
+	const script = [
+		`$p = Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}' -ErrorAction Stop`,
+		"if ($null -eq $p -or $null -eq $p.CreationDate) { throw 'Process start unavailable' }",
+		'([DateTimeOffset]$p.CreationDate.ToUniversalTime()).ToUnixTimeMilliseconds()',
+	].join('; ');
+	const value = Number((await query(script)).trim());
 	return Number.isSafeInteger(value) && value > 0 ? value : undefined;
 }
 
