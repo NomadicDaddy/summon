@@ -43,9 +43,30 @@ test('only the sender sees an unconfirmed then recorded read, without new receip
 	const read = await status('alpha', id);
 	expect(read.status).toBe('recorded-read');
 	expect(Number.isFinite(Date.parse(read.readAt ?? ''))).toBe(true);
+	const senderRetention = await fixture.run(['--mail-retention', 'preview'], 'alpha');
+	expect(senderRetention.code).toBe(0);
+	const senderInventory = JSON.parse(senderRetention.out) as {
+		coverage: { inventoryComplete: boolean };
+		rows: { path: string }[];
+	};
+	expect(senderInventory.coverage.inventoryComplete).toBe(true);
+	expect(senderInventory.rows.map((row) => row.path)).toContain(`sent-status/${id}.json`);
 	expect(await inboxFiles('alpha')).toEqual([]);
-	expect((await fixture.run(['--mail', 'confirm', id, 'Understood.'], 'beta')).code).toBe(0);
-	expect((await fixture.run(['--mail', 'reply', id, 'Done.'], 'beta')).code).toBe(0);
+	const confirmation = await fixture.run(['--mail', 'confirm', id, 'Understood.'], 'beta');
+	expect(confirmation.code).toBe(0);
+	const confirmationId = (JSON.parse(confirmation.out) as { id: string }).id;
+	expect(await status('beta', confirmationId)).toEqual({
+		id: confirmationId,
+		status: 'unknown',
+		readAt: null,
+	});
+	const reply = await fixture.run(['--mail', 'reply', id, 'Done.'], 'beta');
+	expect(reply.code).toBe(0);
+	const replyId = (JSON.parse(reply.out) as { id: string }).id;
+	expect((await status('beta', replyId)).status).toBe('unconfirmed');
+	expect(await readdir(join(fixture.records, 'mailboxes', 'beta', 'sent-status'))).toEqual([
+		`${replyId}.json`,
+	]);
 });
 
 test('header-only and unacknowledged checkpoint pages do not claim a read', async () => {
@@ -84,6 +105,14 @@ test('a failed projection keeps local read coverage and recovers on the next own
 				),
 			).exists(),
 		).toBe(true);
+		const retention = await fixture.run(['--mail-retention', 'preview'], 'beta');
+		expect(retention.code).toBe(0);
+		const inventory = JSON.parse(retention.out) as {
+			coverage: { inventoryComplete: boolean };
+			rows: { path: string }[];
+		};
+		expect(inventory.coverage.inventoryComplete).toBe(true);
+		expect(inventory.rows.map((row) => row.path)).toContain(`delivery/pending-read/${id}.json`);
 	} finally {
 		await rmdir(sent);
 		await rename(backup, sent);
@@ -125,6 +154,9 @@ test('an interrupted legacy receipt stays retryable and an already published ret
 	expect((await fixture.run(['--mail', 'receive'], 'beta')).code).toBe(0);
 	const receipts = await inboxFiles('alpha');
 	expect(receipts).toHaveLength(1);
+	const receiptId = receipts[0]?.slice(0, -3);
+	if (!receiptId) throw new Error('Missing legacy receipt ID.');
+	expect((await status('beta', receiptId)).status).toBe('unknown');
 	const pending = join(
 		fixture.records,
 		'mailboxes',

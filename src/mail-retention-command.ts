@@ -59,13 +59,24 @@ async function mailRetentionPreview(args: string[]) {
 		);
 	}
 	if (pinsFile) await assertPublicOrOwn(await realpath(resolve(pinsFile)));
-	const paths = [root, ...['inbox', 'archive', 'delivery', 'holds'].map((s) => join(root, s))];
+	const sections = [
+		'inbox',
+		'archive',
+		'delivery',
+		'holds',
+		'sent-status',
+		'delivery/pending-read',
+	];
+	const paths = [root, ...sections.map((section) => join(root, section))];
 	if (pinsFile) paths.push(resolve(pinsFile));
 	return withRetentionPaths(paths, async (present, observe, canonical) => {
-		if (pinsFile && !present[5]) throw new Error('Pins file is missing; preview refused.');
+		const pinsIndex = sections.length + 1;
+		if (pinsFile && !present[pinsIndex])
+			throw new Error('Pins file is missing; preview refused.');
 		if (pinsFile) {
-			if (!canonical[5]) throw new Error('Cannot authorize the held pin location.');
-			await assertPublicOrOwn(canonical[5]);
+			const pinsPath = canonical[pinsIndex];
+			if (!pinsPath) throw new Error('Cannot authorize the held pin location.');
+			await assertPublicOrOwn(pinsPath);
 		}
 		return retentionObservation(owner, root, await observe(cursor?.offset ?? 0), cursor);
 	});
@@ -141,7 +152,7 @@ function retentionObservation(
 			operatorHeadersComplete: false,
 		},
 		inventoryScope:
-			'Top-level entries in own inbox, archive, delivery and holds only; no recursive scan.',
+			'Top-level entries in own inbox, archive, delivery, holds, sent-status and pending-read only; no recursive scan.',
 		inventorySha256: inventory.sha256,
 		pinsSha256: pins.sha256,
 		pinSourceCount: pins.sourceCount,

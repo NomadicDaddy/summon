@@ -61,16 +61,24 @@ function captureLaunch(options: {
 				.replace(/\.exe$/i, '')
 				.replace(/^wt$/, 'wt.exe')
 		: selected;
-	// Permit only the read-only PID start-time query, not arbitrary PowerShell launches.
+	// Permit only the read-only PID start-time and guarded retention queries.
 	if (
 		selected &&
 		basename(selected).toLowerCase() === 'pwsh.exe' &&
 		options.cmd[1] === '-NoProfile' &&
 		options.cmd[2] === '-NonInteractive' &&
 		options.cmd[3] === '-Command' &&
-		/^\$p = Get-Process -Id \d+ -ErrorAction Stop; \(\[DateTimeOffset\]\$p\.StartTime\.ToUniversalTime\(\)\)\.ToUnixTimeMilliseconds\(\)$/.test(
+		/^\$p = Get-CimInstance Win32_Process -Filter 'ProcessId=\d+' -ErrorAction Stop; if \(\$null -eq \$p -or \$null -eq \$p\.CreationDate\) \{ throw 'Process start unavailable' \}; \(\[DateTimeOffset\]\$p\.CreationDate\.ToUniversalTime\(\)\)\.ToUnixTimeMilliseconds\(\)$/.test(
 			options.cmd[4] ?? '',
 		)
+	)
+		return realSpawn(options);
+	if (
+		selected === 'pwsh' &&
+		options.cmd.slice(1, 5).join(' ') === '-NoLogo -NoProfile -NonInteractive -File' &&
+		options.cmd[5] ===
+			join(import.meta.dir, '..', '..', 'scripts', 'retention-path-guard.ps1') &&
+		options.cmd.length === 6
 	)
 		return realSpawn(options);
 	// The operator start's scratch expiry worker runs for real against the fixture store.

@@ -6,7 +6,14 @@ const inventorySchema = z.object({
 		.array(
 			z.object({
 				path: z.string().max(300),
-				section: z.enum(['inbox', 'archive', 'delivery', 'holds']),
+				section: z.enum([
+					'inbox',
+					'archive',
+					'delivery',
+					'holds',
+					'sent-status',
+					'delivery/pending-read',
+				]),
 				bytes: z.number().int().nonnegative(),
 				mtimeMs: z.number(),
 				identity: z.string().max(200),

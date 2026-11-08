@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { randomUUID } from 'node:crypto';
-import { readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { CommunicationsPausedError, setCommunicationPause } from '../src/communication-state.ts';
@@ -35,6 +35,21 @@ async function refusal(work: Promise<unknown>): Promise<string> {
 		() => '',
 		(error: unknown) => (error instanceof Error ? error.message : String(error)),
 	);
+}
+
+async function asFixtureAgent<T>(name: string, work: () => Promise<T>): Promise<T> {
+	const previousAgent = process.env.SUMMON_AGENT;
+	const previousNonce = process.env.SUMMON_NONCE;
+	process.env.SUMMON_AGENT = name;
+	process.env.SUMMON_NONCE = 'test-launch';
+	try {
+		return await work();
+	} finally {
+		if (previousAgent === undefined) delete process.env.SUMMON_AGENT;
+		else process.env.SUMMON_AGENT = previousAgent;
+		if (previousNonce === undefined) delete process.env.SUMMON_NONCE;
+		else process.env.SUMMON_NONCE = previousNonce;
+	}
 }
 
 test('a pending fixed ID: identical content is already delivered, differing content is refused', async () => {
@@ -92,41 +107,45 @@ test('random-ID mail is unchanged: identical text twice is two messages', async 
 	expect((await files('alpha', 'inbox')).sort()).toEqual([`${first}.md`, `${second}.md`].sort());
 });
 
-test('two readers of one message ID retain distinct confirmations and ambiguous status', async () => {
+test('a reused ID for another recipient cannot erase the first recorded read', async () => {
 	await writeFile(
 		join(fixture.records, 'gamma.json'),
 		JSON.stringify(newRecord('gamma', fixture.root, 'claude')),
 	);
+	const runtime = join(fixture.records, 'runtime', 'gamma');
+	await mkdir(runtime, { recursive: true });
+	await writeFile(
+		join(runtime, 'activity.json'),
+		JSON.stringify({
+			state: 'idle',
+			workingOn: '',
+			nonce: 'test-launch',
+			updatedAt: new Date().toISOString(),
+		}),
+	);
 	const shared = randomUUID();
-	await sendMessage('gamma', 'alpha', 'Please look.', { id: shared });
-	await sendMessage('gamma', 'beta', 'Please look.', { id: shared });
-	for (const reader of ['alpha', 'beta'])
-		expect((await fixture.run(['--mail', 'receive'], reader)).code).toBe(0);
-	const confirmed: Record<string, string> = {};
-	for (const reader of ['alpha', 'beta']) {
-		const result = await fixture.run(['--mail', 'confirm', shared, 'Looking.'], reader);
-		expect(result.code).toBe(0);
-		confirmed[reader] = (JSON.parse(result.out) as { id: string }).id;
-		// A repeat returns the same confirmation without delivering it again.
-		const again = await fixture.run(['--mail', 'confirm', shared, 'Looking.'], reader);
-		expect((JSON.parse(again.out) as { id: string }).id).toBe(confirmed[reader]);
-	}
-	expect(confirmed.alpha).not.toBe(confirmed.beta);
-	const kinds: Record<string, string[]> = { confirmation: [], receipt: [] };
-	for (const file of await files('gamma', 'inbox')) {
-		const text = await body('gamma', 'inbox', file.slice(0, -3));
-		for (const kind of ['receipt', 'confirmation'])
-			if (text.includes(`Kind: ${kind}`)) kinds[kind]?.push(text);
-	}
-	expect(kinds.receipt).toHaveLength(0);
-	expect(kinds.confirmation).toHaveLength(2);
-	expect(kinds.confirmation?.some((text) => text.includes('From: alpha'))).toBe(true);
-	expect(kinds.confirmation?.some((text) => text.includes('From: beta'))).toBe(true);
-	expect(await sentStatus('gamma', shared)).toEqual({
+	await asFixtureAgent('gamma', () =>
+		sendMessage('gamma', 'alpha', 'Please look.', { id: shared }),
+	);
+	expect((await fixture.run(['--mail', 'receive'], 'alpha')).code).toBe(0);
+	const first = await asFixtureAgent('gamma', () => sentStatus('gamma', shared));
+	if (first.status !== 'recorded-read') throw new Error('Expected the first recorded read.');
+	expect(
+		await refusal(
+			asFixtureAgent('gamma', () =>
+				sendMessage('gamma', 'beta', 'Please look.', { id: shared }),
+			),
+		),
+	).toBe('Mail ID already belongs to another recipient.');
+	expect(await files('beta', 'inbox')).toEqual([]);
+	expect(await asFixtureAgent('gamma', () => sentStatus('gamma', shared))).toEqual({
 		id: shared,
-		status: 'unknown',
-		readAt: null,
+		status: 'recorded-read',
+		readAt: first.readAt,
 	});
+	const confirmation = await fixture.run(['--mail', 'confirm', shared, 'Looking.'], 'alpha');
+	expect(confirmation.code).toBe(0);
+	expect((await files('gamma', 'inbox')).length).toBe(1);
 });
 
 /** A confirmation delivered by an attempt that then died before writing its confirmed state. */

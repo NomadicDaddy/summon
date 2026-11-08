@@ -13,6 +13,22 @@ const retentionTest = test.skipIf(process.platform !== 'win32');
 beforeEach(async () => {
 	root = await mkdtemp(join(tmpdir(), 'summon-retention-test-'));
 	await mkdir(join(root, 'mailboxes', owner, 'inbox'), { recursive: true });
+	for (const agent of [
+		owner,
+		...['claude', 'codex', 'grok', 'kilo'].map((p) => `fixture-${p}`),
+	]) {
+		const runtime = join(root, 'runtime', agent);
+		await mkdir(runtime, { recursive: true });
+		await writeFile(
+			join(runtime, 'activity.json'),
+			JSON.stringify({
+				state: 'idle',
+				workingOn: '',
+				nonce: 'fixture-launch',
+				updatedAt: new Date().toISOString(),
+			}),
+		);
+	}
 });
 
 afterEach(async () => {

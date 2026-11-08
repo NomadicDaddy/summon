@@ -31,10 +31,10 @@ try {
     $command = [Console]::ReadLine()
     if ($command -ne 'release') {
         $operation = $command | ConvertFrom-Json
-        if ($paths.Count -notin 5, 6 -or $operation.offset -lt 0 -or $operation.offset -gt 20000) {
+        if ($paths.Count -notin 5, 6, 7, 8 -or $operation.offset -lt 0 -or $operation.offset -gt 20000) {
             throw 'Invalid observation request.'
         }
-        $pins = if ($paths.Count -eq 6) { [string]$paths[5] } else { $null }
+        $pins = if ($paths.Count -in 6, 8) { [string]$paths[$paths.Count - 1] } else { $null }
         $result = $guard.Observe([string]$paths[0], [bool[]]$present, $pins, [int]$operation.offset)
         [Console]::WriteLine(($result | ConvertTo-Json -Depth 6 -Compress))
         $command = [Console]::ReadLine()

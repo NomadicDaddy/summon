@@ -79,11 +79,8 @@ export async function prepareSentStatus(from: string, to: string, id: string): P
 		const previous = await optionalText(path);
 		if (previous) {
 			const record = parseSent(previous, id);
-			if (record.to !== null && record.to !== recipient)
-				await atomicWrite(
-					path,
-					JSON.stringify({ id, to: null, published: false, readAt: null }),
-				);
+			if (record.to !== recipient)
+				throw new Error('Mail ID already belongs to another recipient.');
 			return;
 		}
 		await atomicWrite(

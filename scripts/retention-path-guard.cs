@@ -83,7 +83,9 @@ public sealed partial class RetentionPathGuard : IDisposable
         var errors = new List<string>();
         int inspected = 0, errorCount = 0;
         bool complete = true;
-        string[] sections = { "inbox", "archive", "delivery", "holds" };
+        string[] sections = present.Length >= 7
+            ? new[] { "inbox", "archive", "delivery", "holds", "sent-status", "delivery/pending-read" }
+            : new[] { "inbox", "archive", "delivery", "holds" };
         for (int index = 0; index < sections.Length && inspected < 20000; index++)
         {
             if (!present[index + 1]) continue; // Never access a formerly missing path.
@@ -96,6 +98,11 @@ public sealed partial class RetentionPathGuard : IDisposable
                 if (inspected == 20000) { complete = false; break; }
                 inspected++;
                 string relative = section + "/" + name;
+                if (section == "delivery" && name == "pending-read" && present.Length >= 7)
+                {
+                    if (!present[6]) complete = false;
+                    continue; // The held child is inventoried as its own section below.
+                }
                 try
                 {
                     using var handle = OpenChild(directory, name);

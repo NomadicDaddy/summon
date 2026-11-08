@@ -23,8 +23,8 @@ export async function withRetentionPaths<T>(
 ): Promise<T> {
 	if (process.platform !== 'win32')
 		throw new Error('Retention preview requires Windows and PowerShell 7.6 path guards.');
-	const child = Bun.spawn(
-		[
+	const child = Bun.spawn({
+		cmd: [
 			'pwsh',
 			'-NoLogo',
 			'-NoProfile',
@@ -32,8 +32,11 @@ export async function withRetentionPaths<T>(
 			'-File',
 			fileURLToPath(new URL('../scripts/retention-path-guard.ps1', import.meta.url)),
 		],
-		{ stdin: 'pipe', stdout: 'pipe', stderr: 'pipe', windowsHide: true },
-	);
+		stdin: 'pipe',
+		stdout: 'pipe',
+		stderr: 'pipe',
+		windowsHide: true,
+	});
 	const stderr = new Response(child.stderr).text();
 	const reader = child.stdout.getReader();
 	let timer: ReturnType<typeof setTimeout> | undefined;

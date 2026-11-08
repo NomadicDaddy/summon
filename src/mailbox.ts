@@ -120,7 +120,10 @@ async function deliverMessage(
 	// refused instead of being dropped as if it were. Each attempt uses its own temporary file.
 	const explicit = options.id !== undefined;
 	const body = messageBody(sender, recipient, text, options, id);
-	await prepareSentStatus(sender, recipient, id);
+	const tracksRead =
+		!options.system &&
+		(options.kind === undefined || options.kind === 'request' || options.kind === 'reply');
+	if (tracksRead) await prepareSentStatus(sender, recipient, id);
 	const publish = async (): Promise<string> => {
 		if (explicit && (await publishedMailMatches(root, id, body))) return id;
 		const temporary = join(inbox, `${id}${explicit ? `.${randomUUID()}` : ''}.tmp`);
@@ -148,9 +151,10 @@ async function deliverMessage(
 	const published = explicit
 		? await locked(join(root, 'acks', `${id}.lock`), publish)
 		: await publish();
-	await markSentPublished(sender, id).catch(() => {
-		console.error('Sender read status could not be finalized; mail remains delivered.');
-	});
+	if (tracksRead)
+		await markSentPublished(sender, id).catch(() => {
+			console.error('Sender read status could not be finalized; mail remains delivered.');
+		});
 	return published;
 }
 
