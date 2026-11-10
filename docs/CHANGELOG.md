@@ -6,6 +6,11 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Added
 
+- Running Kilo seats can show a timestamped provider-limit observation in the Team roster when the
+  exact launch's completed session reports a validated zai-coding-plan HTTP 429 with code 1310. A
+  later completed error-free result with stop, tool-calls or length finish clears it; unreadable
+  observation is labelled. The diagnostic does not change process presence or turn state and takes
+  no automatic provider action.
 - Senders can check whether their own mail has a recorded complete read and when it occurred, without
   opening the recipient's mailbox. New complete reads no longer create a separate receipt message;
   pre-projection mail retains a retryable receipt path for interrupted legacy reads.
