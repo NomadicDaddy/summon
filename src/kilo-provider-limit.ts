@@ -110,7 +110,9 @@ export function readKiloProviderLimit(
 			if (limit) return limit;
 			if (
 				message.error === undefined &&
-				(message.finish === 'stop' || message.finish === 'tool-calls')
+				(message.finish === 'stop' ||
+					message.finish === 'tool-calls' ||
+					message.finish === 'length')
 			)
 				return undefined;
 		}
