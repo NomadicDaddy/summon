@@ -90,7 +90,7 @@ test('the latest completed assistant success clears an earlier limit for the exa
 		expect(readKiloProviderLimit(directory, session, now - 1000, path)?.observedAt).toBe(
 			new Date(now).toISOString(),
 		);
-		insert.run(session, JSON.stringify(completed(now + 2000, limitError())), now + 2000);
+		insert.run(session, JSON.stringify(completed(now + 2000, limitError())), now + 2500);
 		expect(readKiloProviderLimit(directory, session, now - 1000, path)?.observedAt).toBe(
 			new Date(now + 2000).toISOString(),
 		);
@@ -99,6 +99,8 @@ test('the latest completed assistant success clears an earlier limit for the exa
 			new Date(now + 2000).toISOString(),
 		);
 		insert.run(session, JSON.stringify(completed(now + 4000)), now + 4000);
+		expect(readKiloProviderLimit(directory, session, now - 1000, path)).toBeUndefined();
+		insert.run(session, JSON.stringify(completed(now + 3500, limitError())), now + 5000);
 		expect(readKiloProviderLimit(directory, session, now - 1000, path)).toBeUndefined();
 	} finally {
 		db.close();

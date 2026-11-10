@@ -75,7 +75,7 @@ export function classifyKiloProviderLimit(
 		provider: 'zai-coding-plan',
 		status: 429,
 		code: '1310',
-		observedAt: new Date(updatedAt).toISOString(),
+		observedAt: new Date(object(message.time).completed as number).toISOString(),
 	};
 }
 
@@ -95,7 +95,7 @@ export function readKiloProviderLimit(
 			return undefined;
 		const rows = db
 			.prepare(
-				"SELECT data, time_updated FROM message WHERE session_id = ? AND time_updated >= ? AND json_valid(data) AND json_extract(data, '$.role') = 'assistant' AND json_type(data, '$.time.completed') IS NOT NULL ORDER BY time_updated DESC LIMIT 257",
+				"SELECT data, time_updated FROM message WHERE session_id = ? AND time_updated >= ? AND json_valid(data) AND json_extract(data, '$.role') = 'assistant' AND json_type(data, '$.time.completed') IS NOT NULL ORDER BY CAST(json_extract(data, '$.time.completed') AS INTEGER) DESC, time_updated DESC LIMIT 257",
 			)
 			.all(sessionId, since);
 		for (const raw of rows.slice(0, 256)) {
