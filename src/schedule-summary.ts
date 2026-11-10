@@ -66,14 +66,19 @@ export function summarizeSchedules(state: State, now = Date.now()) {
 	};
 }
 
-export function scheduledRestReason(state: State, name: string, now = Date.now()): string {
+export function scheduledRestReason(
+	state: State,
+	name: string,
+	now = Date.now(),
+	allowDue?: (schedule: State['schedules'][number]) => boolean,
+): string {
 	const run = state.runs.find(
 		(item) => item.owner === name && !['complete', 'failed'].includes(item.status),
 	);
 	if (run)
 		return `Scheduled run ${run.id} (${run.status}) needs attention; inspect summon --schedule run ${run.id}`;
 	const due = state.schedules.find(
-		(item) => item.owner === name && item.enabled && item.nextDueAt <= now,
+		(item) => item.owner === name && item.enabled && item.nextDueAt <= now && !allowDue?.(item),
 	);
 	return due
 		? `Scheduled work ${due.id} is due${due.deferred ? `; deferred: ${due.deferred.reason}` : ''}; inspect summon --schedule summary`

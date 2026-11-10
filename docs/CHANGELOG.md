@@ -28,6 +28,11 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
   held and other substantive mail retains explicit handling.
 - Mail reading byte-window and index helpers now live in smaller modules with the same public exports.
 
+### Fixed
+
+- A seat waiting for a human decision can confirm rest while its due schedule is deferred for that
+  wait. The schedule remains due, and new due schedules or unfinished runs still interrupt rest.
+
 ## [1.0.4] - Internal build, unshipped, folded into 1.1.0
 
 ### Removed

@@ -26,6 +26,7 @@ export async function restEvidence(
 	idleIsSetNext = false,
 	waitingActivity?: string,
 	stopped = false,
+	waitingScheduleIds?: string[],
 ) {
 	const cards = (await readBoard()).items.filter((item) => item.owner === name && !item.archived);
 	const board = JSON.stringify({
@@ -61,12 +62,30 @@ export async function restEvidence(
 		mail = true;
 		break;
 	}
-	const scheduled = scheduledRestReason(await listSchedules(), name);
 	const activity = await readActivity(name);
 	const activityPermitsRest =
 		waitingActivity === undefined
 			? activity?.state === 'idle'
 			: activity?.state === 'needs-user' && JSON.stringify(activity) === waitingActivity;
+	const schedules = await listSchedules();
+	const now = Date.now();
+	const dueScheduleIds = schedules.schedules
+		.filter((item) => item.owner === name && item.enabled && item.nextDueAt <= now)
+		.map((item) => item.id);
+	const humanWait =
+		activity?.state === 'needs-user' &&
+		(waitingActivity === undefined ? idleIsSetNext : activityPermitsRest);
+	const scheduled = scheduledRestReason(
+		schedules,
+		name,
+		now,
+		humanWait
+			? (item) =>
+					waitingActivity === undefined
+						? item.deferred?.reason === 'owner-needs-user'
+						: (waitingScheduleIds?.includes(item.id) ?? false)
+			: undefined,
+	);
 	const catchUp = await catchUpPending(name);
 	const reason = catchUp
 		? 'An explicit checkpoint catch-up is incomplete; resume it before confirming rest'
@@ -89,5 +108,7 @@ export async function restEvidence(
 		// The exact activity this verdict was based on, so a caller can refuse to act on it once a
 		// newer status has been written.
 		activitySnapshot: activity === undefined ? undefined : JSON.stringify(activity),
+		// Bind only the due schedules present at confirmation. A newly due schedule wakes the seat.
+		dueScheduleIds: humanWait ? dueScheduleIds : undefined,
 	};
 }

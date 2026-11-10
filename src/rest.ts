@@ -24,6 +24,7 @@ const schema = z.object({
 	wakePid: z.number().int().positive().optional(),
 	reason: z.string(),
 	waitingActivity: z.string().optional(),
+	waitingScheduleIds: z.array(z.uuid()).optional(),
 });
 export type RestState = z.infer<typeof schema>;
 const path = (name: string) => join(runtimePath(name), 'rest.json');
@@ -64,6 +65,7 @@ async function refreshLockedRest(name: string): Promise<RestState | undefined> {
 				false,
 				state.waitingActivity,
 				state.mode === 'stopped',
+				state.waitingScheduleIds,
 			);
 			if (evidence.nonce !== state.nonce) {
 				state.mode = 'awake';
@@ -167,12 +169,15 @@ export async function restCommand(args: string[]): Promise<void> {
 		);
 		const waitingActivity =
 			priorActivity === 'needs-user' ? evidence.activitySnapshot : undefined;
+		const waitingScheduleIds =
+			priorActivity === 'needs-user' ? evidence.dueScheduleIds : undefined;
 		const previous = await readRest(name);
 		const id =
 			previous?.mode === 'ready' &&
 			previous.nonce === evidence.nonce &&
 			previous.board === evidence.board &&
 			previous.waitingActivity === waitingActivity &&
+			JSON.stringify(previous.waitingScheduleIds) === JSON.stringify(waitingScheduleIds) &&
 			previous.through === evidence.through
 				? previous.id
 				: randomUUID();
@@ -185,6 +190,7 @@ export async function restCommand(args: string[]): Promise<void> {
 			resume: false,
 			reason: '',
 			...(waitingActivity === undefined ? {} : { waitingActivity }),
+			...(waitingScheduleIds === undefined ? {} : { waitingScheduleIds }),
 		});
 	});
 	console.log(
@@ -207,7 +213,14 @@ export async function stopForRest(
 		const state = await readRest(name);
 		if (state?.mode !== 'ready' || state.id !== id)
 			throw new Error('Rest confirmation changed; refresh the roster.');
-		const evidence = await restEvidence(name, state.through, false, state.waitingActivity);
+		const evidence = await restEvidence(
+			name,
+			state.through,
+			false,
+			state.waitingActivity,
+			false,
+			state.waitingScheduleIds,
+		);
 		if (
 			(await isHibernated(name)) ||
 			evidence.reason ||

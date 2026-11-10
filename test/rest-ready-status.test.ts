@@ -8,7 +8,7 @@ import { setHibernation } from '../src/hibernation.ts';
 import { sendHuman } from '../src/local-room-access.ts';
 import { sendMessage } from '../src/mailbox.ts';
 import { readRest, refreshRest, restSuppressed, stopForRest } from '../src/rest.ts';
-import { createSchedule, listSchedules } from '../src/schedules.ts';
+import { createSchedule, dispatchSchedules, listSchedules } from '../src/schedules.ts';
 import { loadAgent, providers, saveAgent } from '../src/store.ts';
 import { bindIdleCodex } from './fixtures/codex-idle.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
@@ -139,6 +139,96 @@ for (const provider of providers) {
 		});
 	}
 }
+
+test('a deferred due schedule stays queued while an exact human wait rests', async () => {
+	await asProvider('claude');
+	await status('needs-user', 'Approval needed');
+	const activity = await fixture.read('runtime/alpha/activity.json');
+	const item = await createSchedule({
+		owner: 'alpha',
+		title: 'Due during approval',
+		prompt: 'Fixture scope only.',
+		everyMinutes: 1,
+	});
+	const schedules = await listSchedules();
+	const schedule = schedules.schedules[0];
+	if (!schedule) throw new Error('Missing fixture schedule');
+	schedule.nextDueAt = 0;
+	await writeFile(join(fixture.records, 'schedules/state.json'), JSON.stringify(schedules));
+	await dispatchSchedules(
+		() => Promise.resolve('owner-needs-user'),
+		() => Promise.resolve(),
+		100,
+	);
+	const deferred = await listSchedules();
+	expect(deferred.schedules[0]?.deferred?.reason).toBe('owner-needs-user');
+	expect(deferred.runs).toHaveLength(0);
+	expect((await fixture.run(['--rest', 'ready'], 'alpha')).code).toBe(0);
+	const confirmation = await readRest('alpha');
+	expect(confirmation).toMatchObject({ mode: 'ready', waitingScheduleIds: [item.id] });
+	expect(await fixture.read('runtime/alpha/activity.json')).toBe(activity);
+	expect(await listSchedules()).toEqual(deferred);
+	expect((await refreshRest('alpha'))?.mode).toBe('ready');
+	if (!confirmation) throw new Error('Missing rest confirmation');
+	await stopForRest('alpha', confirmation.id, () => Promise.resolve(), 'claude');
+	expect((await readRest('alpha'))?.mode).toBe('stopped');
+	const stoppedSchedules = await listSchedules();
+	const stoppedSchedule = stoppedSchedules.schedules[0];
+	if (!stoppedSchedule) throw new Error('Missing fixture schedule');
+	stoppedSchedule.deferred = { reason: 'not-running-here', dueAt: 0, observedAt: 200 };
+	await writeFile(
+		join(fixture.records, 'schedules/state.json'),
+		JSON.stringify(stoppedSchedules),
+	);
+	expect((await refreshRest('alpha'))?.mode).toBe('stopped');
+	await createSchedule({
+		owner: 'alpha',
+		title: 'New due work',
+		prompt: 'Fixture scope only.',
+		everyMinutes: 1,
+	});
+	const changed = await listSchedules();
+	const newSchedule = changed.schedules[1];
+	if (!newSchedule) throw new Error('Missing new schedule');
+	newSchedule.nextDueAt = 0;
+	await writeFile(join(fixture.records, 'schedules/state.json'), JSON.stringify(changed));
+	expect((await refreshRest('alpha'))?.mode).toBe('wake-requested');
+});
+
+test('a human wait still refuses rest for delivered and uncertain scheduled runs', async () => {
+	await asProvider('claude');
+	await createSchedule({
+		owner: 'alpha',
+		title: 'Delivered work',
+		prompt: 'Fixture scope only.',
+		everyMinutes: 1,
+	});
+	const schedules = await listSchedules();
+	const schedule = schedules.schedules[0];
+	if (!schedule) throw new Error('Missing fixture schedule');
+	schedule.nextDueAt = 0;
+	await writeFile(join(fixture.records, 'schedules/state.json'), JSON.stringify(schedules));
+	await dispatchSchedules(
+		() => Promise.resolve(true),
+		() => Promise.resolve(),
+		100,
+	);
+	expect((await fixture.run(['--mail', 'receive'], 'alpha')).code).toBe(0);
+	await status('needs-user', 'Approval needed');
+	const activity = await fixture.read('runtime/alpha/activity.json');
+	for (const runStatus of ['delivered', 'uncertain'] as const) {
+		const current = await listSchedules();
+		const run = current.runs[0];
+		if (!run) throw new Error('Missing scheduled run');
+		run.status = runStatus;
+		await writeFile(join(fixture.records, 'schedules/state.json'), JSON.stringify(current));
+		const result = await fixture.run(['--rest', 'ready'], 'alpha');
+		expect(result.code).toBe(1);
+		expect(result.error).toContain(`Scheduled run ${run.id} (${runStatus}) needs attention`);
+		expect(await fixture.read('runtime/alpha/activity.json')).toBe(activity);
+		expect(await readRest('alpha')).toBeUndefined();
+	}
+});
 
 test('a separate status idle Ready first stays harmless', async () => {
 	await asProvider('claude');
