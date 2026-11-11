@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -62,3 +62,31 @@ test('agent record saves remain complete under concurrent readers', async () => 
 		await rm(root, { recursive: true, force: true });
 	}
 });
+
+if (process.platform === 'win32')
+	test('atomic replacement waits for a temporary Windows reader denial', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'summon-rename-denial-'));
+		const path = join(root, 'state.json');
+		const ready = join(root, 'reader-ready');
+		const script = join(root, 'hold-reader.ps1');
+		await writeFile(path, 'old');
+		await writeFile(
+			script,
+			'param($Path, $Ready)\n$file = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)\ntry { [System.IO.File]::WriteAllText($Ready, "ready"); Start-Sleep -Milliseconds 1250 } finally { $file.Dispose() }\n',
+		);
+		const holder = Bun.spawn(
+			['pwsh', '-NoProfile', '-NonInteractive', '-File', script, path, ready],
+			{ stdout: 'pipe', stderr: 'pipe' },
+		);
+		try {
+			for (let attempt = 0; attempt < 250 && !(await Bun.file(ready).exists()); attempt++)
+				await Bun.sleep(20);
+			expect(await Bun.file(ready).exists()).toBe(true);
+			await atomicWrite(path, 'new');
+			expect(await readFile(path, 'utf8')).toBe('new');
+		} finally {
+			holder.kill();
+			await holder.exited;
+			await rm(root, { recursive: true, force: true });
+		}
+	}, 15000);

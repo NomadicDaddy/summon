@@ -43,16 +43,17 @@ export async function atomicWrite(
 	try {
 		await mkdir(dirname(path), { recursive: true, mode: 0o700 });
 		await writeFile(temporary, text, { flag: 'wx', mode: 0o600 });
+		const retryStartedAt = Date.now();
 		for (let attempt = 0; ; attempt++) {
 			try {
 				await rename(temporary, path);
 				if (progress) progress.renamed = true;
 				break;
 			} catch (error: unknown) {
-				// Windows readers can briefly deny replacement; never fall back to truncating writes.
+				// Windows readers can deny replacement for longer than the old 550 ms retry window.
 				if (
 					process.platform !== 'win32' ||
-					attempt >= 8 ||
+					Date.now() - retryStartedAt >= 3000 ||
 					!['EPERM', 'EBUSY', 'EACCES'].includes(errorCode(error) ?? '')
 				)
 					throw error;
