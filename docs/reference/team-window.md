@@ -208,9 +208,12 @@ separately for each provider; fixture and built-UI checks do not establish it.
 For a bounded task, a teammate can request **Head-down** with
 `summon --head-down request "goal" "completion condition" --return-to-normal`. The commitment
 requires returning to Normal when complete, blocked, cancelled, or needing a human decision.
-The operator approves the exact request in the Room or selected teammate controls. **Can Approve
-Heads-down** delegates only this management capability to another teammate; it grants
-neither mail-hold approval nor general authority. Agents cannot approve their own requests.
+By default, the operator approves the exact request in the Room or selected teammate controls.
+The optional team setting **Auto-approve new head-down requests** is off by default. When enabled,
+new eligible requests start immediately and are recorded in the Room; earlier pending requests still
+need an answer. Turning it off leaves active goals in place. **Can Approve Heads-down** delegates
+manual approval and management (including steer and end) for head-down only; it grants neither
+mail-hold approval nor general authority. Agents cannot approve their own requests.
 
 Active head-down queues automatic room, Telegram and mail notices, schedules and idle nudges.
 The current request's approval or decline gets one separate response, so a teammate waiting for
@@ -420,9 +423,11 @@ Active shows online teammates without a Zzz rest control. Idle Ready alone is st
 whose rest confirmation ends reappears on the next roster update without refreshing the window.
 Filtering preserves the selected terminal and does not start or stop sessions.
 
-Selecting a teammate running in this window pauses its automatic notifications, idle nudges and scheduled dispatch for
-30 seconds. Stopped sessions do not start a countdown. The header button shows the countdown. Human keyboard input renews the quiet period;
-terminal output and routine snapshots do not. After 30 seconds without typing, delivery resumes.
+With automatic holding enabled (the default), selecting a teammate running in this window pauses
+its automatic notifications, idle nudges and scheduled dispatch for the configured countdown.
+The default is 30 seconds; Team settings accepts 5 to 600 seconds. Stopped sessions do not start a
+countdown. The header button shows it. Human keyboard input renews the quiet period; terminal
+output and routine snapshots do not. When the countdown expires, delivery resumes.
 The toggle releases the current pause or starts a manual pause that lasts until released or you
 select another teammate. Automatic pauses apply while the window is focused; manual pauses also
 survive blur. Direct terminal input and operator hibernation controls remain available. Messages

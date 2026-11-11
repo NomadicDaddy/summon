@@ -10,9 +10,10 @@ summon --mail ack carl <message-id>
 
 Both names must already be registered. Each message is a Markdown file with its sender, recipient,
 timestamp, and ID in `~/.summon/team-default/mailboxes/<recipient>/inbox/` (or under `SUMMON_HOME`). Writes become
-visible only when complete, and simultaneous sends use separate files. Checking leaves messages
-pending; `ack` moves a handled message into the recipient's `archive/` folder. Reply by sending a
-new message to the original sender. These are local files; sender names are not authenticated.
+visible only when complete, and simultaneous sends use separate files. Fully read receipt-kind
+mail archives automatically unless an approval hold is pending. Other mail stays pending until
+handled; `ack` moves it into the recipient's `archive/` folder. Reply by sending a new message to
+the original sender. These are local files; sender names are not authenticated.
 
 Acknowledgement never replaces an existing archived message. A redelivery with the same ID and
 content, apart from its generated timestamp, keeps the first archived copy. If the content differs,
