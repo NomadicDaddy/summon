@@ -5,6 +5,10 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import { parseOwner, processAlive } from './process-owner.ts';
 
+const WINDOWS_RENAME_RETRY_MS = 3000;
+// At 25 ms per attempt, Windows waiters outlast a replacement retry under the lock.
+const DEFAULT_LOCK_ATTEMPTS = process.platform === 'win32' ? 200 : 100;
+
 export function missing(error: unknown): boolean {
 	return errorCode(error) === 'ENOENT';
 }
@@ -43,7 +47,7 @@ export async function atomicWrite(
 	try {
 		await mkdir(dirname(path), { recursive: true, mode: 0o700 });
 		await writeFile(temporary, text, { flag: 'wx', mode: 0o600 });
-		const retryStartedAt = Date.now();
+		const retryStartedAt = performance.now();
 		for (let attempt = 0; ; attempt++) {
 			try {
 				await rename(temporary, path);
@@ -53,7 +57,7 @@ export async function atomicWrite(
 				// Windows readers can deny replacement for longer than the old 550 ms retry window.
 				if (
 					process.platform !== 'win32' ||
-					Date.now() - retryStartedAt >= 3000 ||
+					performance.now() - retryStartedAt >= WINDOWS_RENAME_RETRY_MS ||
 					!['EPERM', 'EBUSY', 'EACCES'].includes(errorCode(error) ?? '')
 				)
 					throw error;
@@ -98,7 +102,7 @@ async function lockFileOperation<T>(operation: () => Promise<T>): Promise<T> {
 export async function locked<T>(
 	path: string,
 	operation: () => Promise<T>,
-	attempts = 100,
+	attempts = DEFAULT_LOCK_ATTEMPTS,
 ): Promise<T> {
 	await mkdir(dirname(path), { recursive: true, mode: 0o700 });
 	const owner = JSON.stringify({ pid: process.pid, nonce: randomUUID() });

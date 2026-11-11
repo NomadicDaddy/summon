@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
+import { randomUUID } from 'node:crypto';
 import { chmod, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -132,7 +133,7 @@ test('an interrupted two-source apply resumes after Telegram advanced without ac
 	const { catchUp } = await prepareCatchUp('alpha', 1);
 	const plan = await loadSkipPlan('alpha', catchUp.id);
 	const lock = join(fixture.records, 'runtime/alpha/room.cursor.lock');
-	await writeFile(lock, JSON.stringify({ pid: process.pid, nonce: 'live-fixture-owner' }));
+	await writeFile(lock, JSON.stringify({ pid: process.pid, nonce: randomUUID() }));
 	expect(await failure(() => applyCatchUp('alpha', plan.id))).toContain(
 		'Mailbox operation is locked',
 	);

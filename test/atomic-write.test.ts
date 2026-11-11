@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { atomicWrite } from '../src/mail-files.ts';
+import { atomicWrite, locked } from '../src/mail-files.ts';
 import { loadAgent, newRecord, saveAgent } from '../src/store.ts';
 
 test('atomic replacement remains complete while concurrent readers hold the file', async () => {
@@ -64,7 +64,7 @@ test('agent record saves remain complete under concurrent readers', async () => 
 });
 
 if (process.platform === 'win32')
-	test('atomic replacement waits for a temporary Windows reader denial', async () => {
+	test('locked writers survive a temporary Windows reader denial', async () => {
 		const root = await mkdtemp(join(tmpdir(), 'summon-rename-denial-'));
 		const path = join(root, 'state.json');
 		const ready = join(root, 'reader-ready');
@@ -82,7 +82,20 @@ if (process.platform === 'win32')
 			for (let attempt = 0; attempt < 250 && !(await Bun.file(ready).exists()); attempt++)
 				await Bun.sleep(20);
 			expect(await Bun.file(ready).exists()).toBe(true);
-			await atomicWrite(path, 'new');
+			let signalEntered = () => {};
+			const entered = new Promise<void>((resolve) => {
+				signalEntered = resolve;
+			});
+			const lock = `${path}.lock`;
+			const first = locked(lock, async () => {
+				signalEntered();
+				await atomicWrite(path, 'first');
+				await Bun.sleep(1800);
+			});
+			await entered;
+			const second = locked(lock, () => atomicWrite(path, 'new'));
+			const results = await Promise.allSettled([first, second]);
+			expect(results.map((result) => result.status)).toEqual(['fulfilled', 'fulfilled']);
 			expect(await readFile(path, 'utf8')).toBe('new');
 		} finally {
 			holder.kill();

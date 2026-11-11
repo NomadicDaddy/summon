@@ -170,7 +170,7 @@ test('an interrupted held apply resumes without touching the Telegram cursor', a
 	await busyRefresh(root);
 	const { catchUp } = await prepareCatchUp('alpha', 1);
 	const lock = join(fixture.records, 'runtime/alpha/room.cursor.lock');
-	await writeFile(lock, JSON.stringify({ pid: process.pid, nonce: 'live-fixture-owner' }));
+	await writeFile(lock, JSON.stringify({ pid: process.pid, nonce: randomUUID() }));
 	expect(await failure(() => applyCatchUp('alpha', catchUp.id))).toContain(
 		'Mailbox operation is locked',
 	);
