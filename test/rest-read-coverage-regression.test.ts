@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
+import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import { initializeActivity } from '../src/agent-activity.ts';
 import { LockBusyError } from '../src/mail-files.ts';
@@ -110,6 +112,58 @@ test('an empty read marker grants no read coverage', async () => {
 	await writeFile(statePath('alpha', id, 'read'), '');
 	expect((await restEvidence('alpha')).reason).toBe('Unread mail needs attention');
 });
+
+test('many covered messages do not starve a concurrent rest confirmation', async () => {
+	await restCommand(['ready']);
+	const inbox = join(fixture.records, 'mailboxes/alpha/inbox');
+	await mkdir(inbox, { recursive: true });
+	await mkdir(dirname(statePath('alpha', randomUUID(), 'read')), { recursive: true });
+	await Promise.all(
+		Array.from({ length: 160 }, async () => {
+			const id = randomUUID();
+			await writeFile(join(inbox, `${id}.md`), 'covered');
+			await writeFile(statePath('alpha', id, 'read'), 'read');
+		}),
+	);
+	const lock = join(fixture.records, 'runtime/alpha/rest.json.lock');
+	const realRead = fs.readFile;
+	const realLink = fs.link;
+	const read = spyOn(fs, 'readFile').mockImplementation(
+		new Proxy(realRead, {
+			async apply(target, receiver: unknown, args: unknown[]) {
+				if (
+					String(args[0]).startsWith(fixture.records) &&
+					String(args[0]).endsWith('.read')
+				)
+					await delay(40);
+				const result: unknown = Reflect.apply(target, receiver, args);
+				return await result;
+			},
+		}),
+	);
+	let acquired = () => {};
+	const acquiredGate = new Promise<void>((resolve) => {
+		acquired = resolve;
+	});
+	const link = spyOn(fs, 'link').mockImplementation(async (...args) => {
+		await realLink(...args);
+		if (String(args[1]) === lock) acquired();
+	});
+	let refresh: Promise<Awaited<ReturnType<typeof refreshRest>>> | undefined;
+	try {
+		refresh = refreshRest('alpha');
+		await acquiredGate;
+		await restCommand(['ready']);
+		expect((await readRest('alpha'))?.mode).toBe('ready');
+	} finally {
+		try {
+			await refresh;
+		} finally {
+			read.mockRestore();
+			link.mockRestore();
+		}
+	}
+}, 15000);
 
 test('unread malformed headers still fail closed', async () => {
 	const id = await readMessage();

@@ -11,6 +11,8 @@ import { addressedTo, addressedToStopped } from './room-wake.ts';
 import { scheduledRestReason } from './schedule-summary.ts';
 import { listSchedules } from './schedules.ts';
 
+const READ_MARKER_BATCH = 32;
+
 /**
  * Why `name` cannot rest now, or '' when it can.
  * @param since Room id the addressed-message check starts after; the read cursor when omitted.
@@ -48,19 +50,28 @@ export async function restEvidence(
 				(event.replyTo !== null && own.has(event.replyTo))),
 	);
 	let mail = false;
-	for (const file of await pendingMessages(name)) {
-		const id = file.slice(0, -3);
-		// Covered mail cannot be unread work; avoid reopening every retained header under the lock.
-		if (await optionalText(statePath(name, id, 'read'))) continue;
-		// These are protocol bookkeeping, retained for the next ordinary read, not new work.
-		const item = await header(name, id);
-		if (
-			['receipt', 'confirmation', 'rest-ready'].includes(item.kind) ||
-			item.noticeStatus === 'obsolete'
-		)
-			continue;
-		mail = true;
-		break;
+	const pending = await pendingMessages(name);
+	for (let offset = 0; offset < pending.length && !mail; offset += READ_MARKER_BATCH) {
+		// The Window holds rest.json.lock here. Bound concurrent marker reads so a large retained
+		// inbox cannot keep an explicit confirmation waiting behind thousands of serial reads.
+		const coverage = await Promise.all(
+			pending.slice(offset, offset + READ_MARKER_BATCH).map(async (file) => {
+				const id = file.slice(0, -3);
+				return { id, read: !!(await optionalText(statePath(name, id, 'read'))) };
+			}),
+		);
+		for (const { id, read } of coverage) {
+			if (read) continue;
+			// These are protocol bookkeeping, retained for the next ordinary read, not new work.
+			const item = await header(name, id);
+			if (
+				['receipt', 'confirmation', 'rest-ready'].includes(item.kind) ||
+				item.noticeStatus === 'obsolete'
+			)
+				continue;
+			mail = true;
+			break;
+		}
 	}
 	const activity = await readActivity(name);
 	const activityPermitsRest =
