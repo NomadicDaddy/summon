@@ -3,7 +3,7 @@ import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 
-import { readActivity } from './agent-activity.ts';
+import { readActivity, withActiveSeatWrite } from './agent-activity.ts';
 import { readBoard } from './board.ts';
 import { communicationSend } from './communication-gate.ts';
 import { DIARY_MAX_BYTES, diaryDocument, diaryEntry, diaryFields } from './diary-model.ts';
@@ -80,19 +80,21 @@ export async function addDiary(value: unknown): Promise<DiaryEntry> {
 	}
 	await validateDiaryReferences([data]);
 	return communicationSend('save the Diary entry', () =>
-		locked(`${diaryPath()}.lock`, async () => {
-			const saved = await entries();
-			const item: DiaryEntry = {
-				...data,
-				id: randomUUID(),
-				at: new Date().toISOString(),
-				author,
-			};
-			const raw = JSON.stringify({ version: 1, entries: [...saved, item] });
-			if (Buffer.byteLength(raw) > DIARY_MAX_BYTES)
-				throw new Error('Diary storage exceeds its safety limit.');
-			await atomicWrite(diaryPath(), raw);
-			return item;
-		}),
+		locked(`${diaryPath()}.lock`, () =>
+			withActiveSeatWrite(async () => {
+				const saved = await entries();
+				const item: DiaryEntry = {
+					...data,
+					id: randomUUID(),
+					at: new Date().toISOString(),
+					author,
+				};
+				const raw = JSON.stringify({ version: 1, entries: [...saved, item] });
+				if (Buffer.byteLength(raw) > DIARY_MAX_BYTES)
+					throw new Error('Diary storage exceeds its safety limit.');
+				await atomicWrite(diaryPath(), raw);
+				return item;
+			}),
+		),
 	);
 }

@@ -33,6 +33,8 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Fixed
 
+- Board changes and comments, notes edits, and diary entries now recheck the agent's launch while
+  holding the activity lock through publication, so a replaced seat cannot finish an in-flight write.
 - A seat waiting for a human decision can confirm rest while its due schedule is deferred for that
   wait. The schedule remains due, and new due schedules or unfinished runs still interrupt rest.
 

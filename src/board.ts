@@ -11,7 +11,7 @@ import type {
 	BoardWork,
 } from './board-model.ts';
 
-import { readActivity } from './agent-activity.ts';
+import { readActivity, withActiveSeatWrite } from './agent-activity.ts';
 import { archivedBoardHistory, completeBoardHistory, rotateBoardHistory } from './board-history.ts';
 import {
 	boardCommentSchema,
@@ -156,76 +156,78 @@ async function validateLinks(item: BoardFields, items: BoardItem[], id: string):
 async function mutate(id: string | null, revision: number, value: unknown): Promise<BoardSnapshot> {
 	const who = await actor();
 	return communicationSend('save the Board change', () =>
-		locked(`${boardPath()}.lock`, async () => {
-			const data = await document();
-			await rotateBoardHistory(data);
-			const before = id ? data.items.find((item) => item.id === id) : undefined;
-			if (id && !before) throw new Error('Board item not found.');
-			if (before && before.revision !== revision)
-				throw new Error('Board item changed; reload before saving.');
-			const patch = boardFields.partial().parse(value);
-			const fields = boardFields.parse({
-				project: '',
-				owner: who.kind === 'agent' ? who.id : '',
-				partner: '',
-				description: '',
-				state: 'backlog',
-				blockedOn: null,
-				evidence: [],
-				archived: false,
-				...(before ? boardFields.strip().parse(before) : {}),
-				...patch,
-			});
-			if (
-				who.kind === 'agent' &&
-				((before && before.owner !== who.id) || fields.owner !== who.id)
-			)
-				throw new Error(
-					'Agents may update only their own work; ownership changes require the operator.',
-				);
-			const itemId = id ?? randomUUID();
-			const at = new Date().toISOString();
-			// Approving a card from the board supplies no evidence, and the rule that done is never a
-			// bare assertion is worth keeping rather than carving an exception into. Record the
-			// approval itself, naming the revision that was on screen, so what was approved stays
-			// recoverable from history. Agents still have to bring their own evidence.
-			if (
-				who.kind === 'operator' &&
-				before &&
-				fields.state === 'done' &&
-				fields.evidence.length === 0
-			)
-				fields.evidence = [
-					`Operator approved revision ${before.revision} on the board at ${at}.`,
-				];
-			await validateLinks(fields, data.items, itemId);
-			const after: BoardItem = {
-				...fields,
-				id: itemId,
-				revision: (before?.revision ?? 0) + 1,
-				createdAt: before?.createdAt ?? at,
-				updatedAt: at,
-				comments: before?.comments ?? [],
-			};
-			if (before) data.items[data.items.indexOf(before)] = after;
-			else data.items.push(after);
-			data.revision++;
-			const snapshot = (item: BoardItem): BoardChange['after'] =>
-				boardSnapshotSchema.strip().parse(item);
-			data.history.push({
-				at,
-				actor: who,
-				itemId,
-				before: before ? snapshot(before) : null,
-				after: snapshot(after),
-			});
-			boardDocumentSchema.parse(data);
-			const serialized = JSON.stringify(data);
-			if (Buffer.byteLength(serialized) > MAX_BYTES)
-				throw new Error('Board storage limit reached; history was not discarded.');
-			await atomicWrite(boardPath(), serialized);
-			return { revision: data.revision, items: data.items };
-		}),
+		locked(`${boardPath()}.lock`, () =>
+			withActiveSeatWrite(async () => {
+				const data = await document();
+				await rotateBoardHistory(data);
+				const before = id ? data.items.find((item) => item.id === id) : undefined;
+				if (id && !before) throw new Error('Board item not found.');
+				if (before && before.revision !== revision)
+					throw new Error('Board item changed; reload before saving.');
+				const patch = boardFields.partial().parse(value);
+				const fields = boardFields.parse({
+					project: '',
+					owner: who.kind === 'agent' ? who.id : '',
+					partner: '',
+					description: '',
+					state: 'backlog',
+					blockedOn: null,
+					evidence: [],
+					archived: false,
+					...(before ? boardFields.strip().parse(before) : {}),
+					...patch,
+				});
+				if (
+					who.kind === 'agent' &&
+					((before && before.owner !== who.id) || fields.owner !== who.id)
+				)
+					throw new Error(
+						'Agents may update only their own work; ownership changes require the operator.',
+					);
+				const itemId = id ?? randomUUID();
+				const at = new Date().toISOString();
+				// Approving a card from the board supplies no evidence, and the rule that done is never a
+				// bare assertion is worth keeping rather than carving an exception into. Record the
+				// approval itself, naming the revision that was on screen, so what was approved stays
+				// recoverable from history. Agents still have to bring their own evidence.
+				if (
+					who.kind === 'operator' &&
+					before &&
+					fields.state === 'done' &&
+					fields.evidence.length === 0
+				)
+					fields.evidence = [
+						`Operator approved revision ${before.revision} on the board at ${at}.`,
+					];
+				await validateLinks(fields, data.items, itemId);
+				const after: BoardItem = {
+					...fields,
+					id: itemId,
+					revision: (before?.revision ?? 0) + 1,
+					createdAt: before?.createdAt ?? at,
+					updatedAt: at,
+					comments: before?.comments ?? [],
+				};
+				if (before) data.items[data.items.indexOf(before)] = after;
+				else data.items.push(after);
+				data.revision++;
+				const snapshot = (item: BoardItem): BoardChange['after'] =>
+					boardSnapshotSchema.strip().parse(item);
+				data.history.push({
+					at,
+					actor: who,
+					itemId,
+					before: before ? snapshot(before) : null,
+					after: snapshot(after),
+				});
+				boardDocumentSchema.parse(data);
+				const serialized = JSON.stringify(data);
+				if (Buffer.byteLength(serialized) > MAX_BYTES)
+					throw new Error('Board storage limit reached; history was not discarded.');
+				await atomicWrite(boardPath(), serialized);
+				return { revision: data.revision, items: data.items };
+			}),
+		),
 	);
 }
 
@@ -244,27 +246,29 @@ export async function addBoardComment(id: string, body: unknown): Promise<BoardS
 	messageId(id);
 	const who = await actor();
 	return communicationSend('add the Board comment', () =>
-		locked(`${boardPath()}.lock`, async () => {
-			const data = await document();
-			await rotateBoardHistory(data);
-			const item = data.items.find((candidate) => candidate.id === id);
-			if (!item) throw new Error('Board item not found.');
-			item.comments.push(
-				boardCommentSchema.parse({
-					at: new Date().toISOString(),
-					actor: who,
-					revision: item.revision,
-					body,
-				}),
-			);
-			data.revision++;
-			boardDocumentSchema.parse(data);
-			const serialized = JSON.stringify(data);
-			if (Buffer.byteLength(serialized) > MAX_BYTES)
-				throw new Error('Board storage limit reached; the comment was not added.');
-			await atomicWrite(boardPath(), serialized);
-			return { revision: data.revision, items: data.items };
-		}),
+		locked(`${boardPath()}.lock`, () =>
+			withActiveSeatWrite(async () => {
+				const data = await document();
+				await rotateBoardHistory(data);
+				const item = data.items.find((candidate) => candidate.id === id);
+				if (!item) throw new Error('Board item not found.');
+				item.comments.push(
+					boardCommentSchema.parse({
+						at: new Date().toISOString(),
+						actor: who,
+						revision: item.revision,
+						body,
+					}),
+				);
+				data.revision++;
+				boardDocumentSchema.parse(data);
+				const serialized = JSON.stringify(data);
+				if (Buffer.byteLength(serialized) > MAX_BYTES)
+					throw new Error('Board storage limit reached; the comment was not added.');
+				await atomicWrite(boardPath(), serialized);
+				return { revision: data.revision, items: data.items };
+			}),
+		),
 	);
 }
 

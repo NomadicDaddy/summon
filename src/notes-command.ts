@@ -3,7 +3,7 @@ import { lstat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 
-import { readActivity } from './agent-activity.ts';
+import { readActivity, withActiveSeatWrite } from './agent-activity.ts';
 import { atomicWrite, locked, missing, optionalText } from './mail-files.ts';
 import { currentAgent } from './mail-identity.ts';
 import { assertNotesLimit } from './notes-limit.ts';
@@ -44,12 +44,14 @@ export async function notesCommand(args: string[]): Promise<void> {
 	if (Buffer.byteLength(input) > 1024 * 1024) throw new Error('Notes request exceeds its limit.');
 	const data = edit.parse(JSON.parse(input) as unknown);
 	assertNotesLimit(data.text);
-	await locked(`${path}.lock`, async () => {
-		await regularNotes(path);
-		const previous = (await optionalText(path)) ?? '';
-		if (revision(previous) !== data.revision)
-			throw new Error('Notes changed since read; read again and reconcile the edit.');
-		await atomicWrite(path, data.text);
-	});
+	await locked(`${path}.lock`, () =>
+		withActiveSeatWrite(async () => {
+			await regularNotes(path);
+			const previous = (await optionalText(path)) ?? '';
+			if (revision(previous) !== data.revision)
+				throw new Error('Notes changed since read; read again and reconcile the edit.');
+			await atomicWrite(path, data.text);
+		}),
+	);
 	console.log(JSON.stringify({ revision: revision(data.text) }));
 }
