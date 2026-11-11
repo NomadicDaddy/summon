@@ -52,8 +52,8 @@ export async function restEvidence(
 	let mail = false;
 	const pending = await pendingMessages(name);
 	for (let offset = 0; offset < pending.length && !mail; offset += READ_MARKER_BATCH) {
-		// The Window holds rest.json.lock here. Bound concurrent marker reads so a large retained
-		// inbox cannot keep an explicit confirmation waiting behind thousands of serial reads.
+		// Bound concurrent marker reads so a large retained inbox cannot keep an explicit
+		// confirmation waiting behind thousands of serial reads.
 		const coverage = await Promise.all(
 			pending.slice(offset, offset + READ_MARKER_BATCH).map(async (file) => {
 				const id = file.slice(0, -3);

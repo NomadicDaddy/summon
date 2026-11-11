@@ -113,6 +113,51 @@ test('an empty read marker grants no read coverage', async () => {
 	expect((await restEvidence('alpha')).reason).toBe('Unread mail needs attention');
 });
 
+test('a slow polling evidence read does not hold the rest confirmation lock', async () => {
+	await restCommand(['ready']);
+	const id = await readMessage();
+	const marker = statePath('alpha', id, 'read');
+	let releaseRead = () => {};
+	const readGate = new Promise<void>((resolve) => {
+		releaseRead = resolve;
+	});
+	let reading = () => {};
+	const readingGate = new Promise<void>((resolve) => {
+		reading = resolve;
+	});
+	let delayed = false;
+	const originalRead = fs.readFile;
+	const read = spyOn(fs, 'readFile').mockImplementation(
+		new Proxy(originalRead, {
+			async apply(target, receiver: unknown, args: unknown[]) {
+				if (!delayed && String(args[0]) === marker) {
+					delayed = true;
+					reading();
+					await readGate;
+				}
+				const result: unknown = Reflect.apply(target, receiver, args);
+				return await result;
+			},
+		}),
+	);
+	let refresh: Promise<Awaited<ReturnType<typeof refreshRest>>> | undefined;
+	try {
+		refresh = refreshRest('alpha');
+		await readingGate;
+		await restCommand(['ready']);
+		expect((await readRest('alpha'))?.mode).toBe('ready');
+		await restCommand(['cancel']);
+	} finally {
+		releaseRead();
+		try {
+			await refresh;
+		} finally {
+			read.mockRestore();
+		}
+	}
+	expect((await readRest('alpha'))?.mode).toBe('awake');
+}, 15000);
+
 test('many covered messages do not starve a concurrent rest confirmation', async () => {
 	await restCommand(['ready']);
 	const inbox = join(fixture.records, 'mailboxes/alpha/inbox');

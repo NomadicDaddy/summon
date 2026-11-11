@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 
@@ -6,7 +7,14 @@ import type { Provider } from './store.ts';
 
 import { readActivity, setOwnActivity } from './agent-activity.ts';
 import { isHibernated } from './hibernation.ts';
-import { atomicWrite, errorCode, LockBusyError, locked, optionalText } from './mail-files.ts';
+import {
+	atomicWrite,
+	errorCode,
+	LockBusyError,
+	locked,
+	missing,
+	optionalText,
+} from './mail-files.ts';
 import { currentAgent, operatorOnly, ownMailbox } from './mail-identity.ts';
 import { runtimePath } from './mail-session.ts';
 import { restEvidence } from './rest-evidence.ts';
@@ -46,7 +54,35 @@ export async function refreshRest(name: string): Promise<RestState | undefined> 
 		const current = await readRest(name);
 		if (!current || !['ready', 'stopped'].includes(current.mode)) return current;
 	}
-	return refreshLockedRest(name);
+	// A short locked snapshot protects against an in-flight confirmation. The expensive evidence
+	// scan then runs outside the lock, so the Window poll cannot starve an explicit command.
+	const observed = await locked(`${path(name)}.lock`, async () => ({
+		state: await readRest(name),
+		version: await restVersion(name),
+	}));
+	const state = observed.state;
+	if (!state || !['ready', 'stopped'].includes(state.mode)) return state;
+	const next = await refreshedState(name, state);
+	return locked(`${path(name)}.lock`, async () => {
+		const current = await readRest(name);
+		if (
+			(await restVersion(name)) !== observed.version ||
+			JSON.stringify(current) !== JSON.stringify(state)
+		)
+			return current;
+		if (next !== state) await save(name, next);
+		return next;
+	});
+}
+
+async function restVersion(name: string): Promise<string> {
+	try {
+		const info = await stat(path(name), { bigint: true });
+		return `${info.dev}:${info.ino}:${info.size}:${info.birthtimeNs}:${info.mtimeNs}`;
+	} catch (error: unknown) {
+		if (missing(error)) return '';
+		throw error;
+	}
 }
 
 async function refreshLockedRest(name: string): Promise<RestState | undefined> {
@@ -54,37 +90,36 @@ async function refreshLockedRest(name: string): Promise<RestState | undefined> {
 	return locked(`${path(name)}.lock`, async () => {
 		const state = await readRest(name);
 		if (!state || !['ready', 'stopped'].includes(state.mode)) return state;
-		if (await isHibernated(name)) {
-			state.mode = 'awake';
-			state.resume = false;
-			state.reason = 'Hibernated by operator';
-		} else {
-			const evidence = await restEvidence(
-				name,
-				state.through,
-				false,
-				state.waitingActivity,
-				state.mode === 'stopped',
-				state.waitingScheduleIds,
-			);
-			if (evidence.nonce !== state.nonce) {
-				state.mode = 'awake';
-				state.resume = false;
-				state.reason = 'A new launch needs its own rest confirmation';
-				await save(name, state);
-				return state;
-			}
-			const reason =
-				evidence.reason ||
-				(evidence.board !== state.board ? 'Your cards or approval decisions changed' : '');
-			if (!reason) return state;
-			state.resume = state.mode === 'stopped';
-			state.mode = 'wake-requested';
-			state.reason = reason;
-		}
-		await save(name, state);
-		return state;
+		const next = await refreshedState(name, state);
+		if (next !== state) await save(name, next);
+		return next;
 	});
+}
+
+async function refreshedState(name: string, state: RestState): Promise<RestState> {
+	if (await isHibernated(name))
+		return { ...state, mode: 'awake', resume: false, reason: 'Hibernated by operator' };
+	const evidence = await restEvidence(
+		name,
+		state.through,
+		false,
+		state.waitingActivity,
+		state.mode === 'stopped',
+		state.waitingScheduleIds,
+	);
+	if (evidence.nonce !== state.nonce)
+		return {
+			...state,
+			mode: 'awake',
+			resume: false,
+			reason: 'A new launch needs its own rest confirmation',
+		};
+	const reason =
+		evidence.reason ||
+		(evidence.board !== state.board ? 'Your cards or approval decisions changed' : '');
+	return reason
+		? { ...state, mode: 'wake-requested', resume: state.mode === 'stopped', reason }
+		: state;
 }
 
 export async function restSuppressed(name: string): Promise<boolean> {
