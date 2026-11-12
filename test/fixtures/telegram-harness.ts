@@ -41,6 +41,28 @@ export async function telegramHarness() {
 		join(root, 'integrations', 'telegram.json'),
 		JSON.stringify({ botToken: '123:fake-test-token', chatId: '456' }),
 	);
+	/**
+	 * The CLI refuses a named seat whose runtime activity belongs to another launch (src/cli.ts
+	 * assertActiveSeat, since 4250f4c), so a registered fixture seat gets a record for the launch
+	 * the child claims, as mail-harness.ts does. An unregistered name or no name gets none, so
+	 * those calls still fail for their own reason, and an existing record is never replaced.
+	 */
+	async function recordActivity(agent: string): Promise<void> {
+		if (!agent || !(await Bun.file(join(root, `${agent}.json`)).exists())) return;
+		const activity = join(root, 'runtime', agent, 'activity.json');
+		if (await Bun.file(activity).exists()) return;
+		await mkdir(dirname(activity), { recursive: true });
+		await writeFile(
+			activity,
+			JSON.stringify({
+				workingOn: '',
+				state: 'idle',
+				updatedAt: new Date().toISOString(),
+				nonce: 'test-nonce',
+			}),
+		);
+	}
+
 	async function invoke(
 		args: string[],
 		mode = 'success',
@@ -48,6 +70,7 @@ export async function telegramHarness() {
 		messageId = '42',
 		channel = '--telegram',
 	) {
+		await recordActivity(agent);
 		const child = Bun.spawn({
 			cmd: [
 				process.execPath,

@@ -18,6 +18,18 @@ test('file messages retain literal UTF-8 and identity for all registered provide
 				join(fixture.records, `${provider}.json`),
 				JSON.stringify(newRecord(provider, fixture.root, provider)),
 			);
+			// The harness only records activity for alpha and beta; a seat registered here needs
+			// its own record for the launch the child claims, or the CLI refuses it (4250f4c).
+			await mkdir(join(fixture.records, 'runtime', provider), { recursive: true });
+			await writeFile(
+				join(fixture.records, 'runtime', provider, 'activity.json'),
+				JSON.stringify({
+					workingOn: '',
+					state: 'idle',
+					updatedAt: new Date().toISOString(),
+					nonce: 'test-launch',
+				}),
+			);
 			const sent = await fixture.run(
 				['--mail', 'send-self', 'beta', '--body-file', path],
 				provider,
