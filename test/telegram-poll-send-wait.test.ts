@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -89,6 +90,7 @@ test('a Room send fetches again after an older poll and observes a later Halt', 
 	expect((await communicationState()).paused).toBe(true);
 	expect(sent).toBe(false);
 	expect(requests).toBe(2);
+	expect(await fixture.read('integrations/telegram-state/123/offset')).toBe('2');
 }, 10_000);
 
 test('a read reports cached-only promptly while another poll is still pending', async () => {
@@ -116,3 +118,37 @@ test('a read reports cached-only promptly while another poll is still pending', 
 		await polling;
 	}
 }, 10_000);
+
+test('a local send reports cached-only after its bounded wait expires', async () => {
+	const lock = join(fixture.records, 'integrations/telegram-state/123/poll.lock');
+	await mkdir(join(fixture.records, 'integrations/telegram-state/123'), { recursive: true });
+	await writeFile(lock, JSON.stringify({ pid: process.pid, nonce: randomUUID() }));
+	let requests = 0;
+	globalThis.fetch = Object.assign(
+		() => {
+			requests++;
+			return Promise.resolve(Response.json({ ok: true, result: [] }));
+		},
+		{ preconnect: originalFetch.preconnect },
+	);
+	const unavailable: TelegramUnavailable[] = [];
+	const started = Date.now();
+	await refreshTelegramForLocal(config, true, (_reason, kind) => {
+		unavailable.push(kind);
+	});
+	expect(Date.now() - started).toBeGreaterThan(6_000);
+	expect(unavailable).toEqual(['refresh-busy']);
+	expect(requests).toBe(0);
+}, 15_000);
+
+test('a failed fetch after acquiring the lock remains an explicit cached-only result', async () => {
+	globalThis.fetch = Object.assign(
+		() => Promise.resolve(Response.json({ ok: false }, { status: 502 })),
+		{ preconnect: originalFetch.preconnect },
+	);
+	const unavailable: TelegramUnavailable[] = [];
+	await refreshTelegramForLocal(config, true, (_reason, kind) => {
+		unavailable.push(kind);
+	});
+	expect(unavailable).toEqual(['request-failed']);
+});
