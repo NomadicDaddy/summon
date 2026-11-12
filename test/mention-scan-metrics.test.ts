@@ -124,14 +124,19 @@ test('a failed slow scan is written urgently', async () => {
 
 test('repeated write failures report once until the error changes or a write succeeds', async () => {
 	const errors: unknown[] = [];
-	let failure: string | null = 'disk full';
+	let failure: { code: string; syscall: string } | null = {
+		code: 'EPERM',
+		syscall: 'rename',
+	};
 	let writes = 0;
 	const recorder = createMentionScanRecorder(
 		'fixture.json',
 		(error) => errors.push(error),
 		() => {
 			writes++;
-			return failure ? Promise.reject(new Error(failure)) : Promise.resolve();
+			return failure
+				? Promise.reject(Object.assign(new Error(`fixture.json.${writes}.tmp`), failure))
+				: Promise.resolve();
 		},
 	);
 	recorder.record({
@@ -146,12 +151,12 @@ test('repeated write failures report once until the error changes or a write suc
 	await recorder.flush();
 	expect(writes).toBe(2);
 	expect(errors).toHaveLength(1);
-	failure = 'permission denied';
+	failure = { code: 'EACCES', syscall: 'write' };
 	await recorder.flush();
 	expect(errors).toHaveLength(2);
 	failure = null;
 	await recorder.flush();
-	failure = 'disk full';
+	failure = { code: 'EPERM', syscall: 'rename' };
 	await recorder.flush();
 	expect(errors).toHaveLength(3);
 });

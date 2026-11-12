@@ -33,6 +33,13 @@ const MAX_RECORDS = 64;
 const NORMAL_WRITE_MS = 30_000;
 const URGENT_WRITE_MS = 1_000;
 
+function writeErrorKey(error: unknown): string {
+	if (!(error instanceof Error)) return String(error);
+	const code = 'code' in error && typeof error.code === 'string' ? error.code : null;
+	const syscall = 'syscall' in error && typeof error.syscall === 'string' ? error.syscall : '';
+	return code ? `${code}:${syscall}` : error.name;
+}
+
 /** Keep a bounded, content-free timing trail outside the scan's awaited path. */
 export function createMentionScanRecorder(
 	path: string,
@@ -57,8 +64,7 @@ export function createMentionScanRecorder(
 					lastWriteError = null;
 				},
 				(error: unknown) => {
-					const key =
-						error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+					const key = writeErrorKey(error);
 					if (key === lastWriteError) return;
 					lastWriteError = key;
 					onError(error);
