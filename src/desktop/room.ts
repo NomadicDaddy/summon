@@ -32,12 +32,17 @@ export function setupRoom(): (snapshot: TeamSnapshot) => void {
 	const room = get('room');
 	const showHalt = setupCommunicationHalt();
 	const messages = get('room-messages');
+	// Only a reader actually at the bottom follows new posts. The allowance is sub-pixel rounding,
+	// not a reading margin: at 60 px a reader a line or two up was pulled down by every arrival
+	// (Phillip #44366; test/room-follow-window.test.ts).
+	const atBottom = (): boolean =>
+		messages.scrollHeight - messages.scrollTop - messages.clientHeight <= 2;
 	// Whether the reader is following the conversation. Only scrolling changes it: content growing
 	// under a pinned log does not, so an image that sizes itself late can still re-pin, and one that
 	// arrives while the reader is up among older messages leaves them there.
 	let following = true;
 	messages.addEventListener('scroll', () => {
-		following = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 60;
+		following = atBottom();
 	});
 	const keepFollowing = (): void => {
 		if (following) messages.scrollTop = messages.scrollHeight;
@@ -199,7 +204,7 @@ export function setupRoom(): (snapshot: TeamSnapshot) => void {
 		if (pending) return;
 		pending = true;
 		const arrived: LocalEvent[] = [];
-		const atBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 60;
+		const wasAtBottom = atBottom();
 		try {
 			if (!initialized) {
 				cursor = await window.team.roomTail();
@@ -222,7 +227,7 @@ export function setupRoom(): (snapshot: TeamSnapshot) => void {
 			}
 			if (arrived.length > 0) void place.refresh();
 			if (arrived.length > 0 && !history.isBrowsing()) place.redraw();
-			if (atBottom && !history.isBrowsing()) messages.scrollTop = messages.scrollHeight;
+			if (wasAtBottom && !history.isBrowsing()) messages.scrollTop = messages.scrollHeight;
 			history.updateHead();
 		} catch (cause: unknown) {
 			error.textContent = readableError(cause);
