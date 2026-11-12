@@ -1,3 +1,5 @@
+import { readableError } from './ipc-error.ts';
+
 export interface RoomReadPlace {
 	readThrough: number | null;
 	leftAt: number | null;
@@ -141,7 +143,7 @@ export function setupRoomReadPlace(
 			known = false;
 			firstUnread = null;
 			unread = 0;
-			report(`Room unread count failed: ${String(cause)}`);
+			report(`Room unread count failed: ${readableError(cause)}`);
 		}
 		redraw();
 	};
@@ -153,7 +155,7 @@ export function setupRoomReadPlace(
 			redraw();
 			return true;
 		} catch (cause: unknown) {
-			report(`Room place was not saved: ${String(cause)}`);
+			report(`Room place was not saved: ${readableError(cause)}`);
 			return false;
 		}
 	};
@@ -167,7 +169,7 @@ export function setupRoomReadPlace(
 				throw new Error(`Message #${id} is no longer readable.`);
 			if (persist({ ...place, readThrough: id })) await sync();
 		} catch (cause: unknown) {
-			report(`Room read marker unchanged: ${String(cause)}`);
+			report(`Room read marker unchanged: ${readableError(cause)}`);
 		}
 	};
 	markVisible.addEventListener('click', () => {
@@ -195,7 +197,7 @@ export function setupRoomReadPlace(
 				valid = true;
 			} catch (cause: unknown) {
 				valid = false;
-				report(`Saved Room place cannot be read: ${String(cause)}`);
+				report(`Saved Room place cannot be read: ${readableError(cause)}`);
 			}
 			await sync();
 		},
