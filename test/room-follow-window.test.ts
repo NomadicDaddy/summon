@@ -65,7 +65,7 @@ test('a new Room post moves only a reader who is at the bottom', async () => {
 			: '';
 		expect({ code, error }).toEqual({ code: 0, error: '' });
 		const rows = JSON.parse(await Bun.file(join(root, 'result.json')).text()) as {
-			distance: number;
+			distance: number | 'scrolled-during-read';
 			before: { fromBottom: number; topPost: string };
 			after: { fromBottom: number; topPost: string };
 		}[];

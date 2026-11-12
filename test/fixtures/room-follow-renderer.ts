@@ -17,7 +17,15 @@ const events = Array.from({ length: 60 }, (_, index) => post(index + 1));
 localStorage.setItem('room-read-place:default', JSON.stringify({ readThrough: 60, leftAt: 60 }));
 const bridge = {
 	roomTail: () => Promise.resolve(0),
-	roomRead: (after: number) => {
+	// With `readDelay` set, a read waits that long before it collects posts, and `readInFlight`
+	// shows the driver when one is outstanding (Roger #44445: a scroll during an in-flight read).
+	roomRead: async (after: number) => {
+		const control = window as unknown as { readDelay?: number; readInFlight?: boolean };
+		if (control.readDelay) {
+			control.readInFlight = true;
+			await new Promise((resolve) => setTimeout(resolve, control.readDelay));
+			control.readInFlight = false;
+		}
 		const page = events.filter((event) => event.id > after).slice(0, 100);
 		return Promise.resolve({
 			events: page,

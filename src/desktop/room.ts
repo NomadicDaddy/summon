@@ -204,7 +204,6 @@ export function setupRoom(): (snapshot: TeamSnapshot) => void {
 		if (pending) return;
 		pending = true;
 		const arrived: LocalEvent[] = [];
-		const wasAtBottom = atBottom();
 		try {
 			if (!initialized) {
 				cursor = await window.team.roomTail();
@@ -227,7 +226,9 @@ export function setupRoom(): (snapshot: TeamSnapshot) => void {
 			}
 			if (arrived.length > 0) void place.refresh();
 			if (arrived.length > 0 && !history.isBrowsing()) place.redraw();
-			if (wasAtBottom && !history.isBrowsing()) messages.scrollTop = messages.scrollHeight;
+			// `following` as it stands now, not as it stood before the reads: a reader who scrolled up
+			// while a read was in flight is not pulled back down (Roger #44445).
+			if (following && !history.isBrowsing()) messages.scrollTop = messages.scrollHeight;
 			history.updateHead();
 		} catch (cause: unknown) {
 			error.textContent = readableError(cause);

@@ -48,9 +48,10 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 ### Fixed
 
 - A new Team Room post no longer pulls down an operator who has scrolled up a little. Only a reader
-  at the bottom of the Room (within 2 px) follows new posts; before, anyone within 60 px of the
-  bottom was moved there by every arrival, so reading the message above a partly visible last one
-  meant losing your place.
+  at the bottom of the Room (within 2 px) follows new posts, judged when the post arrives rather
+  than when the Room started reading it, so scrolling up while a read is in flight also keeps your
+  place. Before, anyone within 60 px of the bottom was moved there by every arrival, so reading the
+  message above a partly visible last one meant losing your place.
 - Local communication actions (Room posts, mail, Board and Diary changes) now wait up to eight
   seconds for an in-flight Telegram poll before checking for a later Halt. An expired wait still
   reports that it used recorded state.

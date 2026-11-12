@@ -66,6 +66,30 @@ void app.whenReady().then(async () => {
 			>;
 			rows.push({ distance, before, after });
 		}
+		// Roger #44445: the reader is at the bottom when a read starts, scrolls up 200 px while it is
+		// in flight, and the read then brings a new post. The reader must stay where they scrolled.
+		await window.webContents.executeJavaScript(`(() => {
+			const m = document.getElementById('room-messages');
+			m.scrollTop = m.scrollHeight;
+			window.readDelay = 1500;
+		})()`);
+		await until(window, 'window.readInFlight === true');
+		await window.webContents.executeJavaScript(`(() => {
+			const m = document.getElementById('room-messages');
+			m.scrollTop = m.scrollHeight - m.clientHeight - 200;
+		})()`);
+		await delay(100);
+		const before = (await window.webContents.executeJavaScript(VIEW)) as Record<
+			string,
+			unknown
+		>;
+		const id = (await window.webContents.executeJavaScript(
+			'window.addFixturePost()',
+		)) as number;
+		await until(window, `!!document.getElementById('room-message-${id}')`);
+		await delay(300);
+		const after = (await window.webContents.executeJavaScript(VIEW)) as Record<string, unknown>;
+		rows.push({ distance: 'scrolled-during-read', before, after });
 		await writeFile(join(root, 'result.json'), JSON.stringify(rows, null, 2));
 	} catch (cause: unknown) {
 		await writeFile(join(root, 'error.txt'), String(cause));
