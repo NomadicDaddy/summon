@@ -7,6 +7,9 @@ import { type TelegramConfig, telegramRequest, TelegramRequestError } from './te
 import { recordTelegramHealth } from './telegram-health.ts';
 import { recordRoomEvent, repairRoomMirrors, telegramRoot } from './telegram-room.ts';
 
+const LOCAL_READ_LOCK_ATTEMPTS = 40;
+const LOCAL_SEND_LOCK_ATTEMPTS = 320;
+
 function object(value: unknown): Record<string, unknown> | undefined {
 	return value !== null && typeof value === 'object' && !Array.isArray(value)
 		? (value as Record<string, unknown>)
@@ -112,7 +115,9 @@ export async function syncTelegram(
 			}
 			throw new Error('Telegram backlog is not drained; sync again before sending.');
 		},
-		local ? 40 : drain ? 800 : 1,
+		// A local send needs its own fetch after a poll that began before the send. Reads keep the
+		// shorter cached-state fallback; direct Telegram sends retain their existing longer wait.
+		local ? (drain ? LOCAL_SEND_LOCK_ATTEMPTS : LOCAL_READ_LOCK_ATTEMPTS) : drain ? 800 : 1,
 	).catch((error: unknown) => {
 		// Another receiver owns the refresh. Reads can use the durable history meanwhile.
 		// Local consumers need an explicit busy diagnostic rather than implied freshness.
