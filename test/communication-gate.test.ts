@@ -89,7 +89,7 @@ test('HTTP outage permits actual Board, Diary, Room and mail writes', async () =
 	}
 });
 
-test('a hanging Telegram poll does not queue local writers and a recorded halt still refuses', async () => {
+test('a hanging Telegram poll bounds local sends before using recorded state', async () => {
 	const entered = Promise.withResolvers<boolean>();
 	const response = Promise.withResolvers<Response>();
 	const fetch = spyOn(globalThis, 'fetch').mockImplementation(
@@ -102,29 +102,72 @@ test('a hanging Telegram poll does not queue local writers and a recorded halt s
 		),
 	);
 	const warning = spyOn(console, 'warn').mockImplementation(() => {});
-	const holder = communicationSend('send the Room post', () => Promise.resolve('holder'));
+	const sent: string[] = [];
+	const send = (value: string) =>
+		communicationSend('send the Room post', () => {
+			sent.push(value);
+			return Promise.resolve(value);
+		});
+	const holder = send('holder').catch((error: unknown) => String(error));
 	try {
 		await entered.promise;
-		const writes = await Promise.all([
-			communicationSend('send the Room post', () => Promise.resolve('second')),
-			communicationSend('send the Room post', () => Promise.resolve('third')),
-		]);
-		expect(writes).toEqual(['second', 'third']);
+		const started = Date.now();
+		const writes = Promise.all([send('second'), send('third')]);
+		await Bun.sleep(100);
+		expect(sent).toEqual([]);
 		expect(fetch).toHaveBeenCalledTimes(1);
-		expect(warning.mock.calls.flat().join(' ')).toContain('after a short wait');
-		await setCommunicationPause(true);
-		const blocked = await communicationSend('send the Room post', () =>
-			Promise.resolve('must not run'),
-		).catch((error: unknown) => String(error));
-		expect(blocked).toContain('Halt:');
+		expect(await writes).toEqual(['second', 'third']);
+		expect(Date.now() - started).toBeGreaterThan(6_000);
+		expect(warning.mock.calls.flat().join(' ')).toContain('beyond the bounded wait');
+		expect(fetch).toHaveBeenCalledTimes(1);
 	} finally {
 		response.reject(Object.assign(new Error('fixture timeout'), { name: 'TimeoutError' }));
-		const result = await holder.catch((error: unknown) => String(error));
-		expect(result).toContain('Halt:');
+		await holder;
 		fetch.mockRestore();
 		warning.mockRestore();
 	}
-});
+}, 20_000);
+
+test('a recorded Halt during a hanging poll refuses the holder and waiting send', async () => {
+	const entered = Promise.withResolvers<boolean>();
+	const response = Promise.withResolvers<Response>();
+	const fetch = spyOn(globalThis, 'fetch').mockImplementation(
+		Object.assign(
+			() => {
+				entered.resolve(true);
+				return response.promise;
+			},
+			{ preconnect: globalThis.fetch.preconnect },
+		),
+	);
+	const warning = spyOn(console, 'warn').mockImplementation(() => {});
+	const sent: string[] = [];
+	const send = (value: string) =>
+		communicationSend('send the Room post', () => {
+			sent.push(value);
+			return Promise.resolve(value);
+		}).catch((error: unknown) => String(error));
+	const holder = send('holder');
+	let waiting: Promise<string> | undefined;
+	try {
+		await entered.promise;
+		waiting = send('waiting');
+		await Bun.sleep(100);
+		expect(sent).toEqual([]);
+		expect(fetch).toHaveBeenCalledTimes(1);
+		await setCommunicationPause(true);
+		response.reject(Object.assign(new Error('fixture timeout'), { name: 'TimeoutError' }));
+		expect(await holder).toContain('Halt:');
+		expect(await waiting).toContain('Halt:');
+		expect(sent).toEqual([]);
+	} finally {
+		response.reject(Object.assign(new Error('fixture timeout'), { name: 'TimeoutError' }));
+		if (waiting) await waiting;
+		await holder;
+		fetch.mockRestore();
+		warning.mockRestore();
+	}
+}, 20_000);
 
 test('successful refresh still permits the operation and malformed configuration names its refusal', async () => {
 	const fetch = spyOn(globalThis, 'fetch').mockResolvedValue(
