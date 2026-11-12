@@ -61,7 +61,10 @@ export function createMentionScanRecorder(
 	return {
 		record: (diagnostic) => {
 			if (diagnostic.kind === 'overlap') overlapTotal++;
-			records.push(diagnostic);
+			const last = records.at(-1);
+			if (diagnostic.kind === 'overlap' && last?.kind === 'overlap')
+				records[records.length - 1] = diagnostic;
+			else records.push(diagnostic);
 			if (records.length > MAX_RECORDS) records.shift();
 			schedule(
 				diagnostic.kind === 'overlap' || diagnostic.durationMs >= 2_000

@@ -123,6 +123,25 @@ test('paused communication leaves the cursor unchanged and does not wake', async
 	}
 });
 
+test('failed mention scan records its stage and reports the error', async () => {
+	const h = harness();
+	const failure = new Error('fixture hibernation failure');
+	const sync = spyOn(h.team, 'syncHibernation').mockRejectedValue(failure);
+	const report = spyOn(h.team, 'error').mockImplementation(() => {});
+	try {
+		await h.timers.scanMentions();
+		expect(report).toHaveBeenCalledWith(failure);
+		const failed = h.diagnostics[0];
+		if (failed?.kind !== 'scan') throw new Error('Missing failed scan diagnostic');
+		expect(failed.outcome).toBe('failed');
+		expect(Number.isFinite(failed.stagesMs.hibernation)).toBe(true);
+	} finally {
+		report.mockRestore();
+		sync.mockRestore();
+		await h.timers.stop();
+	}
+});
+
 test('overlapping scans are excluded and stop waits for the current scan', async () => {
 	const h = harness();
 	await setCommunicationPause(true);
