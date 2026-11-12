@@ -1,3 +1,4 @@
+import type { MentionScanDiagnostic, MentionScanStage } from './mention-scan-metrics.ts';
 import type { Team } from './team.ts';
 import type { TeamEvent } from './types.ts';
 
@@ -17,6 +18,7 @@ interface TimerDependencies {
 	halted: () => boolean;
 	initialCursor: number;
 	previousTeamStart: string | null | undefined;
+	onMentionDiagnostic?: (diagnostic: MentionScanDiagnostic) => void;
 }
 
 /** Polling belongs to the window lifecycle; no Electron import is needed to exercise it. */
@@ -35,9 +37,29 @@ export function createTeamTimers(deps: TimerDependencies): {
 	let stopped = false;
 	let intervals: ReturnType<typeof setInterval>[] = [];
 	const pending = new Map<string, Promise<void>>();
+	let mentionStarted: number | null = null;
+	let mentionStage: MentionScanStage | null = null;
+	let skippedMentionTicks = 0;
 	const halted = (): boolean => stopped || deps.halted() || team.closing;
 	const run = async (key: string, work: () => Promise<void>): Promise<void> => {
-		if (halted() || pending.has(key)) return;
+		if (halted()) return;
+		if (pending.has(key)) {
+			if (key === 'mentions') {
+				skippedMentionTicks++;
+				deps.onMentionDiagnostic?.({
+					kind: 'overlap',
+					at: new Date().toISOString(),
+					activeStage: mentionStage,
+					elapsedMs:
+						mentionStarted === null
+							? 0
+							: Math.round(performance.now() - mentionStarted),
+					skippedTicks: skippedMentionTicks,
+				});
+			}
+			return;
+		}
+		if (key === 'mentions') skippedMentionTicks = 0;
 		const task = Promise.resolve()
 			.then(work)
 			.catch((error: unknown) => team.error(error))
@@ -47,27 +69,81 @@ export function createTeamTimers(deps: TimerDependencies): {
 	};
 	const scanMentions = (): Promise<void> =>
 		run('mentions', async () => {
-			await team.syncHibernation();
-			if ((await communicationState()).paused) return;
-			await tickSchedules(team).catch((error: unknown) => team.error(error));
-			await tickRest(team).catch((error: unknown) => team.error(error));
-			if (!recoveredMentions) {
-				if (await readWakeOnMention())
-					await team.recoverMissedMentionWakes(
-						await cachedLocalEvents(),
-						deps.previousTeamStart,
+			const started = performance.now();
+			mentionStarted = started;
+			const stagesMs: Partial<Record<MentionScanStage, number>> = {};
+			let outcome: 'complete' | 'paused' | 'failed' = 'complete';
+			const measure = async <T>(
+				stage: MentionScanStage,
+				action: () => Promise<T>,
+			): Promise<T> => {
+				const previousStage = mentionStage;
+				mentionStage = stage;
+				const began = performance.now();
+				try {
+					return await action();
+				} finally {
+					stagesMs[stage] = Math.round(
+						(stagesMs[stage] ?? 0) + performance.now() - began,
 					);
-				recoveredMentions = true;
+					mentionStage = previousStage;
+				}
+			};
+			const paused = async (): Promise<boolean> =>
+				(await measure('communication', communicationState)).paused;
+			try {
+				await measure('hibernation', () => team.syncHibernation());
+				if (await paused()) {
+					outcome = 'paused';
+					return;
+				}
+				await measure('schedules', () =>
+					tickSchedules(team).catch((error: unknown) => team.error(error)),
+				);
+				await measure('rest', () =>
+					tickRest(team).catch((error: unknown) => team.error(error)),
+				);
+				if (!recoveredMentions) {
+					if (await measure('settings', readWakeOnMention)) {
+						const events = await measure('events', cachedLocalEvents);
+						await measure('recovery', () =>
+							team.recoverMissedMentionWakes(events, deps.previousTeamStart),
+						);
+					}
+					recoveredMentions = true;
+				}
+				for (const event of await measure('events', cachedLocalEvents)) {
+					if (event.id <= mentionCursor) continue;
+					if (await paused()) {
+						outcome = 'paused';
+						return;
+					}
+					if (await measure('settings', readWakeOnMention))
+						await measure('wake', () => team.wakeMentions(event));
+					mentionCursor = event.id;
+					await measure('cursor', () => saveMentionCursor(mentionCursor));
+				}
+				if (await paused()) {
+					outcome = 'paused';
+					return;
+				}
+				if (await measure('settings', readWakeOnMention))
+					await measure('flush', () => team.flushPendingMentionWakes());
+			} catch (error: unknown) {
+				outcome = 'failed';
+				throw error;
+			} finally {
+				mentionStarted = null;
+				mentionStage = null;
+				deps.onMentionDiagnostic?.({
+					kind: 'scan',
+					at: new Date().toISOString(),
+					durationMs: Math.round(performance.now() - started),
+					stagesMs,
+					skippedTicks: skippedMentionTicks,
+					outcome,
+				});
 			}
-			for (const event of await cachedLocalEvents()) {
-				if (event.id <= mentionCursor) continue;
-				if ((await communicationState()).paused) return;
-				if (await readWakeOnMention()) await team.wakeMentions(event);
-				mentionCursor = event.id;
-				await saveMentionCursor(mentionCursor);
-			}
-			if ((await communicationState()).paused) return;
-			if (await readWakeOnMention()) await team.flushPendingMentionWakes();
 		});
 	const checkRoster = (): Promise<void> =>
 		run('roster', async () => {

@@ -21,6 +21,7 @@ import { boardIpc } from './board-ipc.ts';
 import { diaryIpc } from './diary-ipc.ts';
 import { headDownIpc } from './head-down-ipc.ts';
 import { maintenanceIpc } from './maintenance-ipc.ts';
+import { createMentionScanRecorder } from './mention-scan-metrics.ts';
 import { notepadIpc } from './notepad-ipc.ts';
 import { DEFAULT_HOLD_POLICY } from './notification-pause.ts';
 import { registerOperatorIpc } from './operator-ipc.ts';
@@ -67,6 +68,10 @@ if (!app.requestSingleInstanceLock()) {
 				},
 			);
 			const team = new Team(requireExecutable(bun), cli, delivery.send, spawn);
+			const mentionMetrics = createMentionScanRecorder(
+				teamWindowRuntime('mention-scan-timings.json'),
+				(error) => team.error(error),
+			);
 			// Each launch's root identity, so an unverified Stop can tell its root from a reused PID.
 			team.stopRoot = defaultStopRoot;
 			const mentionCursor = await initialMentionCursor();
@@ -79,6 +84,7 @@ if (!app.requestSingleInstanceLock()) {
 				halted: () => quitting,
 				initialCursor: mentionCursor,
 				previousTeamStart,
+				onMentionDiagnostic: mentionMetrics.record,
 			});
 			timers.start();
 			const focus = async (): Promise<void> => {
@@ -232,7 +238,10 @@ if (!app.requestSingleInstanceLock()) {
 					team.resize(slugFor(name), cols, rows);
 			});
 			const shutdown = createWindowShutdown({
-				stopPolling: timers.stop,
+				stopPolling: async () => {
+					await timers.stop();
+					await mentionMetrics.flush();
+				},
 				startPolling: timers.start,
 				setClosing: (value) => {
 					quitting = value;

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 
+import type { MentionScanDiagnostic } from '../src/desktop/mention-scan-metrics.ts';
 import type { TeamEvent } from '../src/desktop/types.ts';
 
 import { createBoardItem } from '../src/board.ts';
@@ -24,6 +25,7 @@ afterEach(async () => {
 
 function harness() {
 	const sent: TeamEvent[] = [];
+	const diagnostics: MentionScanDiagnostic[] = [];
 	const team = new Team(
 		'bun',
 		'cli.ts',
@@ -41,11 +43,13 @@ function harness() {
 		halted: () => halted,
 		initialCursor: 0,
 		previousTeamStart: null,
+		onMentionDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
 	});
 	return {
 		team,
 		timers,
 		sent,
+		diagnostics,
 		halt: () => {
 			halted = true;
 		},
@@ -76,6 +80,22 @@ test('mention polling persists each event cursor and recovers only once', async 
 		await h.timers.scanMentions();
 		expect(seen).toEqual([0, 1]);
 		expect(await initialMentionCursor()).toBe(2);
+		const firstScan = h.diagnostics[0];
+		if (firstScan?.kind !== 'scan') throw new Error('Missing first scan diagnostic');
+		expect(firstScan.outcome).toBe('complete');
+		for (const stage of [
+			'hibernation',
+			'communication',
+			'schedules',
+			'rest',
+			'recovery',
+			'events',
+			'settings',
+			'wake',
+			'cursor',
+			'flush',
+		] as const)
+			expect(firstScan.stagesMs).toHaveProperty(stage);
 		await h.timers.scanMentions();
 		expect(seen).toEqual([0, 1]);
 		expect(recovered).toHaveBeenCalledTimes(1);
@@ -96,6 +116,7 @@ test('paused communication leaves the cursor unchanged and does not wake', async
 		await h.timers.scanMentions();
 		expect(await initialMentionCursor()).toBe(0);
 		expect(wake).not.toHaveBeenCalled();
+		expect(h.diagnostics).toMatchObject([{ kind: 'scan', outcome: 'paused', skippedTicks: 0 }]);
 	} finally {
 		wake.mockRestore();
 		await h.timers.stop();
@@ -115,6 +136,9 @@ test('overlapping scans are excluded and stop waits for the current scan', async
 	await entered.promise;
 	await h.timers.scanMentions();
 	expect(sync).toHaveBeenCalledTimes(1);
+	expect(h.diagnostics).toMatchObject([
+		{ kind: 'overlap', activeStage: 'hibernation', skippedTicks: 1 },
+	]);
 	let stopped = false;
 	const stopping = h.timers.stop().then(() => {
 		stopped = true;
@@ -124,6 +148,14 @@ test('overlapping scans are excluded and stop waits for the current scan', async
 	release.resolve(undefined);
 	await Promise.all([scan, stopping]);
 	expect(stopped).toBe(true);
+	expect(h.diagnostics).toMatchObject([
+		{ kind: 'overlap', skippedTicks: 1 },
+		{ kind: 'scan', outcome: 'paused', skippedTicks: 1 },
+	]);
+	const completed = h.diagnostics[1];
+	if (completed?.kind !== 'scan') throw new Error('Missing completed scan diagnostic');
+	expect(completed.stagesMs).toHaveProperty('hibernation');
+	expect(completed.stagesMs).toHaveProperty('communication');
 	await h.timers.scanMentions();
 	expect(sync).toHaveBeenCalledTimes(1);
 	sync.mockRestore();
