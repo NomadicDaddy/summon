@@ -39,19 +39,30 @@ interface Held extends HistorySnapshot {
 
 const archiveName = /^events-([1-9]\d*)-([1-9]\d*)-([a-f0-9]{64})\.json$/;
 
-async function statText(path: string): Promise<string> {
+type Kind = 'file' | 'directory';
+
+/**
+ * A path's lstat as text, refusing what the full reader refuses (local-room-segments.ts): an
+ * archive folder that is not a real directory, and an archive that is not a regular file, either
+ * one a symbolic link (Morgan and Roger on 4ef56fc). A missing path reads as 'missing'.
+ */
+async function statText(path: string, kind?: Kind): Promise<string> {
 	const info = await lstat(path, { bigint: true }).catch((error: unknown) => {
 		if (missing(error)) return undefined;
 		throw error;
 	});
-	return info
-		? `${info.dev}:${info.ino}:${info.mode}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`
-		: 'missing';
+	if (!info) return 'missing';
+	if (kind === 'directory' && (!info.isDirectory() || info.isSymbolicLink()))
+		throw new Error('Invalid local room archive directory.');
+	if (kind === 'file' && (!info.isFile() || info.isSymbolicLink()))
+		throw new Error('Invalid room archive file.');
+	return `${info.dev}:${info.ino}:${info.mode}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`;
 }
 
 /** The live file's and every archive's lstat, as roomQueryCache signed them (Roger on #43364). */
 async function listing(path: string): Promise<{ signature: string; archives: Archive[] }> {
 	const root = join(dirname(path), 'archive');
+	const rootStat = await statText(root, 'directory');
 	const names = await readdir(root).catch((error: unknown) => {
 		if (missing(error)) return [];
 		throw error;
@@ -65,11 +76,11 @@ async function listing(path: string): Promise<{ signature: string; archives: Arc
 			first: Number(match[1]),
 			last: Number(match[2]),
 			digest: match[3] ?? '',
-			stat: await statText(join(root, name)),
+			stat: await statText(join(root, name), 'file'),
 		});
 	}
 	archives.sort((a, b) => a.first - b.first || a.last - b.last);
-	const signature = JSON.stringify([path, await statText(path), await statText(root), archives]);
+	const signature = JSON.stringify([path, await statText(path), rootStat, archives]);
 	return { signature, archives };
 }
 
@@ -101,7 +112,9 @@ export function historyReader(validate: Validate) {
 		const question = answer ? events[answer.questionId - first] : undefined;
 		if (!validate(item, id, question ? [question] : []))
 			throw new Error('Invalid local room history.');
-		events.push(deepFreeze(item as LocalEvent));
+		// A frozen copy: the rebuild path's items belong to the segment reader's archive cache,
+		// which writers also read, so they stay as they were (Morticia 5Q-1 on 4ef56fc).
+		events.push(deepFreeze(structuredClone(item) as LocalEvent));
 	};
 
 	/**

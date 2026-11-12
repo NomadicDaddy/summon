@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs/promises';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
@@ -116,6 +116,30 @@ test('a changed live prefix, an archive removed or replaced, and a truncated liv
 	await mkdir(archiveRoot(), { recursive: true });
 	await live(1, 5);
 	await matchesFreshRead();
+});
+
+test('with a snapshot held, a linked archive or archive folder is refused as the full reader refuses it', async () => {
+	await archive(1, 50);
+	await live(51, 60);
+	await matchesFreshRead();
+	// A new archive that is a symbolic link to a file whose content matches its own digest.
+	const body = JSON.stringify(range(51, 55));
+	const digest = createHash('sha256').update(body).digest('hex');
+	const outside = join(fixture.records, 'outside.json');
+	await writeFile(outside, body);
+	const linked = join(archiveRoot(), `events-51-55-${digest}.json`);
+	await symlink(outside, linked);
+	await live(56, 60);
+	expect(await cachedLocalEvents().catch(String)).toContain('Invalid room archive file');
+	await rm(linked);
+	await live(51, 60);
+	await matchesFreshRead();
+	// The archive folder swapped for a link to an identical copy.
+	const copy = join(fixture.records, 'archive-copy');
+	await rename(archiveRoot(), copy);
+	await symlink(copy, archiveRoot(), process.platform === 'win32' ? 'junction' : 'dir');
+	expect(await cachedLocalEvents().catch(String)).toContain('archive directory');
+	expect(await localEvents().catch(String)).toContain('archive directory');
 });
 
 test('the shared history is frozen, so a consumer cannot change the next answer', async () => {

@@ -17,6 +17,10 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Changed
 
+- The Team Window and every other Room reader no longer re-read the whole Room history after each
+  post. They share one checked copy of it, extended by new posts and archive rotations, and
+  rebuilt in full only when the history changes in any other way. On a copy of a 192-archive
+  Room, the reads after each post fell from about 1.9 s to 0.3 s; posting itself is unchanged.
 - Windows Quality CI now runs the full Bun test suite after fast QC, with a 45-minute job limit.
 - Corrected the manual's guidance on automatic receipt archival, optional head-down approval, and
   configurable interruption holds.
