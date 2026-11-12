@@ -24,7 +24,7 @@ function addressed(
 /** Exact request first, then its ancestor bodies; unrelated history stays in checkpoint. */
 export function currentRoomInputs(
 	name: string,
-	history: LocalEvent[],
+	history: readonly LocalEvent[],
 	from: number,
 ): CheckpointInput[] {
 	const selected = history.filter(
@@ -62,7 +62,7 @@ export function currentTelegramInputs(
 	name: string,
 	history: RoomEvent[],
 	from: number,
-	local: LocalEvent[] = [],
+	local: readonly LocalEvent[] = [],
 ): CheckpointInput[] {
 	const byId = new Map(history.map((event) => [event.messageId, event]));
 	const selected = history.filter(

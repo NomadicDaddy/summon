@@ -204,7 +204,7 @@ export class Team {
 	}
 
 	async recoverMissedMentionWakes(
-		events: LocalEvent[],
+		events: readonly LocalEvent[],
 		since: string | null | undefined,
 	): Promise<void> {
 		await recoverMissedMentionWakes(

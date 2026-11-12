@@ -138,9 +138,13 @@ test('warm roster and page polling do not reread archive bodies, including a lar
 			expect(await cachedLocalEvents()).toBe(history);
 		}
 		expect(archiveReads).toBe(0);
+		// An append to the live file extends the snapshot without reopening any archive (Summon v1.2
+		// read load); the page and the whole history both show it.
 		await writeFile(localRoomPath(), JSON.stringify([event(4401), event(4402)]));
 		expect(await localTail(0)).toBe(4402);
-		expect(archiveReads).toBeGreaterThan(0);
+		expect((await localPage(4401)).events.map((item) => item.id)).toEqual([4402]);
+		expect((await cachedLocalEvents()).at(-1)?.id).toBe(4402);
+		expect(archiveReads).toBe(0);
 	} finally {
 		reader.mockRestore();
 	}

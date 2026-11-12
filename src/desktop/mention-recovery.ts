@@ -9,7 +9,7 @@ import { listAgentSlugs, loadAgent } from '../store.ts';
 import { queueMentionWake } from './mention-wakes.ts';
 
 export async function recoverMissedMentionWakes(
-	events: LocalEvent[],
+	events: readonly LocalEvent[],
 	since: string | null | undefined,
 	isRunning: (slug: string) => boolean,
 	start: (slug: string) => Promise<unknown>,

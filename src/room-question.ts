@@ -11,7 +11,10 @@ export interface RoomAnswer {
 }
 
 /** The validated human answer addresses the author of the original question. */
-export function answerRecipient(event: LocalEvent, history: LocalEvent[]): string | undefined {
+export function answerRecipient(
+	event: LocalEvent,
+	history: readonly LocalEvent[],
+): string | undefined {
 	if (event.sender.kind !== 'user' || !event.answer) return undefined;
 	const request = history.find((item) => item.id === event.answer?.questionId);
 	return request?.question && request.sender.kind === 'agent' ? request.sender.id : undefined;
@@ -36,7 +39,10 @@ function validQuestion(value: unknown): value is RoomQuestion {
 	);
 }
 
-export function validQuestionEvent(event: Partial<LocalEvent>, previous: LocalEvent[]): boolean {
+export function validQuestionEvent(
+	event: Partial<LocalEvent>,
+	previous: readonly LocalEvent[],
+): boolean {
 	if (
 		event.question !== undefined &&
 		(!validQuestion(event.question) ||

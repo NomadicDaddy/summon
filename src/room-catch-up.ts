@@ -13,7 +13,7 @@ export interface CatchUpEvent extends LocalEvent {
 
 // A connected reply thread is exact if any member needs protection. Resolve roots in
 // history order (parents precede children) so later human replies also protect old parents.
-function protectedThreads(history: LocalEvent[], name: string): Set<number> {
+function protectedThreads(history: readonly LocalEvent[], name: string): Set<number> {
 	const roots = new Map<number, number>();
 	const protectedRoots = new Set<number>();
 	for (const event of history) {
@@ -41,7 +41,7 @@ function protectedThreads(history: LocalEvent[], name: string): Set<number> {
 }
 
 export function checkpointRoomEvents(
-	history: LocalEvent[],
+	history: readonly LocalEvent[],
 	after: number,
 	name: string,
 ): CatchUpEvent[] {
@@ -69,7 +69,7 @@ export function checkpointRoomEvents(
 	});
 }
 
-export function catchUpPage(history: LocalEvent[], after: number, name: string) {
+export function catchUpPage(history: readonly LocalEvent[], after: number, name: string) {
 	const events: CatchUpEvent[] = [];
 	let size = 0;
 	for (const event of checkpointRoomEvents(history, after, name).slice(0, PAGE_LIMIT)) {

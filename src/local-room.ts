@@ -2,6 +2,7 @@ import { join } from 'node:path';
 
 import { withActiveSeatWrite } from './agent-activity.ts';
 import { openLocalHistory } from './local-room-segments.ts';
+import { historyReader } from './local-room-snapshot.ts';
 import { readLocalHistory, rotateCommittedEvents } from './local-room-storage.ts';
 import { atomicWrite, locked } from './mail-files.ts';
 import {
@@ -11,7 +12,6 @@ import {
 	type RoomGroups,
 	validRoomGroups,
 } from './room-groups.ts';
-import { roomQueryCache } from './room-query-cache.ts';
 import { type RoomAnswer, type RoomQuestion, validQuestionEvent } from './room-question.ts';
 import { storageRoot } from './store.ts';
 
@@ -28,25 +28,21 @@ export interface LocalEvent {
 	groups?: RoomGroups;
 }
 export const localRoomPath = (): string => join(storageRoot(), 'room', 'events.json');
-// Full-history consumers are not yet converted: retain their existing shared cache rather
-// than repeatedly parsing a large history on every receiver/mention tick.
-const cachedEvents = roomQueryCache<LocalEvent[]>();
-const cachedHead = roomQueryCache<number>();
-const cachedPage = roomQueryCache<{ events: LocalEvent[]; nextCursor: number; more: boolean }>();
+// Every receiver query answers from one validated snapshot, extended by appends and rotations
+// rather than re-read in full (local-room-snapshot.ts). Writers scan fresh under the Room lock.
+const history = historyReader((item, id, previous) => validEvent(item, id, previous));
 
-/** Explicit full-history consumers still share an unbounded result; writers scan under lock. */
-export const cachedLocalEvents = (): Promise<LocalEvent[]> =>
-	cachedEvents(localRoomPath(), '', async () =>
-		validateEvents((await readLocalHistory(localRoomPath(), false)).events),
-	);
+/** The whole validated history, shared and frozen: callers copy before sorting or changing it. */
+export const cachedLocalEvents = async (): Promise<readonly LocalEvent[]> =>
+	(await history(localRoomPath())).events;
 
 export async function localTail(count: number): Promise<number> {
 	if (!Number.isSafeInteger(count) || count < 0) throw new Error('Invalid room tail size.');
 	return Math.max(0, (await localHead()) - count);
 }
 
-export const localHead = (): Promise<number> =>
-	cachedHead(localRoomPath(), '', async () => (await scanLocalEvents(() => undefined)).through);
+/** The last validated event id (not the array length, so stable-id retention can keep it). */
+export const localHead = async (): Promise<number> => (await history(localRoomPath())).through;
 
 export async function localEvents(): Promise<LocalEvent[]> {
 	return validateEvents((await readLocalHistory(localRoomPath())).events);
@@ -84,9 +80,14 @@ function validateEvents(events: unknown): LocalEvent[] {
 	return events as LocalEvent[];
 }
 
-/** Accumulate bounded query results; callers must await complete validation before any effect. */
+/**
+ * Visit the validated history in id order. The whole history is validated before the first
+ * event is passed on, so a caller's effects never follow a partly valid read.
+ */
 export async function scanLocalEvents(consume: (event: LocalEvent) => void) {
-	return scanSnapshot(await openLocalHistory(localRoomPath()), consume);
+	const { events, through, liveStart } = await history(localRoomPath());
+	for (const event of events) consume(event);
+	return { through, liveStart };
 }
 
 async function scanSnapshot(
@@ -165,26 +166,21 @@ export async function appendLocalEvent(
 	});
 }
 
+/** Up to 20 events and 28,000 bytes after `after`, sliced from the snapshot by id. */
 export async function localPage(after: number) {
 	if (!Number.isSafeInteger(after) || after < 0) throw new Error('Invalid room cursor.');
-	return cachedPage(localRoomPath(), String(after), () => readPage(after));
-}
-
-async function readPage(after: number) {
+	const snapshot = await history(localRoomPath());
+	const { through } = snapshot;
+	if (after > through) throw new Error('Cursor exceeds room history.');
 	const events: LocalEvent[] = [];
 	let size = 0;
-	let full = false;
-	const { through } = await scanLocalEvents((event) => {
-		if (event.id <= after || full || events.length >= 20) return;
+	const start = Math.max(0, after + 1 - (snapshot.events[0]?.id ?? 1));
+	for (const event of snapshot.events.slice(start, start + 20)) {
 		const bytes = Buffer.byteLength(JSON.stringify(event));
-		if (size + bytes > 28000) {
-			full = true;
-			return;
-		}
+		if (size + bytes > 28000) break;
 		events.push(event);
 		size += bytes;
-	});
-	if (after > through) throw new Error('Cursor exceeds room history.');
+	}
 	return {
 		events,
 		nextCursor: events.at(-1)?.id ?? after,

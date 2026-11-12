@@ -56,7 +56,7 @@ export const skipAppliedSchema = z
 
 /** Keep complete events in a roughly page-sized tail; never split a message at a cursor. */
 export function skippedThrough<T>(
-	events: T[],
+	events: readonly T[],
 	from: number,
 	keepPages: number,
 	positionOf: (event: T) => number,
