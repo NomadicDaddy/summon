@@ -30,6 +30,42 @@ body.room-open {
 	padding: 0 20px 16px;
 	color: var(--text-3b);
 }
+#room-place {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	padding: 0 20px 12px;
+	border-bottom: 1px solid var(--line);
+}
+#room-read-status {
+	flex: 1 1 100%;
+	color: var(--text-3b);
+}
+#room-place button {
+	font-size: 11px;
+	padding: 4px 8px;
+}
+#room-place button:focus-visible,
+.room-mark-read:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+.room-first-unread-divider,
+.room-left-off-marker {
+	padding: 5px 8px;
+}
+.room-first-unread-divider {
+	color: var(--accent-text-5);
+	background: var(--accent-bg-4);
+	border: 1px solid var(--accent-line-4);
+	font-weight: 700;
+}
+.room-left-off-marker {
+	color: var(--warn-text);
+	background: var(--warn-bg-2);
+	border: 1px dashed var(--warn-line);
+}
 #room-messages {
 	flex: 1;
 	overflow-y: auto;

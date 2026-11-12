@@ -3,6 +3,7 @@ import type { DiaryPage } from '../diary.ts';
 import type { HeadDownView } from '../head-down-model.ts';
 import type { KiloProviderLimit } from '../kilo-provider-limit.ts';
 import type { LaunchPhaseView } from '../launch-phase-model.ts';
+import type { RoomBeforePage, RoomUnreadStats } from '../local-room-read-place.ts';
 import type { ModelInfo } from '../model-info.ts';
 import type { NotepadSnapshot } from '../notepad.ts';
 import type { OperatorIdentity } from '../operator-identity-model.ts';
@@ -158,6 +159,8 @@ export interface TeamBridge {
 	onOperatorEvent: (listener: (event: OperatorEvent) => void) => void;
 	roomRead: (after: number) => Promise<RoomPage>;
 	roomTail: () => Promise<number>;
+	roomBefore: (before: number) => Promise<RoomBeforePage>;
+	roomUnread: (after: number) => Promise<RoomUnreadStats>;
 	clipboardImage: () => Promise<string>;
 	roomImage: (id: string) => Promise<RoomImage>;
 	roomSend: (text: string, replyTo: number | null, image?: string) => Promise<LocalEvent>;

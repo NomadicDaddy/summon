@@ -1,6 +1,6 @@
 import type { LocalEvent } from '../local-room.ts';
 
-const THUMBS_UP = '👍';
+import { isRoomReaction } from '../room-reaction-kind.ts';
 
 /**
  * A human thumbs-up is an ordinary room event whose entire body is the emoji and which replies to
@@ -14,9 +14,7 @@ const THUMBS_UP = '👍';
  * arrived in between.
  */
 export function isHumanReaction(event: LocalEvent): boolean {
-	return (
-		event.sender.kind === 'user' && event.replyTo !== null && event.text.trim() === THUMBS_UP
-	);
+	return isRoomReaction(event);
 }
 
 /**

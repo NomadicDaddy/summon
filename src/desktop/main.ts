@@ -8,6 +8,7 @@ import type { TeamEvent } from './types.ts';
 import { communicationStatus } from '../communication-state.ts';
 import { requireExecutable } from '../executable.ts';
 import { sendHuman } from '../local-room-access.ts';
+import { localBeforePage, localUnreadStats } from '../local-room-read-place.ts';
 import { localPage, localTail } from '../local-room.ts';
 import { dismissResponseEpisode } from '../response-watchdog-store.ts';
 import { answerRoom } from '../room-question-access.ts';
@@ -177,6 +178,16 @@ if (!app.requestSingleInstanceLock()) {
 			ipcMain.handle('team:room-tail', async (event) => {
 				trusted(event);
 				return localTail(300);
+			});
+			ipcMain.handle('team:room-before', async (event, before: unknown) => {
+				trusted(event);
+				if (typeof before !== 'number') throw new Error('Invalid Room history position.');
+				return localBeforePage(before);
+			});
+			ipcMain.handle('team:room-unread', async (event, after: unknown) => {
+				trusted(event);
+				if (typeof after !== 'number') throw new Error('Invalid Room read marker.');
+				return localUnreadStats(after);
 			});
 			ipcMain.handle(
 				'team:room-answer',

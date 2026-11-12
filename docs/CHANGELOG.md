@@ -6,6 +6,10 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Added
 
+- The Team Room lets the operator explicitly mark a message read, shows a post-based unread count
+  and first-unread divider, and saves a separate last-visible bookmark on leave. Both places survive
+  a Team Window restart and can be reached through bounded history pages without advancing an
+  agent's Room cursor or mail receipts.
 - The Team Window keeps a bounded, content-free timing record for mention scans, including awaited
   stage durations and overlapping ticks, so a delayed wake can be attributed before changing its
   polling cadence. Consecutive overlap ticks are folded so a long stall retains its preceding scan.

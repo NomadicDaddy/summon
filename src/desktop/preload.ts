@@ -77,6 +77,10 @@ const bridge: TeamBridge = {
 	},
 	roomRead: (after) => ipcRenderer.invoke('team:room-read', after) as Promise<RoomPage>,
 	roomTail: () => ipcRenderer.invoke('team:room-tail') as Promise<number>,
+	roomBefore: (before) =>
+		ipcRenderer.invoke('team:room-before', before) as ReturnType<TeamBridge['roomBefore']>,
+	roomUnread: (after) =>
+		ipcRenderer.invoke('team:room-unread', after) as ReturnType<TeamBridge['roomUnread']>,
 	roomAnswer: (id, choice, text) =>
 		ipcRenderer.invoke('team:room-answer', id, choice, text) as Promise<LocalEvent>,
 	boardRead: () => ipcRenderer.invoke('team:board-read') as Promise<BoardSnapshot>,
