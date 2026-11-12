@@ -9,7 +9,8 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 - The Team Window keeps a bounded, content-free timing record for mention scans, including awaited
   stage durations and overlapping ticks, so a delayed wake can be attributed before changing its
   polling cadence. Consecutive overlap ticks are folded so a long stall retains its preceding scan.
-  The record is written under the Window runtime directory.
+  The record is written under the Window runtime directory. Repeated identical write failures are
+  reported once until the error changes or a write succeeds.
 - Running Kilo seats can show a timestamped provider-limit observation in the Team roster when the
   exact launch's completed session reports a validated zai-coding-plan HTTP 429 with code 1310. A
   later completed error-free result with stop, tool-calls or length finish clears it; unreadable

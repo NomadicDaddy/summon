@@ -44,12 +44,26 @@ export function createMentionScanRecorder(
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let scheduledDelay = NORMAL_WRITE_MS;
 	let pending = Promise.resolve();
+	let lastWriteError: string | null = null;
 	const flush = (): Promise<void> => {
 		if (timer) clearTimeout(timer);
 		timer = undefined;
 		scheduledDelay = NORMAL_WRITE_MS;
 		const text = `${JSON.stringify({ version: 1, overlapTotal, records })}\n`;
-		pending = pending.then(() => write(path, text)).catch(onError);
+		pending = pending
+			.then(() => write(path, text))
+			.then(
+				() => {
+					lastWriteError = null;
+				},
+				(error: unknown) => {
+					const key =
+						error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+					if (key === lastWriteError) return;
+					lastWriteError = key;
+					onError(error);
+				},
+			);
 		return pending;
 	};
 	const schedule = (delay: number): void => {

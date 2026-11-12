@@ -121,3 +121,37 @@ test('a failed slow scan is written urgently', async () => {
 		await recorder.flush();
 	}
 });
+
+test('repeated write failures report once until the error changes or a write succeeds', async () => {
+	const errors: unknown[] = [];
+	let failure: string | null = 'disk full';
+	let writes = 0;
+	const recorder = createMentionScanRecorder(
+		'fixture.json',
+		(error) => errors.push(error),
+		() => {
+			writes++;
+			return failure ? Promise.reject(new Error(failure)) : Promise.resolve();
+		},
+	);
+	recorder.record({
+		kind: 'scan',
+		at: '2026-11-12T00:00:00.000Z',
+		durationMs: 10,
+		stagesMs: {},
+		skippedTicks: 0,
+		outcome: 'complete',
+	});
+	await recorder.flush();
+	await recorder.flush();
+	expect(writes).toBe(2);
+	expect(errors).toHaveLength(1);
+	failure = 'permission denied';
+	await recorder.flush();
+	expect(errors).toHaveLength(2);
+	failure = null;
+	await recorder.flush();
+	failure = 'disk full';
+	await recorder.flush();
+	expect(errors).toHaveLength(3);
+});
