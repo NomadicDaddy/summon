@@ -34,6 +34,9 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Fixed
 
+- Local communication actions (Room posts, mail, Board and Diary changes) now wait up to eight
+  seconds for an in-flight Telegram poll before checking for a later Halt. An expired wait still
+  reports that it used recorded state.
 - Board changes and comments, notes edits, and diary entries now recheck the agent's launch while
   holding the activity lock through publication, so a replaced seat cannot finish an in-flight write.
 - A seat waiting for a human decision can confirm rest while its due schedule is deferred for that
