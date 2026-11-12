@@ -18,6 +18,16 @@ test('private body input is refused across default and named teams, including sa
 				JSON.stringify(newRecord('alpha', fixture.root, 'claude')),
 			);
 		}
+		await mkdir(join(own, 'runtime/alpha'), { recursive: true });
+		await writeFile(
+			join(own, 'runtime/alpha/activity.json'),
+			JSON.stringify({
+				workingOn: '',
+				state: 'idle',
+				updatedAt: new Date().toISOString(),
+				nonce: 'test-launch',
+			}),
+		);
 		const targets: string[] = [];
 		for (const root of [base, other]) {
 			for (const folder of [

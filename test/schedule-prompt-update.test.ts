@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { initializeActivity } from '../src/agent-activity.ts';
 import {
 	createSchedule,
 	dispatchSchedules,
@@ -146,6 +147,7 @@ test('UTF-8 JSON file input works for Claude, Codex, Grok and Kilo own sessions'
 			join(fixture.records, `${provider}.json`),
 			JSON.stringify(newRecord(provider, fixture.root, provider)),
 		);
+		await initializeActivity(provider, 'test-launch');
 		const schedule = await createSchedule({ ...input, owner: provider });
 		await writeFile(path, edit());
 		expect(

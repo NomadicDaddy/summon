@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test';
-import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -13,9 +13,27 @@ afterEach(async () => {
 test('only the operator can register, clone, or remove teammates', async () => {
 	root = await mkdtemp(join(tmpdir(), 'summon-roster-authority-'));
 	await writeFile(join(root, 'source.json'), JSON.stringify(newRecord('source', root, 'codex')));
+	for (const agent of ['engineer', 'pm']) {
+		const runtime = join(root, 'runtime', agent);
+		await mkdir(runtime, { recursive: true });
+		await writeFile(
+			join(runtime, 'activity.json'),
+			JSON.stringify({
+				workingOn: '',
+				state: 'idle',
+				updatedAt: new Date().toISOString(),
+				nonce: 'test-launch',
+			}),
+		);
+	}
 	const invoke = async (args: string[], agent: string) => {
 		const child = Bun.spawn([process.execPath, resolve('src/cli.ts'), ...args], {
-			env: { ...process.env, SUMMON_HOME: root, SUMMON_AGENT: agent },
+			env: {
+				...process.env,
+				SUMMON_HOME: root,
+				SUMMON_AGENT: agent,
+				SUMMON_NONCE: agent ? 'test-launch' : '',
+			},
 			stdin: 'ignore',
 			stdout: 'pipe',
 			stderr: 'pipe',

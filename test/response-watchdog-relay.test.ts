@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { readdir, readFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { initializeActivity } from '../src/agent-activity.ts';
 import { atomicWrite } from '../src/mail-files.ts';
 import { readOwnChunk } from '../src/mail-read.ts';
 import { sendMessage } from '../src/mailbox.ts';
@@ -41,6 +42,7 @@ beforeEach(async () => {
 	process.env.SUMMON_HOME = fixture.records;
 	process.env.SUMMON_AGENT = 'alpha';
 	process.env.SUMMON_NONCE = nonce;
+	await initializeActivity('alpha', nonce);
 	now = 1000000;
 	wall = spyOn(Date, 'now').mockImplementation(() => now);
 	monotonic = spyOn(performance, 'now').mockImplementation(() => now);
@@ -196,6 +198,7 @@ test('Steward never self-escalates and a different named owner cannot relay', as
 		await relayResponseWatchdog('beta', nonce).catch((error: unknown) => error),
 	).toBeInstanceOf(Error);
 	process.env.SUMMON_AGENT = 'steward';
+	await initializeActivity('steward', nonce);
 	await sendMessage('steward', 'steward', 'PM work');
 	await evaluateResponseWatchdog('steward', nonce);
 	now += 600000;
@@ -217,6 +220,7 @@ test('replay refuses an existing ID with different content and never duplicates 
 });
 
 test('a new evaluator process retains the alert journal and does not resend after PM archival', async () => {
+	await initializeActivity('alpha', 'reload-fixture');
 	const run = async (time: number) => {
 		const child = Bun.spawn({
 			cmd: [

@@ -156,7 +156,7 @@ test('a failure record that cannot be written leaves the refusal and its outcome
 	const raw = JSON.parse(await readFile(outcomePath('alpha', value.id), 'utf8')) as {
 		retryAt: number;
 	};
-	expect(raw.retryAt).toBeGreaterThan(Date.now());
+	expect(raw.retryAt).toBeGreaterThanOrEqual(Date.parse(value.updatedAt) + 2000);
 	expect(value.failure).toBeUndefined();
 	expect((await stat(path)).isDirectory()).toBe(true);
 });

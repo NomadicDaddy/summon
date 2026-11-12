@@ -2,8 +2,10 @@ import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { readdir, readFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { initializeActivity } from '../src/agent-activity.ts';
 import { atomicWrite } from '../src/mail-files.ts';
 import { readOwnChunk } from '../src/mail-read.ts';
+import { sentStatus } from '../src/mail-sent-status.ts';
 import { sendMessage } from '../src/mailbox.ts';
 import { evaluateResponseWatchdog } from '../src/response-watchdog.ts';
 import { newRecord } from '../src/store.ts';
@@ -36,6 +38,7 @@ beforeEach(async () => {
 	process.env.SUMMON_HOME = fixture.records;
 	process.env.SUMMON_AGENT = 'alpha';
 	process.env.SUMMON_NONCE = 'pm-fixture';
+	await initializeActivity('alpha', 'pm-fixture');
 	now = 1000000;
 	wall = spyOn(Date, 'now').mockImplementation(() => now);
 	monotonic = spyOn(performance, 'now').mockImplementation(() => now);
@@ -85,6 +88,7 @@ test('an ongoing alert waits for a PM registration; PM owners do not escalate to
 	await register('alpha', true);
 	await register('planner', true);
 	process.env.SUMMON_NONCE = 'new-pm-launch';
+	await initializeActivity('alpha', 'new-pm-launch');
 	await evaluateResponseWatchdog('alpha', 'new-pm-launch');
 	now += 600000;
 	await evaluateResponseWatchdog('alpha', 'new-pm-launch');
@@ -136,6 +140,7 @@ test('a replacement launch defers its resolution while owner observation is susp
 		}),
 	);
 	process.env.SUMMON_NONCE = 'replacement';
+	await initializeActivity('alpha', 'replacement');
 	await evaluateResponseWatchdog('alpha', 'replacement');
 	expect(await count('coordinator')).toBe(1);
 	await register('alpha', false);
@@ -162,7 +167,7 @@ test('malformed recipient paths fail closed before looking up a registration', a
 	expect(await count('coordinator')).toBe(1);
 });
 
-test('multiple PMs receive distinct mail identities and both read receipts reach the owner', async () => {
+test('multiple PMs receive distinct mail identities and sender read status tracks each read', async () => {
 	await register('coordinator', true);
 	await register('planner', true);
 	const work = await sendMessage('alpha', 'alpha', 'work');
@@ -178,7 +183,12 @@ test('multiple PMs receive distinct mail identities and both read receipts reach
 		await readOwnChunk(name, file.slice(0, -3), 0, 32768);
 	}
 	process.env.SUMMON_AGENT = 'alpha';
-	expect(await count('alpha')).toBe(3);
+	expect(await count('alpha')).toBe(1);
+	for (const id of ids)
+		expect(await sentStatus('alpha', id)).toMatchObject({
+			id,
+			status: 'recorded-read',
+		});
 	expect(new Set(ids).size).toBe(2);
 	await readOwnChunk('alpha', work, 0, 32768);
 	await evaluate();
@@ -192,17 +202,11 @@ test('multiple PMs receive distinct mail identities and both read receipts reach
 		await readOwnChunk(name, file.slice(0, -3), 0, 32768);
 	}
 	process.env.SUMMON_AGENT = 'alpha';
-	const receipts = await Promise.all(
-		(await readdir(inbox('alpha')))
-			.filter((file) => file.endsWith('.md'))
-			.map((file) => readFile(join(inbox('alpha'), file), 'utf8')),
-	);
 	for (const id of ids)
-		expect(
-			receipts.filter(
-				(text) => text.includes('Kind: receipt\n') && text.includes(`In-Reply-To: ${id}\n`),
-			),
-		).toHaveLength(1);
+		expect(await sentStatus('alpha', id)).toMatchObject({
+			id,
+			status: 'recorded-read',
+		});
 	expect(new Set(ids).size).toBe(4);
 });
 

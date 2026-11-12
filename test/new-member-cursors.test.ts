@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import type { RoomEvent } from '../src/telegram-room.ts';
 
+import { initializeActivity } from '../src/agent-activity.ts';
 import { appendLocalEvent } from '../src/local-room.ts';
 import { optionalText } from '../src/mail-files.ts';
 import { localCursorPath } from '../src/room-cursor.ts';
@@ -99,6 +100,7 @@ test('a new member reads today and what arrives after it joined, never anything 
 	await yesterday('one', 'two');
 	const today = await human('three');
 	await register('gamma');
+	await initializeActivity('gamma', 'test-launch');
 	expect(await optionalText(localCursorPath('gamma'))).toBe('2');
 	const later = await human('@gamma after joining');
 	const result = await fixture.run(['--checkpoint'], 'gamma');

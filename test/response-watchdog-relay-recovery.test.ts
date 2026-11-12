@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { readdir, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { initializeActivity } from '../src/agent-activity.ts';
 import { atomicWrite } from '../src/mail-files.ts';
 import { confirmMessage, readOwnChunk } from '../src/mail-read.ts';
 import { sendMessage } from '../src/mailbox.ts';
@@ -43,6 +44,7 @@ beforeEach(async () => {
 	process.env.SUMMON_HOME = fixture.records;
 	process.env.SUMMON_AGENT = 'alpha';
 	process.env.SUMMON_NONCE = nonce;
+	await initializeActivity('alpha', nonce);
 	now = 1000000;
 	wall = spyOn(Date, 'now').mockImplementation(() => now);
 	monotonic = spyOn(performance, 'now').mockImplementation(() => now);
@@ -109,6 +111,7 @@ test('PM confirmations and read receipts never generate a fresh watchdog episode
 	const [alert] = await messages();
 	if (!alert) throw new Error('No alert');
 	process.env.SUMMON_AGENT = 'coordinator';
+	await initializeActivity('coordinator', nonce);
 	await readOwnChunk('coordinator', alert.id, 0, 32768);
 	const confirmation = await confirmMessage('coordinator', alert.id, 'understood');
 	process.env.SUMMON_AGENT = 'alpha';

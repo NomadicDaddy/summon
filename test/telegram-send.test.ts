@@ -15,7 +15,7 @@ afterEach(async () => {
 });
 const invoke = (...args: Parameters<typeof fixture.invoke>) => fixture.invoke(...args);
 const readRoom = (after?: string) => fixture.readRoom(after);
-test('mail remains readable when Telegram cannot refresh communication safety', async () => {
+test('mail stays readable during a Telegram outage and records sender read status', async () => {
 	await writeFile(join(root, 'sender.json'), JSON.stringify(newRecord('sender', root, 'codex')));
 	const sent = await invoke(
 		['send-self', 'test-agent', 'Offline readable message'],
@@ -25,14 +25,17 @@ test('mail remains readable when Telegram cannot refresh communication safety', 
 		'--mail',
 	);
 	expect(sent.code).toBe(0);
+	const id = (JSON.parse(sent.out) as { id: string }).id;
 	const received = await invoke(['receive'], 'network', 'test-agent', '42', '--mail');
 	expect(received.code).toBe(0);
 	expect(received.out).toContain('Offline readable message');
-	expect(received.err).toContain('Telegram refresh incomplete');
-	expect(received.err).not.toContain('Read receipt could not be delivered');
-	const receipt = await invoke(['receive'], 'network', 'sender', '42', '--mail');
-	expect(receipt.code).toBe(0);
-	expect(receipt.out).toContain('Read receipt for');
+	expect(received.err).not.toContain('Telegram refresh incomplete');
+	const status = await invoke(['sent-status', id], 'network', 'sender', '42', '--mail');
+	expect(status.code).toBe(0);
+	expect(JSON.parse(status.out)).toMatchObject({ id, status: 'recorded-read' });
+	const senderInbox = await invoke(['receive'], 'network', 'sender', '42', '--mail');
+	expect(senderInbox.code).toBe(0);
+	expect((JSON.parse(senderInbox.out) as { messages: unknown[] }).messages).toEqual([]);
 });
 
 test('local room attention sends through Telegram and mirrors the accepted message once', async () => {

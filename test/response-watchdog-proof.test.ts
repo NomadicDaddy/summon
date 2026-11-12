@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import type { Hold } from '../src/mail-attention.ts';
 
+import { initializeActivity } from '../src/agent-activity.ts';
 import { checkpointHash } from '../src/checkpoint-package-model.ts';
 import { checkpoint } from '../src/checkpoint.ts';
 import { appendLocalEvent } from '../src/local-room.ts';
@@ -31,6 +32,7 @@ beforeEach(async () => {
 	process.env.SUMMON_HOME = fixture.records;
 	process.env.SUMMON_AGENT = 'alpha';
 	process.env.SUMMON_NONCE = 'proof-fixture';
+	await initializeActivity('alpha', 'proof-fixture');
 	now = 1000000;
 	wall = spyOn(Date, 'now').mockImplementation(() => now);
 	mono = spyOn(performance, 'now').mockImplementation(() => now);

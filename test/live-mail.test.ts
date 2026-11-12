@@ -109,16 +109,18 @@ test('stdio channel requires receipt, isolates ownership, delivers later mail, a
 	try {
 		await client.connect(transport);
 		await eventually(() => events.length > 0);
-		expect(
-			JSON.stringify(
-				await client.callTool({ name: 'mail', arguments: { args: ['status'] } }),
-			),
-		).toContain('unconfirmed');
-		expect(
-			JSON.stringify(
-				await client.callTool({ name: 'mail', arguments: { args: ['status'] } }),
-			),
-		).toContain('Awaiting explicit launch readiness acknowledgment');
+		const status = await client.callTool({ name: 'mail', arguments: { args: ['status'] } });
+		const content = z
+			.array(z.object({ type: z.literal('text'), text: z.string() }))
+			.min(1)
+			.parse(status.content)[0];
+		if (!content) throw new Error('Missing mail status response.');
+		const readiness = JSON.parse(content.text) as {
+			readinessConfirmed: boolean;
+			state: string;
+		};
+		expect(readiness.readinessConfirmed).toBe(false);
+		expect(['unconfirmed', 'queued-only']).toContain(readiness.state);
 		expect(
 			(await client.callTool({ name: 'mail', arguments: { args: ['check', 'alpha'] } }))
 				.isError,

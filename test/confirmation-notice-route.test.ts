@@ -32,10 +32,14 @@ test('a confirmation-only notice routes to summon --mail receive, which shows it
 	);
 	// The boundary the wording describes, through the real commands: the focused view omits it,
 	// and receive returns it.
-	const focused = await fixture.run(['--current-requests'], 'alpha');
+	const focused = await fixture.run(['--current-requests'], 'alpha', {
+		SUMMON_NONCE: 'route-launch',
+	});
 	expect(focused.code).toBe(0);
 	expect(focused.out).not.toContain(id);
-	const received = await fixture.run(['--mail', 'receive'], 'alpha');
+	const received = await fixture.run(['--mail', 'receive'], 'alpha', {
+		SUMMON_NONCE: 'route-launch',
+	});
 	expect(received.code).toBe(0);
 	expect(received.out).toContain(id);
 	expect(received.out).toContain('Cannot proceed; need clarification.');

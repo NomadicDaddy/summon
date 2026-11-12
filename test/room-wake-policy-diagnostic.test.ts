@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { initializeActivity } from '../src/agent-activity.ts';
 import { appendLocalEvent } from '../src/local-room.ts';
 import { atomicWrite } from '../src/mail-files.ts';
 import { deliveryStatus } from '../src/mail-session.ts';
@@ -23,6 +24,7 @@ beforeEach(async () => {
 	process.env.SUMMON_AGENT = 'beta';
 	process.env.SUMMON_NONCE = nonce;
 	process.env.SUMMON_ROOM_WAKE_QUIET_MS = '0';
+	await initializeActivity('beta', nonce);
 	await atomicWrite(join(fixture.records, 'runtime/beta', `${nonce}.ready`), nonce);
 });
 afterEach(async () => {

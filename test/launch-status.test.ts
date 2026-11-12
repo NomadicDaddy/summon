@@ -216,7 +216,12 @@ test.skipIf(process.platform !== 'win32')(
 		const child = Bun.spawn({
 			cmd: [process.execPath, join(import.meta.dir, '../src/cli.ts'), '--launch-status'],
 			cwd: fixture.root,
-			env: { ...process.env, SUMMON_HOME: fixture.records, SUMMON_AGENT: 'alpha' },
+			env: {
+				...process.env,
+				SUMMON_HOME: fixture.records,
+				SUMMON_AGENT: 'alpha',
+				SUMMON_NONCE: 'test-launch',
+			},
 			stdin: 'ignore',
 			stdout: 'pipe',
 			stderr: 'pipe',

@@ -60,7 +60,9 @@ test('corrupt diagnostic remains untouched and cannot hide mail status or author
 	await fail();
 	await trackResponseSafely('alpha', () => Promise.resolve(), true);
 	expect(await Bun.file(path).text()).toBe('broken');
-	const status = await fixture.run(['--mail', 'status'], 'alpha');
+	const status = await fixture.run(['--mail', 'status'], 'alpha', {
+		SUMMON_NONCE: 'failure-launch',
+	});
 	expect(status.code).toBe(0);
 	expect(status.out).toContain('Delivery response diagnostic unavailable');
 	expect(await wakeErrors('alpha')).toEqual([]);

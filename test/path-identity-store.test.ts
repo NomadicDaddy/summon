@@ -46,6 +46,16 @@ if (process.platform === 'win32') {
 	store = join(root, 'long claims store');
 	await mkdir(join(store, 'claims'), { recursive: true });
 	await writeFile(join(store, 'alpha.json'), JSON.stringify(newRecord('alpha', root, 'claude')));
+	await mkdir(join(store, 'runtime/alpha'), { recursive: true });
+	await writeFile(
+		join(store, 'runtime/alpha/activity.json'),
+		JSON.stringify({
+			workingOn: '',
+			state: 'idle',
+			updatedAt: new Date().toISOString(),
+			nonce: 'test',
+		}),
+	);
 	await writeFile(join(root, 'evidence.txt'), 'expected\n');
 	await writeFile(
 		join(store, 'claims', 'alpha.md'),

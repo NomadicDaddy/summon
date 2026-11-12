@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import type { Hold } from '../src/mail-attention.ts';
 
+import { initializeActivity } from '../src/agent-activity.ts';
 import { atomicWrite } from '../src/mail-files.ts';
 import { header, recordRead } from '../src/mail-read.ts';
 import { pendingMessages, sendMessage } from '../src/mailbox.ts';
@@ -25,6 +26,8 @@ beforeEach(async () => {
 	process.env.SUMMON_HOME = fixture.records;
 	process.env.SUMMON_AGENT = 'alpha';
 	process.env.SUMMON_NONCE = nonce;
+	await initializeActivity('alpha', nonce);
+	await asBeta(() => initializeActivity('beta', nonce));
 });
 afterEach(async () => {
 	await releaseFixtureReceiver();

@@ -20,8 +20,8 @@ afterEach(async () => {
 	await fixture.dispose();
 });
 
-async function status() {
-	const result = await fixture.run(['--rest', 'status'], 'alpha');
+async function status(nonce = 'test-launch') {
+	const result = await fixture.run(['--rest', 'status'], 'alpha', { SUMMON_NONCE: nonce });
 	expect(result.code).toBe(0);
 	return JSON.parse(result.out) as unknown;
 }
@@ -42,8 +42,8 @@ for (const provider of ['claude', 'codex', 'grok', 'kilo'] as const) {
 			confirmationIsCurrentLaunch: true,
 		});
 		await initializeActivity('alpha', 'new-launch');
-		// The old caller's environment must not override the recorded new launch.
-		expect(await status()).toMatchObject({
+		// The current caller still sees the retained rest episode from the prior launch.
+		expect(await status('new-launch')).toMatchObject({
 			id: original.id,
 			mode: 'awake',
 			nonce: 'test-launch',
@@ -52,7 +52,7 @@ for (const provider of ['claude', 'codex', 'grok', 'kilo'] as const) {
 			resume: false,
 		});
 		const retained = await fixture.read('runtime/alpha/rest.json');
-		await status();
+		await status('new-launch');
 		expect(await fixture.read('runtime/alpha/rest.json')).toBe(retained);
 		let stopped = false;
 		const result: unknown = await stopForRest(
@@ -72,17 +72,14 @@ for (const provider of ['claude', 'codex', 'grok', 'kilo'] as const) {
 	});
 }
 
-test('matching launch after cancel is not reported ready; absent activity stays unknown', async () => {
+test('matching launch after cancel is not reported ready; absent activity refuses CLI access', async () => {
 	expect((await fixture.run(['--rest', 'ready'], 'alpha')).code).toBe(0);
 	expect((await fixture.run(['--rest', 'cancel'], 'alpha')).code).toBe(0);
 	expect(await status()).toMatchObject({ mode: 'awake', confirmationIsCurrentLaunch: true });
 	await rm(join(fixture.records, 'runtime/alpha/activity.json'));
-	expect(await status()).toMatchObject({
-		mode: 'awake',
-		nonce: 'test-launch',
-		currentLaunchNonce: null,
-		confirmationIsCurrentLaunch: null,
-	});
+	const absent = await fixture.run(['--rest', 'status'], 'alpha');
+	expect(absent.code).toBe(1);
+	expect(absent.error).toContain('Activity belongs to another launch');
 });
 
 test('no confirmation remains null', async () => {

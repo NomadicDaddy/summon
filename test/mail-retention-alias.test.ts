@@ -11,6 +11,16 @@ let shortPath: string | undefined;
 if (process.platform === 'win32') {
 	root = await mkdtemp(join(tmpdir(), 'summon-retention-alias-'));
 	await mkdir(join(root, 'mailboxes', 'fixture-codex', 'inbox'), { recursive: true });
+	await mkdir(join(root, 'runtime', 'fixture-codex'), { recursive: true });
+	await writeFile(
+		join(root, 'runtime', 'fixture-codex', 'activity.json'),
+		JSON.stringify({
+			workingOn: '',
+			state: 'idle',
+			updatedAt: new Date().toISOString(),
+			nonce: 'fixture-launch',
+		}),
+	);
 	const peer = join(root, 'mailboxes', 'fixture-peer-long-registration');
 	await mkdir(peer);
 	privatePins = join(peer, 'private-pins.json');

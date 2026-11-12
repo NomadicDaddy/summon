@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { join } from 'node:path';
 
+import { initializeActivity } from '../src/agent-activity.ts';
 import { sendHuman } from '../src/local-room-access.ts';
 import { deliveryStatus, markReady } from '../src/mail-session.ts';
 import { startMailWatcher } from '../src/mail-watcher.ts';
@@ -43,6 +44,7 @@ async function seed(nonce: string): Promise<void> {
 	await sendHuman('@beta PRIVATE_ROOM_CONTROL');
 	process.env.SUMMON_AGENT = 'beta';
 	process.env.SUMMON_NONCE = nonce;
+	await initializeActivity('beta', nonce);
 }
 
 test('one initial notice combines unread mail and local room watermarks', async () => {

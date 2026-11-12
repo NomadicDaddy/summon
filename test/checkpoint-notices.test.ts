@@ -12,10 +12,12 @@ import { newRecord } from '../src/store.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
 
 let fixture: Awaited<ReturnType<typeof mailHarness>>;
+let cliNonce = 'test-launch';
 const previous = process.env.SUMMON_HOME;
 beforeEach(async () => {
 	fixture = await mailHarness();
 	process.env.SUMMON_HOME = fixture.records;
+	cliNonce = 'test-launch';
 });
 afterEach(async () => {
 	if (previous === undefined) delete process.env.SUMMON_HOME;
@@ -24,7 +26,9 @@ afterEach(async () => {
 });
 
 async function run(...args: string[]) {
-	const result = await fixture.run(['--checkpoint', ...args], 'alpha');
+	const result = await fixture.run(['--checkpoint', ...args], 'alpha', {
+		SUMMON_NONCE: cliNonce,
+	});
 	expect({ code: result.code, error: result.error }).toEqual({ code: 0, error: '' });
 	return JSON.parse(result.out) as {
 		receipt: string;
@@ -49,8 +53,7 @@ for (const provider of ['claude', 'codex', 'grok', 'kilo'] as const)
 				join(fixture.records, 'alpha.json'),
 				JSON.stringify(newRecord('alpha', fixture.root, provider)),
 			);
-			if (scenario !== 'unverifiable')
-				await initializeActivity('alpha', 'test-launch', provider);
+			await initializeActivity('alpha', 'test-launch', provider);
 			const confirmation = randomUUID();
 			if (scenario === 'rest-ended-current' || scenario === 'rest-ended-obsolete')
 				await Bun.write(
@@ -66,20 +69,25 @@ for (const provider of ['claude', 'codex', 'grok', 'kilo'] as const)
 					}),
 				);
 			const id = await sendMessage('alpha', 'alpha', 'Generated fixture reminder', {
-				system: scenario.startsWith('rest-ended')
-					? {
-							purpose: 'rest-ended',
-							nonce: 'test-launch',
-							confirmation,
-							previousActivityNonce: scenario === 'rest-ended' ? null : 'predecessor',
-						}
-					: {
-							purpose: 'rest-nudge',
-							nonce: 'test-launch',
-							idleSince: new Date().toISOString(),
-						},
+				system:
+					scenario.startsWith('rest-ended') || scenario === 'unverifiable'
+						? {
+								purpose: 'rest-ended',
+								nonce: 'test-launch',
+								confirmation,
+								previousActivityNonce:
+									scenario === 'rest-ended' ? null : 'predecessor',
+							}
+						: {
+								purpose: 'rest-nudge',
+								nonce: 'test-launch',
+								idleSince: new Date().toISOString(),
+							},
 			});
-			if (scenario === 'obsolete') await initializeActivity('alpha', 'successor', provider);
+			if (scenario === 'obsolete') {
+				await initializeActivity('alpha', 'successor', provider);
+				cliNonce = 'successor';
+			}
 			const mailPath = join(fixture.records, 'mailboxes/alpha/inbox', `${id}.md`);
 			if (scenario === 'unknown')
 				await Bun.write(

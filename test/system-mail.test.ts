@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { randomUUID } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
+import { rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { initializeActivity, readActivity } from '../src/agent-activity.ts';
@@ -189,6 +189,7 @@ test('unknown notice metadata preserves its body and unrelated mail delivery', a
 });
 
 test('unverifiable notices remain eligible and malformed or foreign provenance is refused', async () => {
+	await rm(join(fixture.records, 'runtime/alpha/activity.json'));
 	const system = {
 		purpose: 'rest-nudge' as const,
 		nonce: 'test-launch',
@@ -213,6 +214,7 @@ test('unverifiable notices remain eligible and malformed or foreign provenance i
 });
 
 test('a first-launch rest notice waits for activity and expires after a later launch', async () => {
+	await rm(join(fixture.records, 'runtime/alpha/activity.json'));
 	const confirmation = randomUUID();
 	await Bun.write(
 		join(fixture.records, 'runtime/alpha/rest.json'),

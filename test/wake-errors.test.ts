@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { initializeActivity } from '../src/agent-activity.ts';
@@ -44,7 +44,9 @@ test('concurrent failures persist once, survive a new reader, and keep raw error
 	expect(stored[0]?.observedNonce).toBe('first-launch');
 	expect(stored[0]?.roomThrough).toBe(9);
 	expect(stored[0]?.certainty).toBe('not-sent');
-	const status = await fixture.run(['--mail', 'status'], 'alpha');
+	const status = await fixture.run(['--mail', 'status'], 'alpha', {
+		SUMMON_NONCE: 'first-launch',
+	});
 	expect(status.code).toBe(0);
 	expect(status.out).toContain(results[0]?.episode.id ?? 'missing-id');
 	expect(status.out).not.toContain('PRIVATE_SENTINEL');
@@ -59,6 +61,7 @@ test('concurrent failures persist once, survive a new reader, and keep raw error
 }, 30_000);
 
 test('recovery preserves the failure identity and later failures retain separate history', async () => {
+	await rm(join(fixture.records, 'runtime/alpha/activity.json'));
 	const first = await retainWakeError('alpha', 'mention wake', new Error('opaque'), 7);
 	expect(first.episode.observedNonce).toBeNull();
 	expect(first.episode.certainty).toBe('uncertain');
