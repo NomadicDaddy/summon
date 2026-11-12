@@ -19,10 +19,11 @@ const prior = {
 async function waitForCandidate(path: string): Promise<void> {
 	for (let attempt = 0; attempt < 100; attempt++) {
 		const entries = await readdir(dirname(path)).catch(() => [] as string[]);
+		// The held lock has one pending candidate; wait for the writer's second candidate.
 		if (
-			entries.some(
+			entries.filter(
 				(entry) => entry.startsWith(`${basename(path)}.`) && entry.endsWith('.pending'),
-			)
+			).length >= 2
 		)
 			return;
 		await Bun.sleep(10);
