@@ -2,6 +2,7 @@ import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { resolve } from 'node:path';
 
 import type { Team } from './team.ts';
+import type { SelectTiming } from './types.ts';
 
 import { galleryAvatar, installGalleryAvatar } from '../gallery-avatar.ts';
 import { providerSetupCatalog } from '../provider-setup.ts';
@@ -12,9 +13,11 @@ import { slugFor } from '../store.ts';
 import { readMacros, saveMacros } from '../team-macros.ts';
 import { profileFor, saveProfile } from '../team-maintenance.ts';
 import { readTeamSettings, saveTeamSettings, type TeamSettings } from '../team-settings.ts';
+import { teamWindowRuntime } from '../team-startup.ts';
 import { readTeammateGallery } from '../teammate-gallery.ts';
 import { cliStatuses } from './cli-status.ts';
 import { checkLaunch, installedProviders } from './launch-check.ts';
+import { createMentionScanRecorder, paneSwitchDiagnostic } from './mention-scan-metrics.ts';
 import { stopRestSession } from './rest-stop.ts';
 import { stopIfConfirmed } from './stop-evidence.ts';
 import { usageFor } from './usage.ts';
@@ -52,15 +55,38 @@ export function maintenanceIpc(
 		trusted(event);
 		return installedProviders();
 	});
-	for (const action of ['select', 'start'] as const) {
-		ipcMain.handle(`team:${action}`, async (event, name: unknown) => {
-			trusted(event);
-			if (typeof name !== 'string') throw new Error('Invalid agent.');
-			const slug = slugFor(name);
-			if (action === 'start') await checkLaunch(slug);
-			await team[action](slug);
-		});
-	}
+	// A select reports how long the click waited for this handler and how long the snapshot it
+	// awaits took, so the renderer's switch record can tell a busy main process from a slow read.
+	ipcMain.handle('team:select', async (event, name: unknown, clickedAt: unknown) => {
+		const receivedAt = Date.now();
+		trusted(event);
+		if (typeof name !== 'string') throw new Error('Invalid agent.');
+		const started = performance.now();
+		await team.select(slugFor(name));
+		return {
+			ipcWaitMs:
+				typeof clickedAt === 'number' && Number.isFinite(clickedAt)
+					? Math.max(0, receivedAt - clickedAt)
+					: null,
+			selectMs: Math.round(performance.now() - started),
+		} satisfies SelectTiming;
+	});
+	ipcMain.handle('team:start', async (event, name: unknown) => {
+		trusted(event);
+		if (typeof name !== 'string') throw new Error('Invalid agent.');
+		const slug = slugFor(name);
+		await checkLaunch(slug);
+		await team.start(slug);
+	});
+	const switchTimings = createMentionScanRecorder(
+		teamWindowRuntime('pane-switch-timings.json'),
+		(error) => team.error(error),
+	);
+	ipcMain.handle('team:switch-timing', (event, record: unknown) => {
+		trusted(event);
+		const diagnostic = paneSwitchDiagnostic(record);
+		if (diagnostic) switchTimings.record(diagnostic);
+	});
 	// Stop re-checks the session itself: the renderer's snapshot can be up to 2 s old.
 	ipcMain.handle('team:stop', async (event, name: unknown, confirmed: unknown) => {
 		trusted(event);

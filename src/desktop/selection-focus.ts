@@ -43,11 +43,18 @@ export function selectionFocus(): SelectionFocus {
 	};
 }
 
-/** All explicit member-selection controls share one request generation. */
+/**
+ * All explicit member-selection controls share one request generation. `preview` paints the
+ * chosen pane at once, before the select's round trip to main.
+ */
 export function memberSelection(
 	run: (slug: string) => Promise<boolean>,
 	current: () => SelectionTarget,
+	preview?: (slug: string) => void,
 ): (slug: string) => Promise<boolean> {
 	const focus = selectionFocus();
-	return (slug) => focus.select(slug, () => run(slug), current);
+	return (slug) => {
+		preview?.(slug);
+		return focus.select(slug, () => run(slug), current);
+	};
 }

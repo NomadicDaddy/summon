@@ -62,6 +62,13 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Fixed
 
+- Switching teammates in the Team Window is immediate. The selected pane used to change only after
+  the main process had rebuilt the whole roster snapshot, which reads every member in turn and
+  waits behind a running scan, so a click could take many seconds. The pane now switches on the
+  click from the Window's own data, the full snapshot follows and corrects anything stale, and an
+  older snapshot can't switch it back. Each switch is timed into
+  `runtime/team-window/pane-switch-timings.json`: the pane's first paint, the wait for the main
+  process, the snapshot the select awaited, and the total.
 - Team Window mention scans reuse validated read-marker names and each seat's rest result for one
   scan. They avoid reopening thousands of already validated markers and repeating the full rest
   evidence scan for wake and flush checks, while rechecking changed rest state and newer addressed

@@ -18,6 +18,7 @@ import type {
 	OperatorEvent,
 	RoomImage,
 	RoomPage,
+	SelectTiming,
 	ShellChoice,
 	StopResult,
 	TeamBridge,
@@ -108,7 +109,9 @@ const bridge: TeamBridge = {
 	roomSend: (text, replyTo, image) =>
 		ipcRenderer.invoke('team:room-send', text, replyTo, image) as Promise<LocalEvent>,
 	ready: () => ipcRenderer.invoke('team:ready') as Promise<TeamSnapshot>,
-	select: (slug) => ipcRenderer.invoke('team:select', slug) as Promise<void>,
+	select: (slug, clickedAt) =>
+		ipcRenderer.invoke('team:select', slug, clickedAt) as Promise<SelectTiming>,
+	switchTiming: (record) => ipcRenderer.invoke('team:switch-timing', record) as Promise<void>,
 	dismissResponse: (slug, nonce, id) =>
 		ipcRenderer.invoke('team:dismiss-response', slug, nonce, id) as Promise<void>,
 	start: (slug) => ipcRenderer.invoke('team:start', slug) as Promise<void>,

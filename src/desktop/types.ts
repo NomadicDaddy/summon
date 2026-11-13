@@ -19,6 +19,7 @@ import type { TeamMacro } from '../team-macros.ts';
 import type { TeamSettings } from '../team-settings.ts';
 import type { GallerySnapshot } from '../teammate-templates.ts';
 import type { CliStatus } from './cli-status.ts';
+import type { PaneSwitchDiagnostic } from './mention-scan-metrics.ts';
 import type { NotificationPauseView } from './notification-pause.ts';
 import type { PageState } from './page-state.ts';
 
@@ -115,6 +116,12 @@ export type TeamEvent =
  * the terminal has not reported its exit. `rootChecked` is false when the session's root process
  * could not be read; `detail` is the diagnostic for the fault journal, not for the banner.
  */
+/** What main measured for one select: its wait for the IPC call, and the snapshot it awaited. */
+export interface SelectTiming {
+	ipcWaitMs: number | null;
+	selectMs: number;
+}
+
 export type StopResult =
 	| { needsConfirm: true }
 	| { stopped: true }
@@ -177,7 +184,9 @@ export interface TeamBridge {
 	boardMove: (id: string, expectedRevision: number, move: BoardMove) => Promise<BoardSnapshot>;
 	boardOwner: (id: string, expectedRevision: number, owner: string) => Promise<BoardSnapshot>;
 	ready: () => Promise<TeamSnapshot>;
-	select: (slug: string) => Promise<void>;
+	/** `clickedAt` is the operator's click (epoch ms), so main can time the IPC wait. */
+	select: (slug: string, clickedAt?: number) => Promise<SelectTiming>;
+	switchTiming: (record: PaneSwitchDiagnostic) => Promise<void>;
 	start: (slug: string) => Promise<void>;
 	stop: (slug: string, confirmed: boolean) => Promise<StopResult>;
 	stopRest: (slug: string, confirmation: string) => Promise<void>;

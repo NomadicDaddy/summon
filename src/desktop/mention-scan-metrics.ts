@@ -30,7 +30,56 @@ export type MentionScanDiagnostic =
 			activeStage: MentionScanStage | null;
 			elapsedMs: number;
 			skippedTicks: number;
-	  };
+	  }
+	| PaneSwitchDiagnostic;
+
+/**
+ * One operator click on a teammate, timed from the renderer: the pane's first paint, the wait
+ * before the main process received the select, the full snapshot the select awaited, and the
+ * total until that snapshot arrived. Kept in its own ring so scans can't evict it.
+ */
+export interface PaneSwitchDiagnostic {
+	kind: 'switch';
+	at: string;
+	durationMs: number;
+	paintMs: number | null;
+	ipcWaitMs: number | null;
+	selectMs: number | null;
+	outcome: 'complete' | 'failed' | 'superseded';
+}
+
+const SWITCH_OUTCOMES: ReadonlySet<string> = new Set(['complete', 'failed', 'superseded']);
+// Bounds a reasonable value: an hour, past any real switch, and never negative.
+const timingMs = (value: unknown): value is number =>
+	typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 3_600_000;
+
+/** The renderer's switch record, accepted only in exactly its own shape and bounds. */
+export function paneSwitchDiagnostic(value: unknown): PaneSwitchDiagnostic | null {
+	if (typeof value !== 'object' || value === null) return null;
+	const record = value as Record<string, unknown>;
+	const optional = (field: unknown): field is null | number => field === null || timingMs(field);
+	if (
+		record.kind !== 'switch' ||
+		typeof record.at !== 'string' ||
+		Number.isNaN(Date.parse(record.at)) ||
+		!timingMs(record.durationMs) ||
+		!optional(record.paintMs) ||
+		!optional(record.ipcWaitMs) ||
+		!optional(record.selectMs) ||
+		typeof record.outcome !== 'string' ||
+		!SWITCH_OUTCOMES.has(record.outcome)
+	)
+		return null;
+	return {
+		kind: 'switch',
+		at: record.at,
+		durationMs: record.durationMs,
+		paintMs: record.paintMs,
+		ipcWaitMs: record.ipcWaitMs,
+		selectMs: record.selectMs,
+		outcome: record.outcome as PaneSwitchDiagnostic['outcome'],
+	};
+}
 
 const MAX_RECORDS = 64;
 const NORMAL_WRITE_MS = 30_000;

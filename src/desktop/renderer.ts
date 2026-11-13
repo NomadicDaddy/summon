@@ -23,6 +23,7 @@ import { setupNotificationPause } from './notification-pause-control.ts';
 import { renderWelcome } from './onboarding.ts';
 import { setupOperator } from './operator-pane.ts';
 import { watchPageShift } from './page-shift.ts';
+import { paneSwitch } from './pane-switch.ts';
 import { setupProviderFilters } from './provider-filters.ts';
 import { element } from './required-element.ts';
 import { setupResponsePanel } from './response-watchdog-panel.ts';
@@ -85,9 +86,17 @@ setupNotepad();
 setupShortcuts();
 watchPageShift(reportFault, (state) => window.team.pageState(state));
 const panes = setupTerminalPanes(terminalArea, () => snapshot);
+const switching = paneSwitch({
+	render: (value) => render(value),
+	select: (slug, clickedAt) => window.team.select(slug, clickedAt),
+	action,
+	// The timing ring is a diagnostic: a failed write must never surface as a Window error.
+	report: (record) => void window.team.switchTiming(record).catch(() => undefined),
+});
 const selectMember = memberSelection(
-	(slug) => action(() => window.team.select(slug)),
+	(slug) => switching.select(slug),
 	() => selectionTarget(snapshot, panes.get(snapshot.selected)?.terminal),
+	(slug) => switching.preview(slug),
 );
 setupReadOnlyWorkViews(errorBanner.from('repos'), selectMember);
 const faults = faultStore();
@@ -244,7 +253,7 @@ window.team.onImagePaste(() => {
 		window.team.input(snapshot.selected, '\x16');
 });
 window.team.onEvent((event) => {
-	if (event.type === 'snapshot') render(event.value);
+	if (event.type === 'snapshot') render(switching.snapshot(event.value));
 	else if (event.type === 'reset') {
 		// A new launch for this member: its terminal and its unverified-stop state start fresh.
 		panes.reset(event.slug);
@@ -256,7 +265,7 @@ window.team.onEvent((event) => {
 void window.team
 	.ready()
 	.then((value) => {
-		render(value);
+		render(switching.snapshot(value));
 		setupOperator(value.windowsPty);
 	})
 	.catch(errorBanner.from('window.ready'));
