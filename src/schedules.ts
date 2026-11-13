@@ -9,6 +9,7 @@ import { isHibernated } from './hibernation.ts';
 import { atomicWrite, locked, optionalText } from './mail-files.ts';
 import { currentAgent, operatorOnly } from './mail-identity.ts';
 import { sendMessage } from './mailbox.ts';
+import { roomCache } from './room-cache.ts';
 import { deferSchedule, scheduleDeferral } from './schedule-deferral.ts';
 import { loadAgent, slugFor, storageRoot } from './store.ts';
 
@@ -53,11 +54,14 @@ const read = async (): Promise<State> => {
 		? stateSchema.parse(JSON.parse(raw) as unknown)
 		: { version: 1, schedules: [], runs: [] };
 };
+// Rest checks run once per member on each Window scan. Revalidate the file identity on every
+// read, but parse its retained run history only when the durable state has changed.
+const cachedRestRead = roomCache<State>();
+const restRead = (): Promise<State> => cachedRestRead(path(), read);
 const save = (state: State): Promise<void> => atomicWrite(path(), JSON.stringify(state));
 const finished = (item: ScheduledRun): boolean => ['complete', 'failed'].includes(item.status);
 
-export async function listSchedules(): Promise<State> {
-	const state = await read();
+function visibleSchedules(state: State): State {
 	if (!process.env.SUMMON_AGENT) return state;
 	const owner = currentAgent();
 	return {
@@ -65,6 +69,15 @@ export async function listSchedules(): Promise<State> {
 		schedules: state.schedules.filter((item) => item.owner === owner),
 		runs: state.runs.filter((item) => item.owner === owner),
 	};
+}
+
+export async function listSchedules(): Promise<State> {
+	return visibleSchedules(await read());
+}
+
+/** Read-only rest evidence; writers and public list callers keep their fresh mutable state. */
+export async function restSchedules(): Promise<State> {
+	return visibleSchedules(await restRead());
 }
 
 export async function createSchedule(input: unknown): Promise<z.infer<typeof schedule>> {

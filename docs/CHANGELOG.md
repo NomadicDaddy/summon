@@ -28,6 +28,9 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Changed
 
+- Team Window rest checks reuse a validated schedule read while the file version stays unchanged,
+  avoiding repeated parsing of retained run history during mention scans. Schedule commands and
+  dispatch still read the current file, and no run history is removed.
 - The Team Window and every other Room reader no longer re-read the whole Room history after each
   post. They share one checked copy of it, extended by new posts and archive rotations, and
   rebuilt in full only when the history changes in any other way. On a copy of a 192-archive

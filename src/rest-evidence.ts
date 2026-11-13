@@ -12,7 +12,7 @@ import { mailboxPath, pendingMessages } from './mailbox.ts';
 import { localCursorPath, roomCursor } from './room-cursor.ts';
 import { addressedTo, addressedToStopped } from './room-wake.ts';
 import { scheduledRestReason } from './schedule-summary.ts';
-import { listSchedules } from './schedules.ts';
+import { restSchedules } from './schedules.ts';
 
 const READ_MARKER_BATCH = 32;
 const validatedReadMarkers = new Map<string, Set<string>>();
@@ -100,7 +100,7 @@ export async function restEvidence(
 		waitingActivity === undefined
 			? activity?.state === 'idle'
 			: activity?.state === 'needs-user' && JSON.stringify(activity) === waitingActivity;
-	const schedules = await listSchedules();
+	const schedules = await restSchedules();
 	const now = Date.now();
 	const dueScheduleIds = schedules.schedules
 		.filter((item) => item.owner === name && item.enabled && item.nextDueAt <= now)
