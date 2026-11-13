@@ -156,6 +156,17 @@ test('a changed read marker invalidates the preview without moving the body', as
 	expect(await Bun.file(path('inbox', `${id}.md`)).exists()).toBe(true);
 });
 
+test('a confirmation marker arriving after preview keeps the message pending', async () => {
+	const id = await sendMessage('beta', 'alpha', 'Read', { kind: 'receipt' });
+	await mark(id, 'read');
+	const page = await preview();
+	await mark(id, 'confirmed');
+	const result = await fixture.run(['--mail', 'bulk-archive', 'apply', page.plan ?? ''], 'alpha');
+	expect(result.code).toBe(1);
+	expect(result.error).toContain('Bulk archive inputs changed');
+	expect(await Bun.file(path('inbox', `${id}.md`)).exists()).toBe(true);
+});
+
 test('partial batch can restart with a new preview without undoing prior archives', async () => {
 	const first = await sendMessage('beta', 'alpha', 'First', { kind: 'receipt' });
 	const second = await sendMessage('beta', 'alpha', 'Second', { kind: 'receipt' });
@@ -169,6 +180,8 @@ test('partial batch can restart with a new preview without undoing prior archive
 	await writeFile(path('inbox', `${later}.md`), original.replace(/\n[^\n]+\n$/, '\nChanged\n'));
 	const failed = await fixture.run(['--mail', 'bulk-archive', 'apply', page.plan ?? ''], 'alpha');
 	expect(failed.code).toBe(1);
+	expect(failed.error).toContain(`already archived 1: ${selected[0]?.id}`);
+	expect(failed.error).toContain(`stopped at ${later}`);
 	expect(await Bun.file(path('archive', `${selected[0]?.id}.md`)).exists()).toBe(true);
 	expect(await Bun.file(path('inbox', `${later}.md`)).exists()).toBe(true);
 	const fresh = await preview();

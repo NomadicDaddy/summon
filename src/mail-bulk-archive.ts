@@ -210,26 +210,34 @@ export async function applyBulkArchive(owner: string, token: string) {
 	const root = mailboxPath(owner);
 	const archived: string[] = [];
 	for (const candidate of plan.candidates) {
-		await safeDirectories(root);
-		await locked(statePath(owner, candidate.id, 'handling.lock'), async () => {
-			const holds = new Set((await ownHolds(owner)).map((hold) => hold.messageId));
-			const current = await inspect(owner, candidate.id, holds.has(candidate.id));
-			if (
-				current.candidate?.sha256 !== candidate.sha256 ||
-				current.candidate.readSha256 !== candidate.readSha256
-			)
-				throw new Error(`Bulk archive inputs changed at ${candidate.id}; re-preview.`);
-			const retained = join(root, 'archive', `${candidate.id}.md`);
-			if (
-				await lstat(retained).catch((error: unknown) => {
-					if (missing(error)) return null;
-					throw error;
-				})
-			)
-				throw new Error(`Bulk archive target appeared at ${candidate.id}; re-preview.`);
-			await archiveMessage(root, candidate.id);
-			archived.push(candidate.id);
-		});
+		try {
+			await safeDirectories(root);
+			await locked(statePath(owner, candidate.id, 'handling.lock'), async () => {
+				const holds = new Set((await ownHolds(owner)).map((hold) => hold.messageId));
+				const current = await inspect(owner, candidate.id, holds.has(candidate.id));
+				if (
+					current.candidate?.sha256 !== candidate.sha256 ||
+					current.candidate.readSha256 !== candidate.readSha256
+				)
+					throw new Error(`Bulk archive inputs changed at ${candidate.id}; re-preview.`);
+				const retained = join(root, 'archive', `${candidate.id}.md`);
+				if (
+					await lstat(retained).catch((error: unknown) => {
+						if (missing(error)) return null;
+						throw error;
+					})
+				)
+					throw new Error(`Bulk archive target appeared at ${candidate.id}; re-preview.`);
+				await archiveMessage(root, candidate.id);
+				archived.push(candidate.id);
+			});
+		} catch (error: unknown) {
+			const detail = error instanceof Error ? error.message : String(error);
+			throw new Error(
+				`Bulk archive stopped at ${candidate.id}; already archived ${archived.length}: ${archived.join(', ') || 'none'}. ${detail}`,
+				{ cause: error },
+			);
+		}
 	}
 	return {
 		owner,
