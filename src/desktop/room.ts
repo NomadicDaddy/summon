@@ -229,13 +229,16 @@ export function setupRoom(): (snapshot: TeamSnapshot) => void {
 			// `following` as it stands now, not as it stood before the reads: a reader who scrolled up
 			// while a read was in flight is not pulled back down (Roger #44445).
 			if (following && !history.isBrowsing()) messages.scrollTop = messages.scrollHeight;
-			history.updateHead();
 		} catch (cause: unknown) {
 			error.textContent = readableError(cause);
 			error.hidden = false;
 			reportFault({ level: 'error', source: 'room.read', text: faultText(cause) });
 		} finally {
 			pending = false;
+			// After `pending` clears, not inside the try: the history buttons read it as "busy", so
+			// updating them there disabled Latest on every 1 s poll and left a reader browsing an
+			// old page with no way back to the live Room (Phillip #44950).
+			history.updateHead();
 		}
 	};
 	get('room-form').addEventListener('submit', (event) => {

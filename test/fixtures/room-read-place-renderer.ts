@@ -47,7 +47,20 @@ const bridge = {
 	onImagePaste: () => undefined,
 	macros: () => Promise.resolve([]),
 };
-Object.assign(window, { team: bridge });
+// Posts one more message, as a teammate would, so the test can see whether the Room shows it.
+const post = (): number => {
+	const id = events.length + 1;
+	events.push({
+		id,
+		at: '2026-11-12T00:00:00.000Z',
+		sender: { kind: 'agent' as const, id: 'fixture' },
+		text: `Fixture post ${id}`,
+		replyTo: null,
+		source: 'local',
+	});
+	return id;
+};
+Object.assign(window, { team: bridge, roomFixturePost: post });
 const update = setupRoom();
 update({ agents: [], operator: null, team: undefined } as unknown as TeamSnapshot);
 document.title = 'ROOM_PLACE_READY';

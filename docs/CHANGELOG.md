@@ -56,6 +56,10 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
   than when the Room started reading it, so scrolling up while a read is in flight also keeps your
   place. Before, anyone within 60 px of the bottom was moved there by every arrival, so reading the
   message above a partly visible last one meant losing your place.
+- The Team Room no longer strands you on an old page. When it opens at your left-off place, the
+  Latest button now stays usable; before, the Room's once-a-second poll disabled it every time.
+  Scrolling to the bottom of that page now loads the next newer posts, and once you have caught up
+  the Room rejoins the live conversation, so new posts appear and follow as usual.
 - Local communication actions (Room posts, mail, Board and Diary changes) now wait up to eight
   seconds for an in-flight Telegram poll before checking for a later Halt. An expired wait still
   reports that it used recorded state.

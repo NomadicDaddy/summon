@@ -61,7 +61,7 @@ test('Room restores and pages a saved place in a disposable Electron window', as
 			const code = await Promise.race([
 				child.exited,
 				new Promise<number>((_, reject) =>
-					setTimeout(() => reject(new Error('Electron Room fixture timed out.')), 20000),
+					setTimeout(() => reject(new Error('Electron Room fixture timed out.')), 30000),
 				),
 			]).catch(async (cause: unknown) => {
 				const progress = (await Bun.file(join(root, 'progress.txt')).exists())

@@ -85,6 +85,14 @@ void app.whenReady().then(async () => {
 			checks.newer !== true
 		)
 			throw new Error(`Room place checks failed: ${JSON.stringify(checks)}`);
+		// The 1 s poll keeps running while a history page is open. It used to disable Latest on
+		// every pass, leaving the reader no way back to the live Room (Phillip #44950).
+		await delay(1300);
+		const latestAfterPoll = (await window.webContents.executeJavaScript(
+			"!document.getElementById('room-show-latest').disabled",
+		)) as boolean;
+		if (!latestAfterPoll)
+			throw new Error('Latest is disabled after a Room poll while browsing.');
 		const views: object[] = [];
 		for (const [width, height] of [
 			[2250, 1309],
@@ -130,7 +138,11 @@ void app.whenReady().then(async () => {
 		await until(window, "!!document.getElementById('room-message-131')");
 		await click(window, '#room-load-newer');
 		await until(window, "!!document.getElementById('room-message-450')");
+		// element.click() on a disabled button does nothing, so this step once passed with Latest
+		// stuck: #450 was already on screen. Check the button works and leaves the history page.
+		await until(window, "!document.getElementById('room-show-latest').disabled");
 		await click(window, '#room-show-latest');
+		await until(window, "document.getElementById('room-show-latest').hidden");
 		await until(window, "!!document.getElementById('room-message-450')");
 		await click(window, '#room-message-450 .room-message-reply');
 		await window.webContents.executeJavaScript(
@@ -195,6 +207,38 @@ void app.whenReady().then(async () => {
 		)) as { leftAt: number; readThrough: number };
 		if (restored.readThrough !== saved.readThrough || restored.leftAt !== Number(visible))
 			throw new Error(`Window reload changed saved Room place: ${JSON.stringify(restored)}`);
+		// Scrolling down a history page reaches the live Room: each time the reader hits the bottom
+		// the next page loads, and once it is caught up the page rejoins the live conversation, so a
+		// new post appears and is followed (Phillip #44950: "not scrolling past 44908").
+		await click(window, '#room-toggle');
+		await until(window, `!!document.getElementById('room-message-${restored.leftAt}')`);
+		await until(window, "!document.getElementById('room-load-newer').hidden");
+		for (let step = 0; step < 40; step++) {
+			const done = (await window.webContents.executeJavaScript(
+				"document.getElementById('room-load-newer').hidden",
+			)) as boolean;
+			if (done) break;
+			await window.webContents.executeJavaScript(
+				"(() => { const m = document.getElementById('room-messages'); m.scrollTop = m.scrollHeight; })()",
+			);
+			await delay(150);
+		}
+		const rejoined = (await window.webContents.executeJavaScript(`(() => {
+			const ids = [...document.querySelectorAll('#room-messages article[data-room-id]')]
+				.map((item) => Number(item.dataset.roomId));
+			return { browsing: !document.getElementById('room-load-newer').hidden,
+				last: ids.at(-1), gaps: ids.filter((id, i) => i > 0 && id !== ids[i - 1] + 1).length };
+		})()`)) as { browsing: boolean; last: number; gaps: number };
+		if (rejoined.browsing || rejoined.last !== 450 || rejoined.gaps !== 0)
+			throw new Error(`Scrolling did not reach the live Room: ${JSON.stringify(rejoined)}`);
+		const posted = (await window.webContents.executeJavaScript(
+			'window.roomFixturePost()',
+		)) as number;
+		await until(window, `!!document.getElementById('room-message-${posted}')`);
+		await until(
+			window,
+			"(() => { const m = document.getElementById('room-messages'); return m.scrollHeight - m.scrollTop - m.clientHeight <= 2; })()",
+		);
 		await writeFile(join(root, 'result.json'), JSON.stringify({ checks, views }));
 	} catch (cause: unknown) {
 		await writeFile(join(root, 'error.txt'), String(cause));

@@ -103,8 +103,20 @@ export function setupRoomHistory(
 				buttons();
 			});
 	});
-	newer.addEventListener('click', () => {
-		if (!browsing || loading || (!moreNewer && last >= head())) return;
+	const caughtUp = (): boolean => !moreNewer && last >= head();
+	const atBottom = (): boolean =>
+		messages.scrollHeight - messages.scrollTop - messages.clientHeight <= 2;
+	// Back to the live Room without clearing the page: everything up to the head is already drawn,
+	// so new posts append and follow as usual. Never while a refresh is in flight, because that
+	// refresh has advanced the head over posts it skipped drawing while browsing.
+	const rejoin = (): void => {
+		if (!browsing || loading || busy() || !caughtUp()) return;
+		browsing = false;
+		buttons();
+		redraw();
+	};
+	const loadNewer = (): void => {
+		if (!browsing || loading || caughtUp()) return;
 		loading = true;
 		buttons();
 		void window.team
@@ -129,6 +141,14 @@ export function setupRoomHistory(
 				loading = false;
 				buttons();
 			});
+	};
+	newer.addEventListener('click', loadNewer);
+	// A reader who scrolls to the bottom of a history page is asking for what comes next. Before
+	// this, the page simply ended there and only the Newer button moved on (Phillip #44950).
+	messages.addEventListener('scroll', () => {
+		if (!browsing || loading || busy() || !atBottom()) return;
+		if (caughtUp()) rejoin();
+		else loadNewer();
 	});
 	const leaveHistory = (): void => {
 		if (loading || busy()) return;
@@ -138,5 +158,11 @@ export function setupRoomHistory(
 		showLatest();
 	};
 	latest.addEventListener('click', leaveHistory);
-	return { isBrowsing: () => browsing, updateHead: buttons };
+	// Called after each refresh has settled. A reader already at the bottom of a caught-up page
+	// rejoins here, since no scroll event will come to do it.
+	const updateHead = (): void => {
+		buttons();
+		if (browsing && atBottom()) rejoin();
+	};
+	return { isBrowsing: () => browsing, updateHead };
 }
