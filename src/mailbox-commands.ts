@@ -6,6 +6,7 @@ import {
 	receiveHolds,
 	recordDecision,
 } from './mail-attention.ts';
+import { applyBulkArchive, previewBulkArchive } from './mail-bulk-archive.ts';
 import { locked } from './mail-files.ts';
 import { currentAgent } from './mail-identity.ts';
 import { confirmMessage, header, readOwnChunk, receiveMail, statePath } from './mail-read.ts';
@@ -39,6 +40,7 @@ const actions = new Set([
 	'reply',
 	'confirm',
 	'ack-self',
+	'bulk-archive',
 	'hold',
 	'record-decision',
 	'status',
@@ -56,6 +58,8 @@ export type ScopedMailResult =
 	| Awaited<ReturnType<typeof holdMessage>>
 	| Awaited<ReturnType<typeof recordDecision>>
 	| Awaited<ReturnType<typeof sentStatus>>
+	| Awaited<ReturnType<typeof previewBulkArchive>>
+	| Awaited<ReturnType<typeof applyBulkArchive>>
 	| (Awaited<ReturnType<typeof deliveryView>> &
 			Awaited<ReturnType<typeof responseStatusView>> & {
 				wakeErrors: Awaited<ReturnType<typeof wakeErrors>>;
@@ -118,6 +122,10 @@ export async function scopedMail(args: string[]): Promise<ScopedMailResult> {
 		await acknowledgeHandled(name, first);
 		return { id: first, state: 'handled' };
 	}
+	if (action === 'bulk-archive' && first === 'preview' && args.length <= 3)
+		return previewBulkArchive(name, second);
+	if (action === 'bulk-archive' && first === 'apply' && second && args.length === 3)
+		return applyBulkArchive(name, second);
 	if (action === 'hold' && first && second && third && args.length === 4)
 		return holdMessage(name, first, second, third);
 	if (action === 'record-decision' && first && second && third && args.length === 4)

@@ -6,6 +6,8 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Added
 
+- Own mailbox bulk archive previews bounded inbox pages and moves fully read, unheld receipt mail
+  into retained history after checking the previewed inputs again. Other mail stays pending.
 - The Team Room lets the operator explicitly mark a message read, shows a post-based unread count
   and first-unread divider, and saves a separate last-visible bookmark on leave. Both places survive
   a Team Window restart and can be reached through bounded history pages without advancing an

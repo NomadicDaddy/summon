@@ -125,6 +125,8 @@ Mailbox (does not launch a session):
   summon --mail reply|confirm <message-id> <text>
   send, send-self and reply also accept --body-file <UTF-8-path> instead of <text>.
   summon --mail ack-self <message-id>
+  summon --mail bulk-archive preview [after-id]   Own inbox, read-only page.
+  summon --mail bulk-archive apply <plan>          Archive eligible own read receipts.
   summon --mail hold <message-id> <reason> <proposed-action>
   summon --mail record-decision <hold-id> <approve|decline> <user-reference>
   summon --mail read-self <message-id> --offset <bytes> --limit <bytes>
