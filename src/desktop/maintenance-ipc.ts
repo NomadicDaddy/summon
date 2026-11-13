@@ -22,11 +22,16 @@ import { stopRestSession } from './rest-stop.ts';
 import { stopIfConfirmed } from './stop-evidence.ts';
 import { usageFor } from './usage.ts';
 
+/**
+ * Registers the maintenance handlers, and returns the flush for the pane-switch timing ring,
+ * which main awaits at quit beside the scan ring's (Morgan #47623). A switch whose record is
+ * still waiting in the renderer for its paint sample (up to 1 s) has not reached it yet.
+ */
 export function maintenanceIpc(
 	team: Team,
 	trusted: (event: Electron.IpcMainInvokeEvent) => void,
 	settingsChanged?: (settings: TeamSettings) => void,
-): void {
+): () => Promise<void> {
 	ipcMain.handle('team:provider-setup', (event) => {
 		trusted(event);
 		return providerSetupCatalog;
@@ -191,4 +196,5 @@ export function maintenanceIpc(
 		if (team.selected === slug) team.selected = '';
 		await team.publish();
 	});
+	return switchTimings.flush;
 }

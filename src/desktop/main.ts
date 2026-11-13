@@ -141,7 +141,7 @@ if (!app.requestSingleInstanceLock()) {
 				await viewing.set(paused);
 				await team.publish();
 			});
-			maintenanceIpc(team, trusted, (settings) => {
+			const flushSwitches = maintenanceIpc(team, trusted, (settings) => {
 				applyHoldPolicy(settings);
 				viewing.refresh();
 			});
@@ -251,7 +251,7 @@ if (!app.requestSingleInstanceLock()) {
 			const shutdown = createWindowShutdown({
 				stopPolling: async () => {
 					await timers.stop();
-					await mentionMetrics.flush();
+					await Promise.all([mentionMetrics.flush(), flushSwitches()]);
 				},
 				startPolling: timers.start,
 				setClosing: (value) => {
