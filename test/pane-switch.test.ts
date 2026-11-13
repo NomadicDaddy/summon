@@ -175,7 +175,7 @@ test('a paint frame that never comes is bounded: the switch is recorded without 
 	expect(h.reports[0]?.outcome).toBe('complete');
 });
 
-test('a switch record is written within a second, not on the 30-second timer (Morticia #47617)', async () => {
+test('a switch record is written within a second, not on the 30-second timer (Morticia #47619)', async () => {
 	const writes: string[] = [];
 	const recorder = createMentionScanRecorder(
 		'fixture.json',
