@@ -3,12 +3,14 @@ import * as fs from 'node:fs/promises';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import type { RestScanDiagnostic } from '../src/desktop/rest.ts';
+
 import { initializeActivity } from '../src/agent-activity.ts';
 import { tickRest } from '../src/desktop/rest.ts';
 import { Team } from '../src/desktop/team.ts';
 import { locked, optionalText } from '../src/mail-files.ts';
 import { readRest, refreshRest, restCommand, restSuppressed } from '../src/rest.ts';
-import { loadAgent, saveAgent } from '../src/store.ts';
+import { loadAgent, newRecord, saveAgent } from '../src/store.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
 
 let fixture: Awaited<ReturnType<typeof mailHarness>>;
@@ -44,10 +46,13 @@ test('roster observes a committed confirmation during contention; wakes wait wit
 			throw new Error('No contention test may start a provider');
 		},
 	);
+	let diagnostic: RestScanDiagnostic | undefined;
 	await locked(join(fixture.records, 'runtime/alpha/rest.json.lock'), async () => {
 		const [snapshot, tick, suppression] = await Promise.allSettled([
 			team.snapshot(),
-			tickRest(team),
+			tickRest(team, undefined, (value) => {
+				diagnostic = value;
+			}),
 			restSuppressed('alpha'),
 		]);
 		expect(snapshot.status).toBe('fulfilled');
@@ -60,7 +65,38 @@ test('roster observes a committed confirmation during contention; wakes wait wit
 		expect(events).toHaveLength(0);
 		expect(await readRest('alpha')).toEqual(saved);
 	});
+	expect(diagnostic?.ownerCount).toBe(2);
+	expect(diagnostic?.slowestOwners.find((owner) => owner.name === 'alpha')?.outcome).toBe(
+		'lock-busy',
+	);
 	expect((await refreshRest('alpha'))?.id).toBe(saved?.id);
+}, 15000);
+
+test('rest diagnostics retain only the slowest eight owners and account for the remainder', async () => {
+	for (const name of ['gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta', 'iota']) {
+		await writeFile(
+			join(fixture.records, `${name}.json`),
+			JSON.stringify(newRecord(name, fixture.root, 'claude')),
+		);
+	}
+	const team = new Team(
+		'bun',
+		'cli.ts',
+		() => {},
+		() => {
+			throw new Error('No diagnostic test may start a provider');
+		},
+	);
+	let diagnostic: RestScanDiagnostic | undefined;
+	await tickRest(team, undefined, (value) => {
+		diagnostic = value;
+	});
+	if (!diagnostic) throw new Error('Missing rest diagnostic');
+	expect(diagnostic.ownerCount).toBe(9);
+	expect(diagnostic.slowestOwners).toHaveLength(8);
+	expect(new Set(diagnostic.slowestOwners.map((owner) => owner.name)).size).toBe(8);
+	expect(Number.isFinite(diagnostic.otherOwnersMs)).toBe(true);
+	expect(diagnostic.otherOwnersMs).toBeGreaterThanOrEqual(0);
 }, 15000);
 
 test('readiness with a configured PM and Telegram stays local and releases its lock', async () => {
