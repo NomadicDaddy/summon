@@ -82,6 +82,9 @@ test('real CLI pages owned schedule IDs, rejects changed generations and never r
 		expect(page.readOnly).toBe(true);
 		expect(page.applyAvailable).toBe(false);
 		expect(page.eligibleCount).toBe(0);
+		expect(page.eligibleCount).toBe(
+			page.rows.filter((row) => row.status === 'CANDIDATE').length,
+		);
 		expect(page.rows).toHaveLength(10);
 		expect(page.rows.every((row) => row.status === 'KEEP' && row.stateAfterHash === null)).toBe(
 			true,
@@ -92,6 +95,13 @@ test('real CLI pages owned schedule IDs, rejects changed generations and never r
 		expect((JSON.parse(second.stdout) as { rows: unknown[] }).rows).toHaveLength(1);
 		expect(await readFile(path, 'utf8')).toBe(original);
 		expect((await invoke(root, ['apply'])).code).not.toBe(0);
+		const malformed = await invoke(root, [
+			'preview',
+			'--cursor',
+			Buffer.from('not-json').toString('base64url'),
+		]);
+		expect(malformed.code).not.toBe(0);
+		expect(malformed.stderr).toContain('Invalid retention cursor');
 		await writeFile(path, JSON.stringify({ ...state, runs: state.runs.slice(1) }));
 		const stale = await invoke(root, ['preview', '--cursor', page.next ?? '']);
 		expect(stale.code).not.toBe(0);

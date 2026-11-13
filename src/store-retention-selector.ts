@@ -101,9 +101,9 @@ function keepReason(proof: RetentionProof): string | null {
 			if (!proof.successorDurable || !proof.exactIdOperationsSettled)
 				return 'schedule-duty-unsettled';
 			if (
-				!proof.runId ||
-				!proof.stateBeforeHash ||
-				!proof.stateAfterHash ||
+				proof.runId !== proof.identity ||
+				!proof.stateBeforeHash?.match(/^[a-f0-9]{64}$/) ||
+				!proof.stateAfterHash?.match(/^[a-f0-9]{64}$/) ||
 				proof.stateBeforeHash !== proof.generationBefore ||
 				proof.stateBeforeHash === proof.stateAfterHash
 			)

@@ -28,7 +28,14 @@ function digest(bytes: Buffer): string {
 function decodeCursor(token: string): Cursor {
 	if (token.length > 512 || !/^[A-Za-z0-9_-]+$/.test(token))
 		throw new Error('Invalid retention cursor.');
-	const value = JSON.parse(Buffer.from(token, 'base64url').toString('utf8')) as Cursor;
+	let raw: unknown;
+	try {
+		raw = JSON.parse(Buffer.from(token, 'base64url').toString('utf8')) as unknown;
+	} catch {
+		throw new Error('Invalid retention cursor.');
+	}
+	if (!raw || typeof raw !== 'object') throw new Error('Invalid retention cursor.');
+	const value = raw as Cursor;
 	if (
 		value.version !== VERSION ||
 		(value.owner !== null && typeof value.owner !== 'string') ||
@@ -103,7 +110,7 @@ export async function storeRetentionCommand(args: string[]): Promise<void> {
 			version: VERSION,
 			readOnly: true,
 			applyAvailable: false,
-			eligibleCount: 0,
+			eligibleCount: rows.filter((row) => row.status === 'CANDIDATE').length,
 			coverage: {
 				'schedule-run': 'incomplete',
 				mail: 'not-enumerated',

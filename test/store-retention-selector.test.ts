@@ -109,6 +109,14 @@ test('unknown ownership, link, open handle, incomplete graph and changed generat
 		{ ...proof, generationAfter: successorHash },
 		{ ...proof, references: ['live-reader'] },
 		{ ...proof, stateAfterHash: hash },
+		{ ...proof, runId: 'another-run' },
+		{
+			...proof,
+			stateBeforeHash: 'not-a-hash',
+			generationBefore: 'not-a-hash',
+			generationAfter: 'not-a-hash',
+		},
+		{ ...proof, stateAfterHash: 'not-a-hash' },
 	])
 		expect(selectRetentionRow(unsafe).status).toBe('KEEP');
 });
