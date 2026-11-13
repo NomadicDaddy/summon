@@ -199,6 +199,34 @@ test('a switch record is written within a second, not on the 30-second timer (Mo
 	expect(writes[0]).toContain('"kind":"switch"');
 });
 
+// Shutdown (Roger #47667): a switch main has already received is written by the quit flush at
+// once, without waiting for the urgent timer. A click whose record is still waiting in the
+// renderer for its paint sample hasn't reached main and isn't covered; that's the stated bound.
+test('the quit flush writes a switch main has already received, without waiting', async () => {
+	const writes: string[] = [];
+	const recorder = createMentionScanRecorder(
+		'fixture.json',
+		() => undefined,
+		(_path, text) => {
+			writes.push(text);
+			return Promise.resolve();
+		},
+	);
+	recorder.record({
+		kind: 'switch',
+		at: '2026-11-13T20:00:00.000Z',
+		durationMs: 40,
+		paintMs: 16,
+		ipcWaitMs: 2,
+		selectMs: 30,
+		outcome: 'complete',
+	});
+	expect(writes).toHaveLength(0);
+	await recorder.flush();
+	expect(writes).toHaveLength(1);
+	expect(writes[0]).toContain('"kind":"switch"');
+});
+
 test('a click on a member the renderer does not know paints nothing early', () => {
 	const h = harness();
 	h.view.snapshot(snapshotFor('ada'));
