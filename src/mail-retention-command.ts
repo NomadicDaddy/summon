@@ -34,7 +34,7 @@ function keepRule(section: string, plain: boolean, verified: boolean, pinned: bo
 }
 
 /** Read-only first slice: no candidate is eligible without the combined reviewed graph. */
-async function mailRetentionPreview(args: string[]) {
+export async function mailRetentionPreview(args: string[]) {
 	const owner = currentAgent();
 	let pinsFile: string | undefined;
 	let token: string | undefined;

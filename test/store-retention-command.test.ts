@@ -39,7 +39,7 @@ async function invoke(root: string, args: string[]) {
 	return { stdout, stderr, code };
 }
 
-test('real CLI pages owned schedule IDs, rejects changed generations and never rewrites state', async () => {
+test('real CLI pages owned schedule IDs and guarded own mail without changing state', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'summon-store-retention-'));
 	const target = resolve(root);
 	if (
@@ -76,12 +76,14 @@ test('real CLI pages owned schedule IDs, rejects changed generations and never r
 			readOnly: boolean;
 			applyAvailable: boolean;
 			eligibleCount: number;
+			eligibleCountScope: string;
 			rows: { runId: string; status: string; stateAfterHash: string | null }[];
 			next: string | null;
 		};
 		expect(page.readOnly).toBe(true);
 		expect(page.applyAvailable).toBe(false);
 		expect(page.eligibleCount).toBe(0);
+		expect(page.eligibleCountScope).toBe('page');
 		expect(page.eligibleCount).toBe(
 			page.rows.filter((row) => row.status === 'CANDIDATE').length,
 		);
@@ -106,6 +108,31 @@ test('real CLI pages owned schedule IDs, rejects changed generations and never r
 		const stale = await invoke(root, ['preview', '--cursor', page.next ?? '']);
 		expect(stale.code).not.toBe(0);
 		expect(stale.stderr).toContain('Retention inputs changed');
+		const archive = join(root, 'mailboxes', owner, 'archive');
+		await mkdir(archive, { recursive: true });
+		await writeFile(join(archive, `${run(1).id}.md`), 'private fixture body');
+		const mail = await invoke(root, ['preview', '--family', 'mail']);
+		if (mail.code !== 0) throw new Error(mail.stderr);
+		expect(mail.stdout).not.toContain('private fixture body');
+		const mailPage = JSON.parse(mail.stdout) as {
+			owner: string;
+			eligibleCount: number;
+			eligibleCountScope: string;
+			inventoryComplete: boolean;
+			errorCount: number;
+			rows: { family: string; status: string; referencesComplete: boolean }[];
+		};
+		expect(mailPage.owner).toBe(owner);
+		expect(mailPage.eligibleCount).toBe(0);
+		expect(mailPage.eligibleCountScope).toBe('page');
+		expect(mailPage.inventoryComplete).toBe(true);
+		expect(mailPage.errorCount).toBe(0);
+		expect(mailPage.rows).toHaveLength(1);
+		expect(mailPage.rows[0]).toMatchObject({
+			family: 'mail',
+			status: 'KEEP',
+			referencesComplete: false,
+		});
 	} finally {
 		await rm(target, { recursive: true, force: true });
 	}

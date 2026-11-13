@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { currentAgent } from './mail-identity.ts';
+import { mailRetentionPreview } from './mail-retention-command.ts';
 import { listSchedules } from './schedules.ts';
 import { selectRetentionRow } from './store-retention-selector.ts';
 import { storageRoot } from './store.ts';
@@ -50,15 +51,69 @@ function decodeCursor(token: string): Cursor {
 
 /** First live slice: enumerate exact scheduled-run IDs without changing state. */
 export async function storeRetentionCommand(args: string[]): Promise<void> {
-	if (
-		args[0] !== 'preview' ||
-		args.length > 3 ||
-		(args.length === 3 && args[1] !== '--cursor') ||
-		args.length === 2
-	)
-		throw new Error('Usage: summon --store-retention preview [--cursor <token>]');
-	const token = args[2];
-	if (args.length === 3 && !token) throw new Error('Invalid retention cursor.');
+	if (args[0] !== 'preview' || args.length % 2 === 0)
+		throw new Error(
+			'Usage: summon --store-retention preview [--family schedule-run|mail] [--cursor <token>]',
+		);
+	let family: 'schedule-run' | 'mail' = 'schedule-run';
+	let token: string | undefined;
+	let familySet = false;
+	for (let index = 1; index < args.length; index += 2) {
+		const option = args[index];
+		const value = args[index + 1];
+		if (!value) throw new Error('Retention preview options require a value.');
+		if (option === '--family' && !familySet && (value === 'schedule-run' || value === 'mail')) {
+			family = value;
+			familySet = true;
+		} else if (option === '--cursor' && token === undefined) token = value;
+		else throw new Error('Unknown or repeated retention preview option.');
+	}
+	if (family === 'mail') {
+		const inventory = await mailRetentionPreview([
+			'preview',
+			...(token ? ['--cursor', token] : []),
+		]);
+		const rows = inventory.rows.map((row) => ({
+			family: 'mail',
+			path: row.path,
+			owner: inventory.owner,
+			identity: row.id,
+			sha256: row.sha256,
+			bytes: row.bytes,
+			generation: inventory.inventorySha256,
+			references: [],
+			referencesComplete: false,
+			status: 'KEEP',
+			reason: row.rule,
+		}));
+		console.log(
+			JSON.stringify({
+				version: VERSION,
+				readOnly: true,
+				applyAvailable: false,
+				owner: inventory.owner,
+				root: inventory.root,
+				eligibleCount: 0,
+				eligibleCountScope: 'page',
+				inventoryComplete: inventory.coverage.inventoryComplete,
+				errorCount: inventory.errorCount,
+				observedEntries: inventory.observedEntries,
+				inspectedEntries: inventory.inspectedEntries,
+				coverage: {
+					'schedule-run': 'not-enumerated',
+					mail: 'own-top-level-only',
+					wake: 'not-enumerated',
+					'room-image': 'not-enumerated',
+					compaction: 'not-enumerated',
+				},
+				rows,
+				next: inventory.next,
+				instruction:
+					'Own-mail guarded observation only. All rows KEEP. No cross-owner reference graph or deletion manifest.',
+			}),
+		);
+		return;
+	}
 	const cursor = token ? decodeCursor(token) : undefined;
 	const owner = process.env.SUMMON_AGENT ? currentAgent() : null;
 	const path = join(storageRoot(), 'schedules', 'state.json');
@@ -111,6 +166,7 @@ export async function storeRetentionCommand(args: string[]): Promise<void> {
 			readOnly: true,
 			applyAvailable: false,
 			eligibleCount: rows.filter((row) => row.status === 'CANDIDATE').length,
+			eligibleCountScope: 'page',
 			coverage: {
 				'schedule-run': 'incomplete',
 				mail: 'not-enumerated',
