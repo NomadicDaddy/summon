@@ -199,7 +199,7 @@ test('a switch record is written within a second, not on the 30-second timer (Mo
 	expect(writes[0]).toContain('"kind":"switch"');
 });
 
-// Shutdown (Roger #47667): a switch main has already received is written by the quit flush at
+// Shutdown (Morgan #47670): a switch main has already received is written by the quit flush at
 // once, without waiting for the urgent timer. A click whose record is still waiting in the
 // renderer for its paint sample hasn't reached main and isn't covered; that's the stated bound.
 test('the quit flush writes a switch main has already received, without waiting', async () => {
