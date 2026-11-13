@@ -83,6 +83,18 @@ test('mention polling persists each event cursor and recovers only once', async 
 		const firstScan = h.diagnostics[0];
 		if (firstScan?.kind !== 'scan') throw new Error('Missing first scan diagnostic');
 		expect(firstScan.outcome).toBe('complete');
+		expect(firstScan.rest?.ownerCount).toBe(2);
+		expect(firstScan.rest?.slowestOwners.map((owner) => owner.name).sort()).toEqual([
+			'alpha',
+			'beta',
+		]);
+		expect(firstScan.rest?.slowestOwners).toHaveLength(2);
+		const firstOwner = firstScan.rest?.slowestOwners[0];
+		expect(firstOwner?.outcome).toBe('unchanged');
+		expect(Number.isFinite(firstOwner?.durationMs)).toBe(true);
+		expect(Number.isFinite(firstOwner?.wakeMs)).toBe(true);
+		expect(Number.isFinite(firstOwner?.cacheMs)).toBe(true);
+		expect(Number.isFinite(firstOwner?.errorMs)).toBe(true);
 		for (const stage of [
 			'hibernation',
 			'communication',

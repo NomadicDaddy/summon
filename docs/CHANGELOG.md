@@ -17,6 +17,10 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
   polling cadence. Consecutive overlap ticks are folded so a long stall retains its preceding scan.
   The record is written under the Window runtime directory. Repeated write failures with the same
   error code and syscall are reported once until either changes or a write succeeds.
+- The mention-scan timing record now includes rest-stop handling, member-list reads, and the eight
+  slowest members' rest wake, cache and error timings. It retains only member names, counts,
+  durations and outcome labels in the existing bounded diagnostic, so the remaining rest-stage
+  delay can be traced before changing rest behavior.
 - Running Kilo seats can show a timestamped provider-limit observation in the Team roster when the
   exact launch's completed session reports a validated zai-coding-plan HTTP 429 with code 1310. A
   later completed error-free result with stop, tool-calls or length finish clears it; unreadable

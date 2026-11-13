@@ -1,3 +1,5 @@
+import type { RestScanDiagnostic } from './rest.ts';
+
 import { atomicWrite } from '../mail-files.ts';
 
 export type MentionScanStage =
@@ -18,6 +20,7 @@ export type MentionScanDiagnostic =
 			at: string;
 			durationMs: number;
 			stagesMs: Partial<Record<MentionScanStage, number>>;
+			rest?: RestScanDiagnostic;
 			skippedTicks: number;
 			outcome: 'complete' | 'paused' | 'failed';
 	  }

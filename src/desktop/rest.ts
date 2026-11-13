@@ -14,40 +14,127 @@ import { nudgeRest } from './rest-nudge.ts';
 import { stopRestSession } from './rest-stop.ts';
 import { clearWakeError, reportWakeError } from './team-wake-errors.ts';
 
-export async function tickRest(team: Team, cache?: RestScanCache): Promise<void> {
+export interface RestScanDiagnostic {
+	stopRequestsMs: number;
+	listOwnersMs: number;
+	ownerCount: number;
+	otherOwnersMs: number;
+	slowestOwners: {
+		name: string;
+		durationMs: number;
+		wakeMs: number;
+		cacheMs: number;
+		errorMs: number;
+		outcome: 'woken' | 'unchanged' | 'lock-busy' | 'failed';
+	}[];
+}
+
+/** Bounded, content-free timings for the existing mention-scan diagnostic. */
+export async function tickRest(
+	team: Team,
+	cache?: RestScanCache,
+	onDiagnostic?: (diagnostic: RestScanDiagnostic) => void,
+): Promise<void> {
 	if (team.closing || (await communicationState()).paused) return;
-	await processRestStops(
-		async (name, confirmation) => {
-			const session = team.sessions.get(name);
-			if (session?.agent.status !== 'running')
-				throw new Error(
-					`${name}: session is not running in this Team Window. External sessions are not stopped.`,
-				);
-			await stopForRest(
-				name,
-				confirmation,
-				(nonce) => stopRestSession(team, name, nonce),
-				session.agent.provider,
-			);
-		},
-		(error, name) => team.error(error, name),
-	);
-	const failures: unknown[] = [];
-	for (const name of await listAgentSlugs()) {
+	const diagnostic: RestScanDiagnostic = {
+		stopRequestsMs: 0,
+		listOwnersMs: 0,
+		ownerCount: 0,
+		otherOwnersMs: 0,
+		slowestOwners: [],
+	};
+	const owners: RestScanDiagnostic['slowestOwners'] = [];
+	try {
+		const stopStarted = performance.now();
 		try {
-			if (await tickRestOwner(team, name)) await clearWakeError(`${name} rest wake`, name);
-			cache?.set(name, await readRest(name));
-		} catch (error: unknown) {
-			// A concurrent ready/stop transaction is not a failed wake. The next tick retries.
-			if (error instanceof LockBusyError) continue;
+			await processRestStops(
+				async (name, confirmation) => {
+					const session = team.sessions.get(name);
+					if (session?.agent.status !== 'running')
+						throw new Error(
+							`${name}: session is not running in this Team Window. External sessions are not stopped.`,
+						);
+					await stopForRest(
+						name,
+						confirmation,
+						(nonce) => stopRestSession(team, name, nonce),
+						session.agent.provider,
+					);
+				},
+				(error, name) => team.error(error, name),
+			);
+		} finally {
+			diagnostic.stopRequestsMs = Math.round(performance.now() - stopStarted);
+		}
+		const failures: unknown[] = [];
+		const listStarted = performance.now();
+		const names = await listAgentSlugs();
+		diagnostic.listOwnersMs = Math.round(performance.now() - listStarted);
+		diagnostic.ownerCount = names.length;
+		for (const name of names) {
+			const ownerStarted = performance.now();
+			let wakeMs = 0;
+			let cacheMs = 0;
+			let errorMs = 0;
+			let outcome: (typeof owners)[number]['outcome'] = 'unchanged';
 			try {
-				await reportWakeError(team, `${name} rest wake`, error, name);
-			} catch (persistError: unknown) {
-				failures.push(persistError);
+				const wakeStarted = performance.now();
+				try {
+					if (await tickRestOwner(team, name)) {
+						outcome = 'woken';
+						await clearWakeError(`${name} rest wake`, name);
+					}
+				} finally {
+					wakeMs = Math.round(performance.now() - wakeStarted);
+				}
+				const cacheStarted = performance.now();
+				try {
+					cache?.set(name, await readRest(name));
+				} finally {
+					cacheMs = Math.round(performance.now() - cacheStarted);
+				}
+			} catch (error: unknown) {
+				// A concurrent ready/stop transaction is not a failed wake. The next tick retries.
+				if (error instanceof LockBusyError) outcome = 'lock-busy';
+				else {
+					outcome = 'failed';
+					const errorStarted = performance.now();
+					try {
+						await reportWakeError(team, `${name} rest wake`, error, name);
+					} catch (persistError: unknown) {
+						failures.push(persistError);
+					} finally {
+						errorMs = Math.round(performance.now() - errorStarted);
+					}
+				}
+			} finally {
+				owners.push({
+					name,
+					durationMs: Math.round(performance.now() - ownerStarted),
+					wakeMs,
+					cacheMs,
+					errorMs,
+					outcome,
+				});
 			}
 		}
+		if (failures.length)
+			throw new AggregateError(failures, 'Could not retain rest wake errors.');
+	} finally {
+		owners.sort(
+			(left, right) =>
+				right.durationMs - left.durationMs || left.name.localeCompare(right.name),
+		);
+		diagnostic.slowestOwners = owners.slice(0, 8);
+		diagnostic.otherOwnersMs = owners
+			.slice(8)
+			.reduce((sum, owner) => sum + owner.durationMs, 0);
+		try {
+			onDiagnostic?.(diagnostic);
+		} catch (error: unknown) {
+			team.error(error);
+		}
 	}
-	if (failures.length) throw new AggregateError(failures, 'Could not retain rest wake errors.');
 }
 
 async function tickRestOwner(team: Team, name: string): Promise<boolean> {

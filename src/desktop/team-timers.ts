@@ -1,5 +1,6 @@
 import type { RestScanCache } from '../rest.ts';
 import type { MentionScanDiagnostic, MentionScanStage } from './mention-scan-metrics.ts';
+import type { RestScanDiagnostic } from './rest.ts';
 import type { Team } from './team.ts';
 import type { TeamEvent } from './types.ts';
 
@@ -73,6 +74,7 @@ export function createTeamTimers(deps: TimerDependencies): {
 			const started = performance.now();
 			mentionStarted = started;
 			const stagesMs: Partial<Record<MentionScanStage, number>> = {};
+			let restDiagnostic: RestScanDiagnostic | undefined;
 			let outcome: 'complete' | 'paused' | 'failed' = 'complete';
 			const measure = async <T>(
 				stage: MentionScanStage,
@@ -103,7 +105,9 @@ export function createTeamTimers(deps: TimerDependencies): {
 					tickSchedules(team).catch((error: unknown) => team.error(error)),
 				);
 				await measure('rest', () =>
-					tickRest(team, restCache).catch((error: unknown) => team.error(error)),
+					tickRest(team, restCache, (diagnostic) => {
+						restDiagnostic = diagnostic;
+					}).catch((error: unknown) => team.error(error)),
 				);
 				if (!recoveredMentions) {
 					if (await measure('settings', readWakeOnMention)) {
@@ -142,6 +146,7 @@ export function createTeamTimers(deps: TimerDependencies): {
 					at: new Date().toISOString(),
 					durationMs: Math.round(performance.now() - started),
 					stagesMs,
+					...(restDiagnostic ? { rest: restDiagnostic } : {}),
 					skippedTicks: skippedMentionTicks,
 					outcome,
 				});
