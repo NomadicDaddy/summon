@@ -18,15 +18,23 @@ if (localStorage.getItem('room-read-place:default') === null)
 	);
 const bridge = {
 	roomTail: () => Promise.resolve(150),
-	roomRead: (after: number) => {
+	// With `readDelay` set, each read waits that long and `readInFlight` is true meanwhile, so the
+	// test can scroll while a refresh is provably in flight.
+	roomRead: async (after: number) => {
+		const control = window as unknown as { readDelay?: number; readInFlight?: boolean };
+		if (control.readDelay) {
+			control.readInFlight = true;
+			await new Promise((resolve) => setTimeout(resolve, control.readDelay));
+			control.readInFlight = false;
+		}
 		const page = events.filter((event) => event.id > after).slice(0, 20);
-		return Promise.resolve({
+		return {
 			events: page,
 			nextCursor: page.at(-1)?.id ?? after,
 			more: after + page.length < events.length,
 			paused: false,
 			communication: { paused: false, changedAt: 0, attribution: null },
-		});
+		};
 	},
 	roomBefore: (before: number) => {
 		const prior = events.filter((event) => event.id < before);

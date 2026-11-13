@@ -158,11 +158,15 @@ export function setupRoomHistory(
 		showLatest();
 	};
 	latest.addEventListener('click', leaveHistory);
-	// Called after each refresh has settled. A reader already at the bottom of a caught-up page
-	// rejoins here, since no scroll event will come to do it.
+	// Called after each refresh has settled. A reader at the bottom gets what the scroll handler
+	// would have given them: the scroll may have come while the refresh was in flight and been
+	// dropped, or the page may be too short to scroll at all, and no further scroll event will
+	// come (Roger #45001, Morticia #44997).
 	const updateHead = (): void => {
 		buttons();
-		if (browsing && atBottom()) rejoin();
+		if (!browsing || !atBottom()) return;
+		if (caughtUp()) rejoin();
+		else loadNewer();
 	};
 	return { isBrowsing: () => browsing, updateHead };
 }

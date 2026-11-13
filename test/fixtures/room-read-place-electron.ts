@@ -213,6 +213,19 @@ void app.whenReady().then(async () => {
 		await click(window, '#room-toggle');
 		await until(window, `!!document.getElementById('room-message-${restored.leftAt}')`);
 		await until(window, "!document.getElementById('room-load-newer').hidden");
+		// A scroll to the bottom while a refresh is in flight is dropped by the scroll handler, so
+		// the settled refresh must load the next page itself; no second scroll comes (Roger #45001).
+		const lastBefore = (await window.webContents.executeJavaScript(
+			"Number([...document.querySelectorAll('#room-messages article[data-room-id]')].at(-1)?.dataset.roomId)",
+		)) as number;
+		await window.webContents.executeJavaScript('window.readDelay = 900');
+		await until(window, 'window.readInFlight === true');
+		await window.webContents.executeJavaScript(
+			"(() => { const m = document.getElementById('room-messages'); m.scrollTop = m.scrollHeight; })()",
+		);
+		await delay(2500);
+		await until(window, `!!document.getElementById('room-message-${lastBefore + 1}')`);
+		await window.webContents.executeJavaScript('window.readDelay = 0');
 		for (let step = 0; step < 40; step++) {
 			const done = (await window.webContents.executeJavaScript(
 				"document.getElementById('room-load-newer').hidden",
