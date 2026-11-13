@@ -48,6 +48,11 @@ test('rest reads reuse an unchanged validated schedule state and retain finished
 	const first = await restSchedules();
 	expect(await restSchedules()).toBe(first);
 	expect(first.runs).toEqual([finished]);
+	expect(Object.isFrozen(first)).toBe(true);
+	expect(Object.isFrozen(first.schedules)).toBe(true);
+	expect(Object.isFrozen(first.schedules[0])).toBe(true);
+	expect(Object.isFrozen(first.runs)).toBe(true);
+	expect(Object.isFrozen(first.runs[0])).toBe(true);
 
 	// Public list callers get a separate mutable read; they cannot poison rest's cached value.
 	const listed = await listSchedules();

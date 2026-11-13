@@ -54,10 +54,21 @@ const read = async (): Promise<State> => {
 		? stateSchema.parse(JSON.parse(raw) as unknown)
 		: { version: 1, schedules: [], runs: [] };
 };
+const frozenRestRead = async (): Promise<State> => {
+	const state = await read();
+	for (const item of state.schedules) {
+		if (item.deferred) Object.freeze(item.deferred);
+		Object.freeze(item);
+	}
+	for (const item of state.runs) Object.freeze(item);
+	Object.freeze(state.schedules);
+	Object.freeze(state.runs);
+	return Object.freeze(state);
+};
 // Rest checks run once per member on each Window scan. Revalidate the file identity on every
 // read, but parse its retained run history only when the durable state has changed.
 const cachedRestRead = roomCache<State>();
-const restRead = (): Promise<State> => cachedRestRead(path(), read);
+const restRead = (): Promise<State> => cachedRestRead(path(), frozenRestRead);
 const save = (state: State): Promise<void> => atomicWrite(path(), JSON.stringify(state));
 const finished = (item: ScheduledRun): boolean => ['complete', 'failed'].includes(item.status);
 
