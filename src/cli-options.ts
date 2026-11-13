@@ -111,6 +111,8 @@ Options:
 Mailbox (does not launch a session):
   summon --mail-retention preview [--pins-file <path>] [--cursor <token>]
                           Own-only read-only metadata; all rows KEEP, apply unavailable.
+  summon --store-retention preview [--cursor <token>]
+                          Read-only scheduled-run IDs; all rows KEEP, other families not yet enumerated.
   summon --mail send <from> <to> <text>
   summon --mail check <name>
   summon --mail ack <name> <message-id>

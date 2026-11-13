@@ -6,6 +6,9 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Added
 
+- A read-only store-retention preview lists exact scheduled-run IDs in bounded pages,
+  binds cursors to the observed state hash, and keeps every run while ownership,
+  references, writer state, and a proposed after-state remain unproved.
 - Own mailbox bulk archive previews bounded inbox pages and moves fully read, unheld receipt mail
   into retained history after checking the previewed inputs again. Other mail stays pending.
 - The Team Room lets the operator explicitly mark a message read, shows a post-based unread count
