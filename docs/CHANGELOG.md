@@ -62,6 +62,8 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Fixed
 
+- Updated the MCP SDK's locked transitive `hono` and `@hono/node-server` versions to resolve
+  their reported dependency advisories. Summon's MCP channel continues to use stdio.
 - Switching teammates in the Team Window is immediate. The selected pane used to change only after
   the main process had rebuilt the whole roster snapshot, which reads every member in turn and
   waits behind a running scan, so a click could take many seconds. The pane now switches on the
