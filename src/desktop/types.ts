@@ -110,18 +110,18 @@ export type TeamEvent =
 			diagnosticSaved?: boolean;
 	  };
 
-/**
- * What team:stop answers: it stopped the session, the operator has to be asked first, or the stop
- * is unverified. Unverified is neither success nor an error: termination was attempted once and
- * the terminal has not reported its exit. `rootChecked` is false when the session's root process
- * could not be read; `detail` is the diagnostic for the fault journal, not for the banner.
- */
 /** What main measured for one select: its wait for the IPC call, and the snapshot it awaited. */
 export interface SelectTiming {
 	ipcWaitMs: number | null;
 	selectMs: number;
 }
 
+/**
+ * What team:stop answers: it stopped the session, the operator has to be asked first, or the stop
+ * is unverified. Unverified is neither success nor an error: termination was attempted once and
+ * the terminal has not reported its exit. `rootChecked` is false when the session's root process
+ * could not be read; `detail` is the diagnostic for the fault journal, not for the banner.
+ */
 export type StopResult =
 	| { needsConfirm: true }
 	| { stopped: true }

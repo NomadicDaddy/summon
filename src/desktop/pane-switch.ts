@@ -6,7 +6,12 @@ interface Switching {
 	clickedAt: number;
 	started: number;
 	paintMs: number | null;
+	/** Settles when the paint sample is taken; at once when nothing was previewed. */
+	painted: Promise<void>;
 }
+
+/** How long a finished switch waits for its paint sample before it's recorded without one. */
+const PAINT_WAIT_MS = 1_000;
 
 export interface PaneSwitchDeps {
 	render: (snapshot: TeamSnapshot) => void;
@@ -17,6 +22,7 @@ export interface PaneSwitchDeps {
 	now?: () => number;
 	clock?: () => number;
 	frame?: (callback: () => void) => void;
+	wait?: (ms: number) => Promise<void>;
 }
 
 function outcomeOf(superseded: boolean, ok: boolean): PaneSwitchDiagnostic['outcome'] {
@@ -42,11 +48,24 @@ export function paneSwitch(deps: PaneSwitchDeps): PaneSwitch {
 	const now = deps.now ?? (() => performance.now());
 	const clock = deps.clock ?? (() => Date.now());
 	const frame = deps.frame ?? ((callback: () => void) => requestAnimationFrame(callback));
+	const wait =
+		deps.wait ??
+		((ms: number) =>
+			new Promise<void>((resolve) => {
+				setTimeout(resolve, ms);
+			}));
 	let current: TeamSnapshot | null = null;
 	let pending: Switching | null = null;
 	const begin = (slug: string): Switching => {
-		pending = { slug, clickedAt: clock(), started: now(), paintMs: null };
-		return pending;
+		const switching: Switching = {
+			slug,
+			clickedAt: clock(),
+			started: now(),
+			paintMs: null,
+			painted: Promise.resolve(),
+		};
+		pending = switching;
+		return switching;
 	};
 	return {
 		preview: (slug) => {
@@ -54,10 +73,13 @@ export function paneSwitch(deps: PaneSwitchDeps): PaneSwitch {
 			const switching = begin(slug);
 			deps.render({ ...current, selected: slug });
 			// The second frame after the render is the first one the operator can see.
-			frame(() =>
-				frame(() => {
-					switching.paintMs = Math.round(now() - switching.started);
-				}),
+			switching.painted = new Promise<void>((resolve) =>
+				frame(() =>
+					frame(() => {
+						switching.paintMs = Math.round(now() - switching.started);
+						resolve();
+					}),
+				),
 			);
 		},
 		select: async (slug) => {
@@ -66,18 +88,23 @@ export function paneSwitch(deps: PaneSwitchDeps): PaneSwitch {
 			const ok = await deps.action(async () => {
 				result.timing = await deps.select(slug, switching.clickedAt);
 			});
+			const durationMs = Math.round(now() - switching.started);
 			const superseded = pending !== switching;
 			if (!superseded) pending = null;
-			deps.report({
-				kind: 'switch',
-				at: new Date(switching.clickedAt).toISOString(),
-				durationMs: Math.round(now() - switching.started),
-				paintMs: switching.paintMs,
-				ipcWaitMs: result.timing?.ipcWaitMs ?? null,
-				selectMs: result.timing?.selectMs ?? null,
-				outcome: outcomeOf(superseded, ok),
-			});
 			if (!ok && !superseded && current) deps.render(current);
+			// A select can answer before the pane's paint frame. The record waits for that sample,
+			// within a bound, so a fast switch isn't stored without its paint (Roger #47618).
+			void Promise.race([switching.painted, wait(PAINT_WAIT_MS)]).then(() =>
+				deps.report({
+					kind: 'switch',
+					at: new Date(switching.clickedAt).toISOString(),
+					durationMs,
+					paintMs: switching.paintMs,
+					ipcWaitMs: result.timing?.ipcWaitMs ?? null,
+					selectMs: result.timing?.selectMs ?? null,
+					outcome: outcomeOf(superseded, ok),
+				}),
+			);
 			return ok;
 		},
 		snapshot: (value) => {

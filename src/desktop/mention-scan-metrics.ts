@@ -138,8 +138,10 @@ export function createMentionScanRecorder(
 				records[records.length - 1] = diagnostic;
 			else records.push(diagnostic);
 			if (records.length > MAX_RECORDS) records.shift();
+			// Overlaps, slow scans and every switch are written within a second. Switches are rare
+			// operator clicks, and the ones just before a restart are the ones wanted (Morticia #47617).
 			schedule(
-				diagnostic.kind === 'overlap' || diagnostic.durationMs >= 2_000
+				diagnostic.kind !== 'scan' || diagnostic.durationMs >= 2_000
 					? URGENT_WRITE_MS
 					: NORMAL_WRITE_MS,
 			);
