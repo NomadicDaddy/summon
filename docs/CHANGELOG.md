@@ -34,6 +34,8 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 - Corrected the manual's guidance on automatic receipt archival, optional head-down approval, and
   configurable interruption holds.
 - Updated development dependency tooling to the approved fleet versions of Knip and typescript-eslint.
+- The Team Window sidebar footer now says closing the window requests shutdown of the sessions it
+  owns, matching SECURITY.md, instead of promising that it stops the whole team.
 - Checkpoint output explains an incomplete Telegram refresh in detail on the first page, then uses
   a shorter cached-only warning on later pages and the final receipt. Every page retains the full
   refresh reason and `telegramFresh: false`; poll contention remains distinct from request failure.
