@@ -8,7 +8,7 @@ import { notInInbox } from './mail-confirm-missing.ts';
 import { atomicWrite, locked, missing, optionalText } from './mail-files.ts';
 import { messageId, ownMailbox } from './mail-identity.ts';
 import { readChunk } from './mail-read-bytes.ts';
-import { header, readMailIndex, statePath } from './mail-read-index.ts';
+import { header, readIndexedChunk, readMailIndex, statePath } from './mail-read-index.ts';
 import { alreadyPublished } from './mail-replay.ts';
 import {
 	finishReadProjection,
@@ -96,28 +96,6 @@ function mailOrder(left: MailHeader, right: MailHeader): number {
 	return left.sent.localeCompare(right.sent) || left.id.localeCompare(right.id);
 }
 
-async function indexedBody(name: string, mail: MailHeader): Promise<MailChunk> {
-	try {
-		return await readChunk(name, mail.id);
-	} catch (error: unknown) {
-		if (!missing(error) || mail.kind !== 'receipt') throw error;
-		ownMailbox(name);
-		if (!(await optionalText(statePath(name, mail.id, 'read')))) throw error;
-		const archived = await header(name, mail.id, true);
-		if (
-			archived.from !== mail.from ||
-			archived.to !== mail.to ||
-			archived.sent !== mail.sent ||
-			archived.kind !== mail.kind ||
-			archived.size !== mail.size
-		)
-			throw new Error(`Archived receipt changed after inbox indexing: ${mail.id}`, {
-				cause: error,
-			});
-		return readChunk(name, mail.id, 0, 32768, true);
-	}
-}
-
 export async function receiveMail(
 	name: string,
 	cursor = '',
@@ -167,7 +145,7 @@ export async function receiveMail(
 				? undefined
 				: archive
 					? await readChunk(name, mail.id, 0, 32768, true)
-					: await indexedBody(name, mail);
+					: await readIndexedChunk(name, mail);
 		let entry: { header: MailHeader; text?: string; oversized?: boolean } = chunk
 			? { header: mail, text: chunk.text }
 			: { header: mail, oversized: true };

@@ -3,12 +3,15 @@ import type { MailHeader } from './mail-read.ts';
 
 import { missing, optionalText } from './mail-files.ts';
 import { ownMailbox } from './mail-identity.ts';
+import { readIndexedChunk } from './mail-read-index.ts';
 import { header, readChunk, readMailIndex, statePath } from './mail-read.ts';
 
 async function completeMail(name: string, mail: MailHeader, archive = false): Promise<string> {
 	let text = '';
 	for (let offset = 0; offset < mail.size;) {
-		const chunk = await readChunk(name, mail.id, offset, 32768, archive);
+		const chunk = archive
+			? await readChunk(name, mail.id, offset, 32768, true)
+			: await readIndexedChunk(name, mail, offset);
 		if (chunk.size !== mail.size || chunk.end <= offset)
 			throw new Error(
 				'Current mail changed during reading. Restart the focused read; no receipt was changed.',

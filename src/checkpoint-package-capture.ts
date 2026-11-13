@@ -13,7 +13,8 @@ import { cachedLocalEvents } from './local-room.ts';
 import { ownHolds } from './mail-attention.ts';
 import { missing, optionalText } from './mail-files.ts';
 import { ownMailbox } from './mail-identity.ts';
-import { readChunk, readMailIndex, statePath } from './mail-read.ts';
+import { readIndexedChunk } from './mail-read-index.ts';
+import { readMailIndex, statePath } from './mail-read.ts';
 import { checkpointRoomEvents } from './room-catch-up.ts';
 import { localCursorPath, roomCursor } from './room-cursor.ts';
 import { roomImagePath } from './room-image.ts';
@@ -120,7 +121,7 @@ export async function captureCheckpoint(
 		if (await optionalText(statePath(name, mail.id, 'read'))) continue;
 		let text = '';
 		for (let offset = 0; offset < mail.size;) {
-			const chunk = await readChunk(name, mail.id, offset);
+			const chunk = await readIndexedChunk(name, mail, offset);
 			if (chunk.size !== mail.size || chunk.end <= offset)
 				throw new Error(
 					'Mail changed during checkpoint capture. Nothing was acknowledged.',

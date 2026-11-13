@@ -1,9 +1,10 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import type { MailChunk } from './mail-read-bytes.ts';
 import type { SystemMail, SystemMailStatus } from './system-mail.ts';
 
-import { missing, optionalText } from './mail-files.ts';
+import { missing } from './mail-files.ts';
 import { messageId, ownMailbox } from './mail-identity.ts';
 import { readChunk } from './mail-read-bytes.ts';
 import { mailboxPath, pendingMessages } from './mailbox.ts';
@@ -68,6 +69,38 @@ export async function header(name: string, id: string, archive = false): Promise
 	};
 }
 
+/** A listed inbox entry may move to the archive before its header is opened. */
+export async function readListedMail(name: string, files: string[], archive = false) {
+	if (archive) ownMailbox(name);
+	const mails: MailHeader[] = [];
+	const errors: { id: string; error: string }[] = [];
+	for (const file of files.filter((entry) => entry.endsWith('.md'))) {
+		const id = file.slice(0, -3);
+		try {
+			mails.push(await header(name, id, archive));
+		} catch (error: unknown) {
+			let problem = error;
+			if (!archive && missing(error)) {
+				try {
+					await header(name, id, true);
+					continue;
+				} catch (archiveError: unknown) {
+					if (!missing(archiveError)) problem = archiveError;
+				}
+			}
+			if (errors.length < 10)
+				errors.push({
+					id,
+					error: (problem instanceof Error ? problem.message : String(problem)).slice(
+						0,
+						256,
+					),
+				});
+		}
+	}
+	return { mails, errors };
+}
+
 export async function readMailIndex(name: string, archive = false) {
 	if (archive) ownMailbox(name);
 	const files = archive
@@ -76,26 +109,32 @@ export async function readMailIndex(name: string, archive = false) {
 				throw error;
 			})
 		: await pendingMessages(name);
-	const mails: MailHeader[] = [];
-	const errors: { id: string; error: string }[] = [];
-	for (const file of files.filter((entry) => entry.endsWith('.md'))) {
-		const id = file.slice(0, -3);
-		try {
-			mails.push(await header(name, id, archive));
-		} catch (error: unknown) {
-			if (!archive && missing(error) && (await optionalText(statePath(name, id, 'read')))) {
-				const moved = await header(name, id, true).catch((archiveError: unknown) => {
-					if (!missing(archiveError)) throw archiveError;
-					return undefined;
-				});
-				if (moved?.kind === 'receipt') continue;
-			}
-			if (errors.length < 10)
-				errors.push({
-					id,
-					error: (error instanceof Error ? error.message : String(error)).slice(0, 256),
-				});
-		}
+	return readListedMail(name, files, archive);
+}
+
+/** Finish a previously indexed inbox read after a concurrent archive move. */
+export async function readIndexedChunk(
+	name: string,
+	mail: MailHeader,
+	offset = 0,
+	limit = 32768,
+): Promise<MailChunk> {
+	try {
+		return await readChunk(name, mail.id, offset, limit);
+	} catch (error: unknown) {
+		if (!missing(error)) throw error;
+		ownMailbox(name);
+		const archived = await header(name, mail.id, true);
+		if (
+			archived.from !== mail.from ||
+			archived.to !== mail.to ||
+			archived.sent !== mail.sent ||
+			archived.kind !== mail.kind ||
+			archived.size !== mail.size
+		)
+			throw new Error(`Archived mail changed after inbox indexing: ${mail.id}`, {
+				cause: error,
+			});
+		return readChunk(name, mail.id, offset, limit, true);
 	}
-	return { mails, errors };
 }
