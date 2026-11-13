@@ -47,6 +47,8 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Fixed
 
+- Full QC now recognizes the five process-launched test fixtures used by Room and seat-identity
+  tests, and no longer treats module-local head-down and polling helpers as public exports.
 - A new Team Room post no longer pulls down an operator who has scrolled up a little. Only a reader
   at the bottom of the Room (within 2 px) follows new posts, judged when the post arrives rather
   than when the Room started reading it, so scrolling up while a read is in flight also keeps your

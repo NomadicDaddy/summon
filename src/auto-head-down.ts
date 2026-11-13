@@ -144,7 +144,7 @@ interface GrantDetails {
 	revision: number;
 }
 
-export function autoGrantText(name: string, grant: GrantDetails): string {
+function autoGrantText(name: string, grant: GrantDetails): string {
 	return (
 		`${name}: head-down auto-approved by operator setting revision ${grant.revision}. ` +
 		`Goal: ${grant.goal}. Completion: ${grant.completion}. Launch: ${grant.nonce}. ` +
