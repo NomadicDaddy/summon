@@ -49,6 +49,10 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Fixed
 
+- Team Window mention scans reuse validated read-marker names and each seat's rest result for one
+  scan. They avoid reopening thousands of already validated markers and repeating the full rest
+  evidence scan for wake and flush checks, while rechecking changed rest state and newer addressed
+  Room messages.
 - Own mail reads no longer report an invalid inventory when another process archives a message
   between listing the inbox and opening it. Messages missing from both inbox and archive still
   surface as errors.

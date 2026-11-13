@@ -35,6 +35,7 @@ const schema = z.object({
 	waitingScheduleIds: z.array(z.uuid()).optional(),
 });
 export type RestState = z.infer<typeof schema>;
+export type RestScanCache = Map<string, RestState | undefined>;
 const path = (name: string) => join(runtimePath(name), 'rest.json');
 export async function readRest(name: string): Promise<RestState | undefined> {
 	ownMailbox(name);
@@ -85,15 +86,29 @@ async function restVersion(name: string): Promise<string> {
 	}
 }
 
-async function refreshLockedRest(name: string): Promise<RestState | undefined> {
+async function refreshLockedRest(
+	name: string,
+	cache?: RestScanCache,
+	eventId?: number,
+): Promise<RestState | undefined> {
 	ownMailbox(name);
-	return locked(`${path(name)}.lock`, async () => {
+	const result = await locked(`${path(name)}.lock`, async () => {
 		const state = await readRest(name);
 		if (!state || !['ready', 'stopped'].includes(state.mode)) return state;
+		// Reuse this scan's rest verdict only while the exact protected state is unchanged.
+		// An addressed event newer than the confirmation boundary still needs a fresh check.
+		if (
+			cache?.has(name) &&
+			JSON.stringify(cache.get(name)) === JSON.stringify(state) &&
+			(eventId === undefined || eventId <= state.through)
+		)
+			return state;
 		const next = await refreshedState(name, state);
 		if (next !== state) await save(name, next);
 		return next;
 	});
+	cache?.set(name, result);
+	return result;
 }
 
 async function refreshedState(name: string, state: RestState): Promise<RestState> {
@@ -122,10 +137,14 @@ async function refreshedState(name: string, state: RestState): Promise<RestState
 		: state;
 }
 
-export async function restSuppressed(name: string): Promise<boolean> {
+export async function restSuppressed(
+	name: string,
+	cache?: RestScanCache,
+	eventId?: number,
+): Promise<boolean> {
 	try {
 		// Permission to send must serialize with confirmation; a polling snapshot is insufficient.
-		const state = await refreshLockedRest(name);
+		const state = await refreshLockedRest(name, cache, eventId);
 		return state?.mode === 'ready' || state?.mode === 'stopped';
 	} catch (error: unknown) {
 		// A concurrent confirmation/stop must settle before an automatic notice can proceed.

@@ -1,4 +1,5 @@
 import type { LocalEvent } from '../local-room.ts';
+import type { RestScanCache } from '../rest.ts';
 import type { Team } from './team.ts';
 
 import { humanOrHeadDownSteering } from '../automatic-interruptions.ts';
@@ -14,7 +15,11 @@ import { listAgentSlugs, loadAgent } from '../store.ts';
 import { clearMentionWake, queueMentionWake, readPendingMentionWake } from './mention-wakes.ts';
 import { clearWakeError, reportWakeError, retainFailedMention } from './team-wake-errors.ts';
 
-export async function wakeTeamMentions(team: Team, event: LocalEvent): Promise<void> {
+export async function wakeTeamMentions(
+	team: Team,
+	event: LocalEvent,
+	cache?: RestScanCache,
+): Promise<void> {
 	const slugs = await listAgentSlugs();
 	const recipient = event.answer ? answerRecipient(event, await cachedLocalEvents()) : undefined;
 	const targets = new Set(startableNames(event, slugs));
@@ -24,7 +29,7 @@ export async function wakeTeamMentions(team: Team, event: LocalEvent): Promise<v
 	const failures: unknown[] = [];
 	for (const slug of targets) {
 		try {
-			if (await wakeTarget(team, slug, event))
+			if (await wakeTarget(team, slug, event, cache))
 				await clearWakeError(`${slug} mention wake`, slug);
 		} catch (error: unknown) {
 			try {
@@ -35,13 +40,18 @@ export async function wakeTeamMentions(team: Team, event: LocalEvent): Promise<v
 			}
 		}
 	}
-	await team.flushPendingMentionWakes();
+	await team.flushPendingMentionWakes(cache);
 	if (failures.length)
 		throw new AggregateError(failures, 'Could not retain failed mention wakes.');
 }
 
-async function wakeTarget(team: Team, slug: string, event: LocalEvent): Promise<boolean> {
-	if (await restSuppressed(slug)) return false;
+async function wakeTarget(
+	team: Team,
+	slug: string,
+	event: LocalEvent,
+	cache?: RestScanCache,
+): Promise<boolean> {
+	if (await restSuppressed(slug, cache, event.id)) return false;
 	const record = await loadAgent(slug);
 	const session = team.sessions.get(slug);
 	if (record?.hibernation?.active) {
@@ -60,7 +70,7 @@ async function wakeTarget(team: Team, slug: string, event: LocalEvent): Promise<
 	return team.sessions.get(slug)?.agent.status === 'running';
 }
 
-export async function flushTeamMentionWakes(team: Team): Promise<void> {
+export async function flushTeamMentionWakes(team: Team, cache?: RestScanCache): Promise<void> {
 	const failures: unknown[] = [];
 	try {
 		await team.syncHibernation();
@@ -69,7 +79,7 @@ export async function flushTeamMentionWakes(team: Team): Promise<void> {
 	}
 	for (const slug of await listAgentSlugs()) {
 		try {
-			if (await flushTarget(slug)) await clearWakeError(`${slug} pending wake`, slug);
+			if (await flushTarget(slug, cache)) await clearWakeError(`${slug} pending wake`, slug);
 		} catch (error: unknown) {
 			const pending = await readPendingMentionWake(slug).catch(() => undefined);
 			try {
@@ -83,8 +93,8 @@ export async function flushTeamMentionWakes(team: Team): Promise<void> {
 		throw new AggregateError(failures, 'Could not retain pending wake errors.');
 }
 
-async function flushTarget(slug: string): Promise<boolean> {
-	if (await automaticNoticeSuppressed(slug)) return false;
+async function flushTarget(slug: string, cache?: RestScanCache): Promise<boolean> {
+	if (await automaticNoticeSuppressed(slug, cache)) return false;
 	const pending = await readPendingMentionWake(slug);
 	if (!pending || pending.through === 0) return false;
 	const cursor = roomCursor((await optionalText(localCursorPath(slug))) ?? '0');

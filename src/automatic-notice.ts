@@ -1,3 +1,5 @@
+import type { RestScanCache } from './rest.ts';
+
 import { automaticInterruptionsPaused } from './automatic-interruptions.ts';
 import { communicationState } from './communication-state.ts';
 import { isHibernated } from './hibernation.ts';
@@ -5,12 +7,15 @@ import { assertNotificationOpen, NotificationNotSentError } from './notification
 import { restSuppressed } from './rest.ts';
 
 /** All automatic transports retain their work while these operator/session gates are closed. */
-export async function automaticNoticeSuppressed(name: string): Promise<boolean> {
+export async function automaticNoticeSuppressed(
+	name: string,
+	cache?: RestScanCache,
+): Promise<boolean> {
 	return (
 		(await communicationState()).paused ||
 		(await isHibernated(name)) ||
 		(await automaticInterruptionsPaused(name)) ||
-		(await restSuppressed(name))
+		(await restSuppressed(name, cache))
 	);
 }
 

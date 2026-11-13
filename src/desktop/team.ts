@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { OwnedLaunch } from '../launch-phase-model.ts';
 import type { LocalEvent } from '../local-room.ts';
+import type { RestScanCache } from '../rest.ts';
 import type { SessionTransitionInput } from '../session-history.ts';
 import type { NotificationPauseView } from './notification-pause.ts';
 import type { SessionStop, StopOutcome, StopReason, StopRoot } from './owned-session-stop.ts';
@@ -199,8 +200,8 @@ export class Team {
 		}
 	}
 
-	async wakeMentions(event: LocalEvent): Promise<void> {
-		await wakeTeamMentions(this, event);
+	async wakeMentions(event: LocalEvent, cache?: RestScanCache): Promise<void> {
+		await wakeTeamMentions(this, event, cache);
 	}
 
 	async recoverMissedMentionWakes(
@@ -218,8 +219,8 @@ export class Team {
 		await this.flushPendingMentionWakes();
 	}
 
-	async flushPendingMentionWakes(): Promise<void> {
-		await flushTeamMentionWakes(this);
+	async flushPendingMentionWakes(cache?: RestScanCache): Promise<void> {
+		await flushTeamMentionWakes(this, cache);
 	}
 
 	async input(slug: string, data: string, humanInput = true): Promise<void> {

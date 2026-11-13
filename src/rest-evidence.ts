@@ -1,17 +1,34 @@
+import { readdir } from 'node:fs/promises';
+import { join } from 'node:path';
+
 import { readActivity } from './agent-activity.ts';
 import { readBoard } from './board.ts';
 import { catchUpPending } from './checkpoint-skip-progress.ts';
 import { cachedLocalEvents } from './local-room.ts';
 import { ownHolds } from './mail-attention.ts';
-import { optionalText } from './mail-files.ts';
+import { missing, optionalText } from './mail-files.ts';
 import { header, statePath } from './mail-read.ts';
-import { pendingMessages } from './mailbox.ts';
+import { mailboxPath, pendingMessages } from './mailbox.ts';
 import { localCursorPath, roomCursor } from './room-cursor.ts';
 import { addressedTo, addressedToStopped } from './room-wake.ts';
 import { scheduledRestReason } from './schedule-summary.ts';
 import { listSchedules } from './schedules.ts';
 
 const READ_MARKER_BATCH = 32;
+const validatedReadMarkers = new Map<string, Set<string>>();
+
+async function readMarkers(name: string): Promise<{ present: Set<string>; valid: Set<string> }> {
+	const directory = join(mailboxPath(name), 'delivery');
+	const entries = await readdir(directory).catch((error: unknown) => {
+		if (missing(error)) return [];
+		throw error;
+	});
+	const present = new Set(entries.filter((entry) => entry.endsWith('.read')));
+	const valid = validatedReadMarkers.get(directory) ?? new Set<string>();
+	for (const id of valid) if (!present.has(`${id}.read`)) valid.delete(id);
+	validatedReadMarkers.set(directory, valid);
+	return { present, valid };
+}
 
 /**
  * Why `name` cannot rest now, or '' when it can.
@@ -51,13 +68,18 @@ export async function restEvidence(
 	);
 	let mail = false;
 	const pending = await pendingMessages(name);
+	const markers = await readMarkers(name);
 	for (let offset = 0; offset < pending.length && !mail; offset += READ_MARKER_BATCH) {
-		// Bound concurrent marker reads so a large retained inbox cannot keep an explicit
-		// confirmation waiting behind thousands of serial reads.
+		// Directory membership handles established coverage. Validate each newly seen marker's
+		// content once so an empty or malformed marker never grants read coverage.
 		const coverage = await Promise.all(
 			pending.slice(offset, offset + READ_MARKER_BATCH).map(async (file) => {
 				const id = file.slice(0, -3);
-				return { id, read: !!(await optionalText(statePath(name, id, 'read'))) };
+				if (!markers.present.has(`${id}.read`)) return { id, read: false };
+				if (markers.valid.has(id)) return { id, read: true };
+				const read = !!(await optionalText(statePath(name, id, 'read')));
+				if (read) markers.valid.add(id);
+				return { id, read };
 			}),
 		);
 		for (const { id, read } of coverage) {

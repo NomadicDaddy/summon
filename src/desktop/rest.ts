@@ -1,3 +1,4 @@
+import type { RestScanCache } from '../rest.ts';
 import type { Team } from './team.ts';
 
 import { automaticInterruptionsPaused } from '../automatic-interruptions.ts';
@@ -7,13 +8,13 @@ import { LockBusyError } from '../mail-files.ts';
 import { sendMessage } from '../mailbox.ts';
 import { processAlive } from '../process-owner.ts';
 import { processRestStops } from '../rest-stop.ts';
-import { claimRestWake, finishRestWake, refreshRest, stopForRest } from '../rest.ts';
+import { claimRestWake, finishRestWake, readRest, refreshRest, stopForRest } from '../rest.ts';
 import { listAgentSlugs } from '../store.ts';
 import { nudgeRest } from './rest-nudge.ts';
 import { stopRestSession } from './rest-stop.ts';
 import { clearWakeError, reportWakeError } from './team-wake-errors.ts';
 
-export async function tickRest(team: Team): Promise<void> {
+export async function tickRest(team: Team, cache?: RestScanCache): Promise<void> {
 	if (team.closing || (await communicationState()).paused) return;
 	await processRestStops(
 		async (name, confirmation) => {
@@ -35,6 +36,7 @@ export async function tickRest(team: Team): Promise<void> {
 	for (const name of await listAgentSlugs()) {
 		try {
 			if (await tickRestOwner(team, name)) await clearWakeError(`${name} rest wake`, name);
+			cache?.set(name, await readRest(name));
 		} catch (error: unknown) {
 			// A concurrent ready/stop transaction is not a failed wake. The next tick retries.
 			if (error instanceof LockBusyError) continue;

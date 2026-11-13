@@ -6,11 +6,12 @@ import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { initializeActivity } from '../src/agent-activity.ts';
+import { appendLocalEvent } from '../src/local-room.ts';
 import { LockBusyError } from '../src/mail-files.ts';
 import { statePath } from '../src/mail-read.ts';
 import { sendMessage } from '../src/mailbox.ts';
 import { restEvidence } from '../src/rest-evidence.ts';
-import { readRest, refreshRest, restCommand } from '../src/rest.ts';
+import { readRest, refreshRest, restCommand, restSuppressed } from '../src/rest.ts';
 import { loadAgent, providers, saveAgent } from '../src/store.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
 
@@ -111,6 +112,68 @@ test('an empty read marker grants no read coverage', async () => {
 	const id = await readMessage();
 	await writeFile(statePath('alpha', id, 'read'), '');
 	expect((await restEvidence('alpha')).reason).toBe('Unread mail needs attention');
+});
+
+test('stable read markers are validated once and missing markers are rechecked', async () => {
+	const id = await readMessage();
+	const marker = statePath('alpha', id, 'read');
+	await restEvidence('alpha');
+	const originalRead = fs.readFile;
+	let markerReads = 0;
+	const read = spyOn(fs, 'readFile').mockImplementation(
+		new Proxy(originalRead, {
+			async apply(target, receiver: unknown, args: unknown[]) {
+				if (String(args[0]) === marker) markerReads++;
+				const result: unknown = Reflect.apply(target, receiver, args);
+				return await result;
+			},
+		}),
+	);
+	try {
+		await restEvidence('alpha');
+		expect(markerReads).toBe(0);
+		await fs.unlink(marker);
+		expect((await restEvidence('alpha')).reason).toBe('Unread mail needs attention');
+		await writeFile(marker, '');
+		expect((await restEvidence('alpha')).reason).toBe('Unread mail needs attention');
+		await writeFile(marker, 'read');
+		expect((await restEvidence('alpha')).reason).toBe('');
+		expect(markerReads).toBe(2);
+	} finally {
+		read.mockRestore();
+	}
+});
+
+test('a scan cache skips repeated rest evidence but rechecks a new addressed event', async () => {
+	await restCommand(['ready']);
+	const state = await readRest('alpha');
+	if (!state) throw new Error('Missing rest confirmation');
+	const cache = new Map([['alpha', state]]);
+	const originalReaddir = fs.readdir;
+	let mailboxListings = 0;
+	const readdir = spyOn(fs, 'readdir').mockImplementation(
+		new Proxy(originalReaddir, {
+			async apply(target, receiver: unknown, args: unknown[]) {
+				if (String(args[0]).includes('mailboxes')) mailboxListings++;
+				const result: unknown = Reflect.apply(target, receiver, args);
+				return await result;
+			},
+		}),
+	);
+	try {
+		expect(await restSuppressed('alpha', cache)).toBe(true);
+		expect(mailboxListings).toBe(0);
+		const event = await appendLocalEvent({
+			sender: { kind: 'user', id: 'operator' },
+			text: '@alpha new addressed work',
+			replyTo: null,
+			source: 'local',
+		});
+		expect(await restSuppressed('alpha', cache, event.id)).toBe(false);
+		expect(mailboxListings).toBeGreaterThan(0);
+	} finally {
+		readdir.mockRestore();
+	}
 });
 
 test('a slow polling evidence read does not hold the rest confirmation lock', async () => {

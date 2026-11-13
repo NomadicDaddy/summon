@@ -1,3 +1,4 @@
+import type { RestScanCache } from '../rest.ts';
 import type { MentionScanDiagnostic, MentionScanStage } from './mention-scan-metrics.ts';
 import type { Team } from './team.ts';
 import type { TeamEvent } from './types.ts';
@@ -91,6 +92,7 @@ export function createTeamTimers(deps: TimerDependencies): {
 			};
 			const paused = async (): Promise<boolean> =>
 				(await measure('communication', communicationState)).paused;
+			const restCache: RestScanCache = new Map();
 			try {
 				await measure('hibernation', () => team.syncHibernation());
 				if (await paused()) {
@@ -101,7 +103,7 @@ export function createTeamTimers(deps: TimerDependencies): {
 					tickSchedules(team).catch((error: unknown) => team.error(error)),
 				);
 				await measure('rest', () =>
-					tickRest(team).catch((error: unknown) => team.error(error)),
+					tickRest(team, restCache).catch((error: unknown) => team.error(error)),
 				);
 				if (!recoveredMentions) {
 					if (await measure('settings', readWakeOnMention)) {
@@ -119,7 +121,7 @@ export function createTeamTimers(deps: TimerDependencies): {
 						return;
 					}
 					if (await measure('settings', readWakeOnMention))
-						await measure('wake', () => team.wakeMentions(event));
+						await measure('wake', () => team.wakeMentions(event, restCache));
 					mentionCursor = event.id;
 					await measure('cursor', () => saveMentionCursor(mentionCursor));
 				}
@@ -128,7 +130,7 @@ export function createTeamTimers(deps: TimerDependencies): {
 					return;
 				}
 				if (await measure('settings', readWakeOnMention))
-					await measure('flush', () => team.flushPendingMentionWakes());
+					await measure('flush', () => team.flushPendingMentionWakes(restCache));
 			} catch (error: unknown) {
 				outcome = 'failed';
 				throw error;
