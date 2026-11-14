@@ -132,6 +132,11 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Known limitations
 
+- The v1.1.0 dependency audit reports one moderate `minimatch` advisory
+  (GHSA-g3hv-75wg-m249) through ESLint development tooling, outside the installer payload.
+  The reviewed lint paths do not use the vulnerable optimization level, but that review does
+  not prove it unreachable in every context. Phillip accepted it for the exact `5d8f765`
+  source and installer candidate (#50238); the dependency update remains open.
 - Finished scheduled runs still accumulate in the active schedule file without a byte cap or
   automatic pruning. It measured 10,589,345 bytes during the November 14 release review; that is
   size evidence, not a measured latency or data-loss result. Phillip accepted this open High for
