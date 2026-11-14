@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { link, mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
+import type { OperatorAwayView } from './operator-away.ts';
 import type { SystemMail } from './system-mail.ts';
 
 import { withActiveSeatWrite } from './agent-activity.ts';
@@ -17,6 +18,7 @@ import { errorCode, locked, missing } from './mail-files.ts';
 import { coveringInbox, messageId, ownMailbox } from './mail-identity.ts';
 import { publishedMailMatches } from './mail-replay.ts';
 import { markSentPublished, prepareSentStatus } from './mail-sent-status.ts';
+import { readOperatorAway } from './operator-away.ts';
 import { startupOperatorDisplay } from './operator-identity.ts';
 import { loadAgent, slugFor, storageRoot } from './store.ts';
 import { parseSystemMail } from './system-mail.ts';
@@ -201,6 +203,14 @@ export async function operatorMailCommand(args: string[]): Promise<void> {
 	);
 }
 
+/** Operator Away at launch: awareness only, so it never changes what a teammate may do. */
+export function operatorPresenceLine(view: OperatorAwayView): string {
+	let state = 'at the keyboard';
+	if (view.state === 'away') state = `away from the keyboard since ${view.since}`;
+	else if (view.state === 'unavailable') state = `unknown (${view.error})`;
+	return `Operator presence at launch: ${state}. This is awareness only; it never pauses, approves or routes anything.`;
+}
+
 export async function mailboxPrompt(name: string): Promise<string> {
 	const slug = slugFor(name);
 	const operatorDisplay = await startupOperatorDisplay();
@@ -231,6 +241,7 @@ export async function mailboxPrompt(name: string): Promise<string> {
 		'or direct filesystem access. This includes messages you sent to them. Use the send command',
 		'to deliver requests; ask the recipient to reply rather than inspecting their mail.',
 		`Pending messages at launch: ${pending.length}.`,
+		operatorPresenceLine(await readOperatorAway()),
 		'Diary: record brief completed work, meaningful decisions and cross-team asks with',
 		`summon --diary add <json>: {"for":${JSON.stringify(operatorDisplay)},"task":"brief outcome","room":[123],"board":[]}.`,
 		'Use actual room message IDs and Board card UUIDs for further detail. Author and time are automatic.',

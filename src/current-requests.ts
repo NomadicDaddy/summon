@@ -19,6 +19,7 @@ import { localAgent } from './local-room-access.ts';
 import { cachedLocalEvents } from './local-room.ts';
 import { optionalText } from './mail-files.ts';
 import { ownMailbox } from './mail-identity.ts';
+import { readOperatorAway } from './operator-away.ts';
 import { localCursorPath, roomCursor } from './room-cursor.ts';
 import { roomImagePath } from './room-image.ts';
 import { storageRoot } from './store.ts';
@@ -118,6 +119,8 @@ export async function currentRequests(token?: string): Promise<Record<string, un
 		snapshotOnly: true,
 		owner: name,
 		capturedAt: boundary.capturedAt,
+		// Awareness only: read, never cleared by a reader, and never a gate.
+		operatorAway: await readOperatorAway(),
 		...payload,
 		page: inputs.length ? page + 1 : 0,
 		pages: rendered.pages.length,

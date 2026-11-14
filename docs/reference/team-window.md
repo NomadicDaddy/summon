@@ -336,6 +336,16 @@ of these, each is listed and labelled; a leading `#` always means a message. Jum
 ids and names only and never searches message or card text. Escape closes it and returns focus to
 where it was. The window takes the key before a terminal sees it.
 
+Press **Ctrl+Shift+A**, or the **Away** button under the masthead, to mark yourself away from the
+keyboard; press either again to come back. The state belongs to the team, survives a Team Window
+restart and never clears on a timer. Your first deliberate keystroke clears it: in a teammate's
+terminal, the operator shell, a Room draft, the notepad, a search field or Maintenance. Sending a
+Room message or answering a question here clears it too. Moving the mouse, scrolling, focus,
+terminal replies, macro inserts and phone or Telegram replies leave it set. Each change posts one
+Room line, and teammates see the state in current-requests and their startup context. Away is
+awareness only: it never pauses, approves, routes or holds anything. The window takes the key
+before a terminal sees it.
+
 Press **Ctrl+Shift+N** to open or close the notepad. It opens only from the keyboard and keeps
 Markdown source separately for each team in `notepad/note.md`. Changes autosave after a short pause;
 **Ctrl+S** saves immediately and **Esc** closes. Each open reads the file again; a clean editor

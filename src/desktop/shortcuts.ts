@@ -41,6 +41,11 @@ const GROUPS: ShortcutGroup[] = [
 				keys: ['Ctrl', 'Shift', 'J'],
 				label: 'Jump to a Room message, a Board card or a teammate',
 			},
+			// away-control.ts
+			{
+				keys: ['Ctrl', 'Shift', 'A'],
+				label: 'Mark yourself away from the keyboard, or back; typing also brings you back',
+			},
 			// member-keys.ts
 			{
 				keys: ['Ctrl', '1…9'],

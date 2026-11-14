@@ -1,0 +1,159 @@
+import { copyFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { z } from 'zod';
+
+import { communicationSend } from './communication-gate.ts';
+import { appendLocalEvent } from './local-room.ts';
+import { atomicWrite, locked, optionalText } from './mail-files.ts';
+import { operatorOnly } from './mail-identity.ts';
+import { storageRoot } from './store.ts';
+
+/**
+ * The operator's Away From Keyboard state for one team. It is awareness only: it never gates
+ * delivery, approvals, sessions or any teammate state. Teammates read it; only the operator's Team
+ * Window writes it. Only the state, its timestamps and the category of what changed it are kept,
+ * never what was typed.
+ */
+export const AWAY_CAUSES = [
+	'button',
+	'shortcut',
+	'teammate-terminal',
+	'operator-shell',
+	'room-draft',
+	'room-send',
+	'control-answer',
+	'notepad',
+	'search',
+	'maintenance',
+] as const;
+export type AwayCause = (typeof AWAY_CAUSES)[number];
+/** Causes that are the operator's own input, each of which clears Away and never sets it. */
+export type InputCause = Exclude<AwayCause, 'button' | 'shortcut'>;
+
+export type OperatorAwayView =
+	{ state: 'here' } | { state: 'away'; since: string } | { state: 'unavailable'; error: string };
+
+export interface AwayTransition {
+	changed: boolean;
+	view: OperatorAwayView;
+	/** Set when the state changed but its Room line could not be posted. */
+	roomError?: string;
+}
+
+const storedSchema = z
+	.strictObject({
+		version: z.literal(1),
+		state: z.enum(['away', 'here']),
+		since: z.iso.datetime().optional(),
+		changedAt: z.iso.datetime(),
+		cause: z.enum(AWAY_CAUSES),
+	})
+	.refine((value) => (value.state === 'away') === (value.since !== undefined), {
+		message: 'Away needs its start time, and Here has none.',
+	});
+type Stored = z.infer<typeof storedSchema>;
+
+export function operatorAwayPath(): string {
+	return join(storageRoot(), 'settings', 'operator-away.json');
+}
+
+function viewOf(stored: Stored): OperatorAwayView {
+	return stored.state === 'away' && stored.since
+		? { state: 'away', since: stored.since }
+		: { state: 'here' };
+}
+
+type Loaded =
+	| { kind: 'missing' }
+	| { kind: 'valid'; stored: Stored }
+	| { kind: 'invalid'; raw: string | undefined; error: string };
+
+async function load(): Promise<Loaded> {
+	let raw: string | undefined;
+	try {
+		raw = await optionalText(operatorAwayPath());
+		if (raw === undefined) return { kind: 'missing' };
+		return { kind: 'valid', stored: storedSchema.parse(JSON.parse(raw) as unknown) };
+	} catch (error) {
+		return {
+			kind: 'invalid',
+			raw,
+			error: error instanceof Error ? error.message : String(error),
+		};
+	}
+}
+
+function loadedView(loaded: Loaded): OperatorAwayView {
+	if (loaded.kind === 'missing') return { state: 'here' };
+	if (loaded.kind === 'invalid')
+		return { state: 'unavailable', error: `Away state is unreadable: ${loaded.error}` };
+	return viewOf(loaded.stored);
+}
+
+/** For the masthead, current-requests and startup context. Never writes, never clears. */
+export async function readOperatorAway(): Promise<OperatorAwayView> {
+	return loadedView(await load());
+}
+
+function roomText(away: boolean): string {
+	return away ? 'Operator is away from the keyboard.' : 'Operator is back at the keyboard.';
+}
+
+/**
+ * Sets Away or Here. `inputAt` marks a clear caused by operator input at that time (ms since the
+ * epoch): it clears only an Away confirmed before that input, so an input event that was already
+ * in flight can't undo a later Away. An unchanged state writes nothing and posts nothing. A failed
+ * write throws before any Room line, so a transition is reported only once it is stored.
+ */
+export async function setOperatorAway(
+	away: boolean,
+	cause: AwayCause,
+	inputAt?: number,
+): Promise<AwayTransition> {
+	operatorOnly();
+	if (typeof away !== 'boolean' || !AWAY_CAUSES.includes(cause))
+		throw new Error('Invalid Away change.');
+	if (away && cause !== 'button' && cause !== 'shortcut')
+		throw new Error('Only the Away control sets Away.');
+	const path = operatorAwayPath();
+	return locked(`${path}.lock`, async () => {
+		const loaded = await load();
+		const current = loadedView(loaded);
+		if (inputAt !== undefined) {
+			// Input clears only a confirmed Away that started before it.
+			if (current.state !== 'away' || Date.parse(current.since) > inputAt)
+				return { changed: false, view: current };
+		}
+		if ((current.state === 'away') === away && current.state !== 'unavailable')
+			return { changed: false, view: current };
+		if (loaded.kind === 'invalid' && loaded.raw !== undefined) {
+			// Keep the unreadable bytes beside the file before an explicit change replaces them.
+			await copyFile(path, `${path}.unreadable-${Date.now()}`);
+		}
+		const changedAt = new Date().toISOString();
+		const stored: Stored = away
+			? { version: 1, state: 'away', since: changedAt, changedAt, cause }
+			: { version: 1, state: 'here', changedAt, cause };
+		await atomicWrite(path, JSON.stringify(stored));
+		const view = viewOf(stored);
+		const wasAway = current.state === 'away';
+		if (wasAway === away) return { changed: true, view };
+		try {
+			await communicationSend('send the Room post', () =>
+				appendLocalEvent({
+					sender: { kind: 'user', id: 'operator' },
+					text: roomText(away),
+					replyTo: null,
+					source: 'local',
+				}),
+			);
+			return { changed: true, view };
+		} catch (error) {
+			return {
+				changed: true,
+				view,
+				roomError: error instanceof Error ? error.message : String(error),
+			};
+		}
+	});
+}

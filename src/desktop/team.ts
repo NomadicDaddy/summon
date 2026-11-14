@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { OwnedLaunch } from '../launch-phase-model.ts';
 import type { LocalEvent } from '../local-room.ts';
+import type { OperatorAwayView } from '../operator-away.ts';
 import type { RestScanCache } from '../rest.ts';
 import type { SessionTransitionInput } from '../session-history.ts';
 import type { NotificationPauseView } from './notification-pause.ts';
@@ -48,6 +49,7 @@ export type TerminalProcess = Pick<IPty, 'pid' | 'onData' | 'onExit' | 'write' |
 /** Owns only PTYs started by this window. Existing external sessions are never adopted. */
 export class Team {
 	notificationPause?: () => NotificationPauseView;
+	operatorAway?: () => OperatorAwayView;
 	stopRoot?: StopRoot;
 	readonly startedAt = new Date().toISOString();
 	readonly sessions = new Map<string, Session>();
@@ -98,6 +100,7 @@ export class Team {
 				selected: this.selected,
 			},
 			this.notificationPause?.(),
+			this.operatorAway?.(),
 		);
 	}
 

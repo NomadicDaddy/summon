@@ -25,6 +25,7 @@ import { maintenanceIpc } from './maintenance-ipc.ts';
 import { createMentionScanRecorder } from './mention-scan-metrics.ts';
 import { notepadIpc } from './notepad-ipc.ts';
 import { DEFAULT_HOLD_POLICY } from './notification-pause.ts';
+import { operatorAwayIpc } from './operator-away.ts';
 import { registerOperatorIpc } from './operator-ipc.ts';
 import { trackOperatorView } from './operator-view.ts';
 import { OperatorTerminal } from './operator.ts';
@@ -120,6 +121,12 @@ if (!app.requestSingleInstanceLock()) {
 				)
 					throw new Error('Unknown team window.');
 			};
+			const away = operatorAwayIpc(
+				trusted,
+				() => team.publish(),
+				(error) => team.error(error),
+			);
+			team.operatorAway = away.view;
 			const shells = await detectShells();
 			ipcMain.handle(
 				'team:dismiss-response',
@@ -199,7 +206,9 @@ if (!app.requestSingleInstanceLock()) {
 						(text !== undefined && typeof text !== 'string')
 					)
 						throw new Error('Invalid question answer.');
-					return answerRoom(id, choice, text);
+					const answered = await answerRoom(id, choice, text);
+					away.input('control-answer');
+					return answered;
 				},
 			);
 			ipcMain.handle('team:room-read', async (event, after: unknown) => {
@@ -220,7 +229,9 @@ if (!app.requestSingleInstanceLock()) {
 						)
 					)
 						throw new Error('Invalid room message.');
-					return sendHuman(text, reply, await persistImage(image));
+					const sent = await sendHuman(text, reply, await persistImage(image));
+					away.input('room-send');
+					return sent;
 				},
 			);
 			ipcMain.on('team:input', (event, name: unknown, data: unknown, humanInput: unknown) => {
@@ -234,6 +245,7 @@ if (!app.requestSingleInstanceLock()) {
 					// The only renewal source: typing elsewhere in the window is not talking to
 					// this teammate (Phillip #13984); see notification-pause.ts.
 					viewing.terminalInput(slug, humanInput);
+					if (humanInput) away.input('teammate-terminal');
 					void team
 						.input(slug, data, humanInput)
 						.catch((error: unknown) => team.error(error));

@@ -5,9 +5,14 @@ import type { TeamSnapshot } from './types.ts';
 
 import { faultText, reportFault } from './fault-report.ts';
 import { readableError } from './ipc-error.ts';
+import { bindTerminalInput } from './terminal-input-origin.ts';
 import { createThemedTerminal } from './terminal-style.ts';
 
-export function setupOperator(windowsPty: TeamSnapshot['windowsPty']): void {
+/** `onHumanInput` hears only keyboard input, never the shell's terminal replies (operator Away). */
+export function setupOperator(
+	windowsPty: TeamSnapshot['windowsPty'],
+	onHumanInput: () => void,
+): void {
 	function element(id: string): HTMLElement {
 		const node = document.getElementById(id);
 		if (!node) throw new Error(`Missing ${id}`);
@@ -71,7 +76,10 @@ export function setupOperator(windowsPty: TeamSnapshot['windowsPty']): void {
 			}
 			return true;
 		});
-		terminal.onData((data) => window.team.operatorInput(data));
+		bindTerminalInput(terminal, (data, humanInput) => {
+			window.team.operatorInput(data);
+			if (humanInput) onHumanInput();
+		});
 		terminal.onResize(({ cols, rows }) => window.team.operatorResize(cols, rows));
 		fitPane();
 		return terminal;

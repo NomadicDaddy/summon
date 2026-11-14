@@ -6,6 +6,7 @@ import type { LaunchPhaseView } from '../launch-phase-model.ts';
 import type { RoomBeforePage, RoomUnreadStats } from '../local-room-read-place.ts';
 import type { ModelInfo } from '../model-info.ts';
 import type { NotepadSnapshot } from '../notepad.ts';
+import type { OperatorAwayView } from '../operator-away.ts';
 import type { OperatorIdentity } from '../operator-identity-model.ts';
 import type { ProviderSetupCatalog } from '../provider-setup.ts';
 import type { RepositoryDetail, RepositoryDiff, RepositoryList } from '../repository-model.ts';
@@ -87,6 +88,8 @@ export interface TeamSnapshot {
 	/** Identity refused; other roster features remain usable and no human name is substituted. */
 	operatorError?: string;
 	notificationPause?: NotificationPauseView;
+	/** The operator's Away From Keyboard state; awareness only, never a gate. */
+	operatorAway?: OperatorAwayView;
 	startedAt?: string;
 	agents: TeamAgent[];
 	selected: string;
@@ -135,6 +138,15 @@ export interface TeamBridge {
 	providerSetup: () => Promise<ProviderSetupCatalog>;
 	gallery: () => Promise<GallerySnapshot>;
 	pauseNotifications: (paused: boolean) => Promise<void>;
+	/** Toggles Away against the stored state; resolves with the confirmed state. */
+	toggleAway: (
+		cause: 'button' | 'shortcut',
+	) => Promise<{ changed: boolean; view: OperatorAwayView }>;
+	/** Fire-and-forget: deliberate typing on a surface main can't see, with its time (ms since the epoch). */
+	operatorPresent: (
+		cause: 'operator-shell' | 'room-draft' | 'notepad' | 'search' | 'maintenance',
+		at: number,
+	) => void;
 	headDownDecision: (slug: string, id: string, approve: boolean) => Promise<void>;
 	headDownEnd: (slug: string, id: string, reason: string) => Promise<void>;
 	headDownDelegate: (slug: string, enabled: boolean) => Promise<void>;

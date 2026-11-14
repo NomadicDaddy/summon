@@ -6,6 +6,13 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Added
 
+- The operator can mark themselves Away From Keyboard with a masthead button or Ctrl+Shift+A.
+  The team-scoped state survives restarts and never times out. It clears on the first deliberate
+  keystroke in a terminal, the operator shell, a Room draft, the notepad, a search field or
+  Maintenance, or on a local Room send or answer. Phone replies, mouse movement and terminal
+  replies leave it set. Each change posts one Room line, and teammates see it in current-requests
+  and at startup. It is awareness only and never gates delivery, approvals or sessions.
+
 - A read-only store-retention preview lists exact scheduled-run IDs or guarded own-mail
   metadata in bounded pages. It binds cursors to the observed inventory generation
   and keeps every item while ownership, references, writer state, and a proposed

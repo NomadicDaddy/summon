@@ -1,3 +1,4 @@
+import type { OperatorAwayView } from '../operator-away.ts';
 import type { NotificationPauseView } from './notification-pause.ts';
 import type { TeamSnapshot } from './types.ts';
 
@@ -28,6 +29,7 @@ async function identityView(
 export async function publicTeamSnapshot(
 	context: Parameters<typeof teamSnapshot>[0],
 	notificationPause?: NotificationPauseView,
+	operatorAway?: OperatorAwayView,
 ): Promise<TeamSnapshot> {
 	const sampledAt = Date.now();
 	const team = teamLabel();
@@ -35,6 +37,7 @@ export async function publicTeamSnapshot(
 	const value = {
 		...(await identityView(context, snapshot)),
 		...(notificationPause ? { notificationPause } : {}),
+		...(operatorAway ? { operatorAway } : {}),
 		...snapshot,
 		...(team ? { team } : {}),
 	};

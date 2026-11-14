@@ -1,5 +1,6 @@
 import type { TeamSnapshot } from './types.ts';
 
+import { setupAwayControl } from './away-control.ts';
 import { boardActions } from './board-actions.ts';
 import { setupBoardToggle } from './board-panel.ts';
 import { setupBuildInfo } from './build-info.ts';
@@ -58,6 +59,7 @@ let addedSlug = '';
 let addedNote = '';
 const updateHeadDown = setupHeadDownControls(errorBanner.from('head-down'));
 const updatePause = setupNotificationPause(errorBanner.from('notification-pause'));
+const away = setupAwayControl(errorBanner.from('operator-away'));
 const maintenance = setupMaintenance((slug, note) => {
 	addedSlug = slug;
 	addedNote = note ?? '';
@@ -162,6 +164,7 @@ function render(value: TeamSnapshot): void {
 	updateHibernation(selected);
 	updateHeadDown(selected);
 	updatePause(value.notificationPause, canPauseNotifications(selected), isHeadsDown(selected));
+	away.update(value.operatorAway);
 	element('name-text').textContent = selected?.name ?? 'Your Team Window';
 	element('name-role').hidden = selected?.memberType !== 'pm';
 	const nameState = element('name-state');
@@ -266,7 +269,7 @@ void window.team
 	.ready()
 	.then((value) => {
 		render(switching.snapshot(value));
-		setupOperator(value.windowsPty);
+		setupOperator(value.windowsPty, () => away.present('operator-shell'));
 	})
 	.catch(errorBanner.from('window.ready'));
 setupMacros();

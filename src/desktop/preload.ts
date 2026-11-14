@@ -36,6 +36,13 @@ const bridge: TeamBridge = {
 	gallery: () => ipcRenderer.invoke('team:gallery') as Promise<GallerySnapshot>,
 	pauseNotifications: (paused) =>
 		ipcRenderer.invoke('team:pause-notifications', paused) as Promise<void>,
+	toggleAway: (cause) =>
+		ipcRenderer.invoke('team:operator-away-toggle', cause) as ReturnType<
+			TeamBridge['toggleAway']
+		>,
+	operatorPresent: (cause, at) => {
+		ipcRenderer.send('team:operator-input', cause, at);
+	},
 	headDownDecision: (slug, id, approve) =>
 		ipcRenderer.invoke('team:head-down-decision', slug, id, approve) as Promise<void>,
 	headDownEnd: (slug, id, reason) =>

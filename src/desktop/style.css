@@ -81,6 +81,20 @@ header {
 #sidebar > header .brand {
 	font-size: 22px;
 }
+/* Operator Away: a quiet masthead toggle, stated in words as well as colour when set. */
+#away-toggle {
+	margin-top: 6px;
+	padding: 2px 10px;
+	font-size: 12px;
+}
+#away-toggle.is-away {
+	border-color: var(--info);
+	color: var(--text);
+	background: var(--info-bg);
+}
+#away-toggle.is-unavailable {
+	border-style: dashed;
+}
 /*
  * The caption now opens the sidebar and carries the space this rule used to add, so the panel takes
  * none of its own - two margins here would stack into a gap neither of them intended.
