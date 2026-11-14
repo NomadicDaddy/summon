@@ -116,7 +116,7 @@ export async function readOperatorAway(): Promise<OperatorAwayView> {
 }
 
 /** Posted by Summon, not as the operator, so the line never reads as the operator's own words. */
-export const AWAY_ROOM_SENDER = { kind: 'cli', id: 'Summon' } as const;
+const AWAY_ROOM_SENDER = { kind: 'cli', id: 'Summon' } as const;
 export function awayRoomText(away: boolean): string {
 	return away
 		? 'Away: the operator marked themselves away from the keyboard.'

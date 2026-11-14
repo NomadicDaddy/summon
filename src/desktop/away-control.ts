@@ -4,7 +4,7 @@ import type { TeamBridge } from './types.ts';
 type PresentCause = Parameters<TeamBridge['operatorPresent']>[0];
 
 /** Which field a deliberate keystroke landed in, or null for fields that don't clear Away. */
-export function inputSurface(target: EventTarget | null): PresentCause | null {
+function inputSurface(target: EventTarget | null): PresentCause | null {
 	if (!(target instanceof HTMLElement)) return null;
 	// Terminals report themselves, telling keystrokes from terminal replies (terminal-input-origin.ts).
 	if (target.classList.contains('xterm-helper-textarea')) return null;
@@ -56,7 +56,7 @@ export function isAwayShortcut(
 }
 
 /** At most one presence report each half second while Away shows; a declined report never latches. */
-export const PRESENCE_REPORT_INTERVAL_MS = 500;
+const PRESENCE_REPORT_INTERVAL_MS = 500;
 export function shouldReportPresence(
 	view: OperatorAwayView | undefined,
 	lastReport: number | null,
