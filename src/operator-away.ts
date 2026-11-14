@@ -95,8 +95,12 @@ export async function readOperatorAway(): Promise<OperatorAwayView> {
 	return loadedView(await load());
 }
 
-function roomText(away: boolean): string {
-	return away ? 'Operator is away from the keyboard.' : 'Operator is back at the keyboard.';
+/** Posted by Summon, not as the operator, so the line never reads as the operator's own words. */
+export const AWAY_ROOM_SENDER = { kind: 'cli', id: 'Summon' } as const;
+export function awayRoomText(away: boolean): string {
+	return away
+		? 'Away: the operator marked themselves away from the keyboard.'
+		: 'Away cleared: the operator is back at the keyboard.';
 }
 
 /**
@@ -141,8 +145,8 @@ export async function setOperatorAway(
 		try {
 			await communicationSend('send the Room post', () =>
 				appendLocalEvent({
-					sender: { kind: 'user', id: 'operator' },
-					text: roomText(away),
+					sender: { ...AWAY_ROOM_SENDER },
+					text: awayRoomText(away),
 					replyTo: null,
 					source: 'local',
 				}),

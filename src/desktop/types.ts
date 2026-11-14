@@ -142,10 +142,9 @@ export interface TeamBridge {
 	toggleAway: (
 		cause: 'button' | 'shortcut',
 	) => Promise<{ changed: boolean; view: OperatorAwayView }>;
-	/** Fire-and-forget: deliberate typing on a surface main can't see, with its time (ms since the epoch). */
+	/** Fire-and-forget: deliberate typing on a surface main can't see; main stamps its arrival. */
 	operatorPresent: (
 		cause: 'operator-shell' | 'room-draft' | 'notepad' | 'search' | 'maintenance',
-		at: number,
 	) => void;
 	headDownDecision: (slug: string, id: string, approve: boolean) => Promise<void>;
 	headDownEnd: (slug: string, id: string, reason: string) => Promise<void>;

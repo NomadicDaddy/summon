@@ -7,7 +7,12 @@ import { awayLabel } from '../src/desktop/away-control.ts';
 import { localEvents } from '../src/local-room.ts';
 import { optionalText } from '../src/mail-files.ts';
 import { operatorPresenceLine } from '../src/mailbox.ts';
-import { operatorAwayPath, readOperatorAway, setOperatorAway } from '../src/operator-away.ts';
+import {
+	awayRoomText,
+	operatorAwayPath,
+	readOperatorAway,
+	setOperatorAway,
+} from '../src/operator-away.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
 
 let fixture: Awaited<ReturnType<typeof mailHarness>>;
@@ -27,10 +32,16 @@ afterEach(async () => {
 	await fixture.dispose();
 });
 
+const AWAY = awayRoomText(true);
+const BACK = awayRoomText(false);
+/** Away lines in the Room, each checked to come from Summon rather than read as the operator's own. */
 const awayLines = async () =>
 	(await localEvents())
-		.filter((event) => /^Operator is (away from|back at) the keyboard\.$/.test(event.text))
-		.map((event) => event.text);
+		.filter((event) => event.text === AWAY || event.text === BACK)
+		.map((event) => {
+			expect(event.sender).toEqual({ kind: 'cli', id: 'Summon' });
+			return event.text;
+		});
 /** The repository's await/catch rejection check (test/board.test.ts): `rejects` isn't a Thenable here. */
 const rejected = async (work: Promise<unknown>, text = ''): Promise<void> => {
 	let message: string | undefined;
@@ -60,10 +71,7 @@ test('Away persists with its start time until an explicit clear, with one Room l
 		changed: false,
 		view: { state: 'here' },
 	});
-	expect(await awayLines()).toEqual([
-		'Operator is away from the keyboard.',
-		'Operator is back at the keyboard.',
-	]);
+	expect(await awayLines()).toEqual([AWAY, BACK]);
 });
 
 test('input clears only an Away set before it, once, and input never sets Away', async () => {
@@ -121,7 +129,7 @@ test('concurrent changes serialize: exactly one of two Away sets changes the sta
 		setOperatorAway(true, 'shortcut'),
 	]);
 	expect(results.filter((result) => result.changed)).toHaveLength(1);
-	expect(await awayLines()).toEqual(['Operator is away from the keyboard.']);
+	expect(await awayLines()).toEqual([AWAY]);
 });
 
 test('startup context and the masthead label say the same state, and reading clears nothing', async () => {

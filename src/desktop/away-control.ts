@@ -36,14 +36,25 @@ export function awayLabel(view: OperatorAwayView | undefined): { text: string; t
 	};
 }
 
+/** At most one presence report each half second while Away shows; a declined report never latches. */
+export const PRESENCE_REPORT_INTERVAL_MS = 500;
+export function shouldReportPresence(
+	view: OperatorAwayView | undefined,
+	lastReport: number | null,
+	now: number,
+): boolean {
+	if (view?.state !== 'away') return false;
+	return lastReport === null || now - lastReport >= PRESENCE_REPORT_INTERVAL_MS;
+}
+
 /**
  * The masthead Away toggle and its Ctrl+Shift+A shortcut, plus the renderer's half of auto-clear:
- * the first trusted keystroke in a Room draft, Notepad, search or Maintenance field while Away.
- * Synthetic input (macro inserts, programmatic edits) never counts.
+ * trusted keystrokes in a Room draft, Notepad, search or Maintenance field while Away, reported at
+ * most every half second. Synthetic input (macro inserts, programmatic edits) never counts.
  */
 export function setupAwayControl(onError: (error: unknown) => void): {
 	update: (view: OperatorAwayView | undefined) => void;
-	present: (cause: PresentCause, at?: number) => void;
+	present: (cause: PresentCause) => void;
 } {
 	const header = document.querySelector('#sidebar > header');
 	const button = document.createElement('button');
@@ -53,7 +64,7 @@ export function setupAwayControl(onError: (error: unknown) => void): {
 	header?.append(button);
 	let view: OperatorAwayView | undefined;
 	let pending = false;
-	let reported = false;
+	let lastReport: number | null = null;
 	const render = (): void => {
 		const label = awayLabel(view);
 		button.textContent = pending ? 'Saving…' : label.text;
@@ -71,7 +82,6 @@ export function setupAwayControl(onError: (error: unknown) => void): {
 			.toggleAway(cause)
 			.then((result) => {
 				view = result.view;
-				reported = false;
 			})
 			.catch(onError)
 			.finally(() => {
@@ -79,14 +89,12 @@ export function setupAwayControl(onError: (error: unknown) => void): {
 				render();
 			});
 	};
-	const present = (
-		cause: PresentCause,
-		at = performance.timeOrigin + performance.now(),
-	): void => {
-		// One report per Away: repeated keystrokes write nothing more until the state changes.
-		if (view?.state !== 'away' || reported) return;
-		reported = true;
-		window.team.operatorPresent(cause, at);
+	const present = (cause: PresentCause): void => {
+		const now = Date.now();
+		if (!shouldReportPresence(view, lastReport, now)) return;
+		lastReport = now;
+		// Main stamps the report when it arrives, on the clock that stamped the Away.
+		window.team.operatorPresent(cause);
 	};
 	button.addEventListener('click', () => toggle('button'));
 	document.addEventListener(
@@ -110,7 +118,7 @@ export function setupAwayControl(onError: (error: unknown) => void): {
 	const observe = (event: Event): void => {
 		if (!event.isTrusted) return;
 		const cause = inputSurface(event.target);
-		if (cause) present(cause, performance.timeOrigin + event.timeStamp);
+		if (cause) present(cause);
 	};
 	document.addEventListener('beforeinput', observe, true);
 	// Checkboxes and selects in Maintenance change without text input.
@@ -118,11 +126,6 @@ export function setupAwayControl(onError: (error: unknown) => void): {
 	render();
 	return {
 		update: (next) => {
-			if (
-				next?.state !== view?.state ||
-				(next?.state === 'away' && view?.state === 'away' && next.since !== view.since)
-			)
-				reported = false;
 			view = next;
 			render();
 		},

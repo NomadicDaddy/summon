@@ -19,7 +19,7 @@ export interface OperatorAwayControl {
 	/** The last confirmed state, for TeamSnapshot. */
 	view: () => OperatorAwayView;
 	/** Deliberate operator input on a surface; clears Away, and is a no-op while Here. */
-	input: (cause: InputCause, at?: number) => void;
+	input: (cause: InputCause) => void;
 }
 
 /**
@@ -60,22 +60,24 @@ export function operatorAwayIpc(
 			return settle(await setOperatorAway(stored.state !== 'away', cause));
 		});
 	});
-	// One clear in flight at a time: a burst of keystrokes while Away asks once, not per key.
+	// One clear in flight at a time: a burst of keystrokes while Away asks once, not per key. Every
+	// input is stamped here, on arrival, with the same clock that stamped the Away it may clear; IPC
+	// keeps a renderer's messages in order, so a keystroke sent before a toggle arrives before it.
 	let clearing = false;
-	const input = (cause: InputCause, at = Date.now()): void => {
+	const input = (cause: InputCause): void => {
 		if (current.state !== 'away' || clearing) return;
 		clearing = true;
+		const at = Date.now();
 		void serial(async () => settle(await setOperatorAway(false, cause, at)))
 			.catch(report)
 			.finally(() => {
 				clearing = false;
 			});
 	};
-	ipcMain.on('team:operator-input', (event, cause: unknown, at: unknown) => {
+	ipcMain.on('team:operator-input', (event, cause: unknown) => {
 		trusted(event);
 		if (typeof cause !== 'string' || !RENDERER_INPUT.includes(cause as InputCause)) return;
-		if (typeof at !== 'number' || !Number.isFinite(at)) return;
-		input(cause as InputCause, at);
+		input(cause as InputCause);
 	});
 	return { view: () => current, input };
 }
