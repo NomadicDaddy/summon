@@ -74,7 +74,7 @@ export async function buildTeam(): Promise<void> {
 	// The page shows this time in the viewer's zone (build-info.ts); the UTC text is what stays
 	// on screen if the script never runs.
 	const utc = builtAt.replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
-	const build = `v${version} ${hash}${dirty} · build ${buildId} · <time datetime="${builtAt}">${utc}</time>`;
+	const build = `summon v${version} ${hash}${dirty} · build ${buildId} · <time datetime="${builtAt}">${utc}</time>`;
 	await writeFile(
 		resolve(teamDist, 'build.json'),
 		JSON.stringify({
