@@ -43,6 +43,7 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Changed
 
+- The Team Window build footer now names Summon before its version, revision and build details.
 - Team Window rest checks reuse a validated schedule read while the file version stays unchanged,
   avoiding repeated parsing of retained run history during mention scans. Schedule commands and
   dispatch still read the current file, and no run history is removed.
@@ -69,7 +70,6 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Fixed
 
-- The Team Window build footer now names Summon before its version, revision and build details.
 - Updated the MCP SDK's locked transitive `hono` and `@hono/node-server` versions to resolve
   their reported dependency advisories. Summon's MCP channel continues to use stdio.
 - Switching teammates in the Team Window is immediate. The selected pane used to change only after
@@ -104,6 +104,16 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
   holding the activity lock through publication, so a replaced seat cannot finish an in-flight write.
 - A seat waiting for a human decision can confirm rest while its due schedule is deferred for that
   wait. The schedule remains due, and new due schedules or unfinished runs still interrupt rest.
+
+### Known limitations
+
+- A native provider turn gate can hold an addressed wake after a turn appears to end. Source tests
+  reproduce possible stuck states, but the historical event sequence has not been measured, and
+  the fix and live Claude wake acceptance remain open. Phillip moved this work to v1.2 (#49606).
+- Codex seats still have write access to the whole Summon store. The proposed per-seat boundary
+  remains unbuilt; the offline Windows probe has not proved seat identity or cross-seat denial.
+  Phillip moved this work to v1.2 (#49608). The earlier v1.0 acceptance of the broad grant is
+  not proof of a restricted boundary.
 
 ## [1.0.4] - Internal build, unshipped, folded into 1.1.0
 
