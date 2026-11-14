@@ -135,6 +135,54 @@ test('an integrated main release rejects prewritten notes until they are refresh
 	expect((await checkReleaseCandidateVersion(f.root, repaired, repaired)).version).toBe('0.2.0');
 });
 
+test('a public release can follow explicitly unshipped internal builds', async () => {
+	const f = await fixture();
+	const internal = (version: string, previous: string) =>
+		`## [${version}] - Internal build, unshipped, folded into 0.2.0\n\n### Fixed\n\n- Internal change.\n\n${previous}`;
+	await f.version('0.1.1');
+	await f.write('src/app.ts', 'export const value=2;\n');
+	await f.write('docs/CHANGELOG.md', internal('0.1.1', f.notes('0.1.0')));
+	f.commit('unshipped internal 0.1.1');
+	await f.version('0.1.2');
+	await f.write('src/app.ts', 'export const value=3;\n');
+	await f.write('docs/CHANGELOG.md', internal('0.1.2', internal('0.1.1', f.notes('0.1.0'))));
+	const prior = f.commit('unshipped internal 0.1.2');
+	await f.version('0.2.0');
+	await f.write(
+		'docs/CHANGELOG.md',
+		`${f.notes('0.2.0')}\n${internal('0.1.2', internal('0.1.1', f.notes('0.1.0')))}`,
+	);
+	const release = f.commit('public 0.2.0 release');
+	const result = await checkReleaseCandidateVersion(f.root, release, release);
+	expect(result.version).toBe('0.2.0');
+	expect(result.baseline).toBe(f.base);
+	expect((await checkReleaseVersion(f.root, prior, release)).baseline).toBe(f.base);
+});
+
+test('an unmarked internal build cannot silently become a release baseline', async () => {
+	const f = await fixture();
+	await f.version('0.1.1');
+	await f.write('docs/CHANGELOG.md', '## [0.1.1] - internal\n\n### Fixed\n\n- Change.\n');
+	const malformed = f.commit('undated version without internal marker');
+	await f.version('0.2.0');
+	const candidate = f.commit('next release');
+	await rejects(checkReleaseVersion(f.root, malformed, candidate), /Missing dated CHANGELOG/u);
+});
+
+test('a tagged internal build cannot silently become a release baseline', async () => {
+	const f = await fixture();
+	await f.version('0.1.1');
+	await f.write(
+		'docs/CHANGELOG.md',
+		`## [0.1.1] - Internal build, unshipped, folded into 0.2.0\n\n### Fixed\n\n- Internal change.\n\n${f.notes('0.1.0')}`,
+	);
+	const internal = f.commit('mark internal build');
+	f.git('tag', 'v0.1.1', internal);
+	await f.version('0.2.0');
+	const candidate = f.commit('next release');
+	await rejects(checkReleaseVersion(f.root, internal, candidate), /Tagged internal build/u);
+});
+
 test('seal refusal preserves the existing seal and bundle for an early range bump', async () => {
 	const f = await fixture();
 	const bad = await earlyBump(f);

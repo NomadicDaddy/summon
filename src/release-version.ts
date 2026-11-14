@@ -57,7 +57,17 @@ function section(text: string, version: string): string {
 	return match[0] + body;
 }
 
+function unshippedInternalBuild(text: string, version: string): boolean {
+	const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	return new RegExp(
+		`^## \\[${escaped}\\] - Internal build, unshipped, folded into \\d+\\.\\d+\\.\\d+[ \\t]*\\r?$`,
+		'm',
+	).test(text);
+}
+
 export function versionBaseline(root: string, base: string): string {
+	const notes = historicalReleaseNotes(root, base);
+	const baseVersion = sourceVersion(releaseBlob(root, base, 'package.json'));
 	for (const commit of releaseGit(root, [
 		'log',
 		'--first-parent',
@@ -77,11 +87,17 @@ export function versionBaseline(root: string, base: string): string {
 			Bun.semver.order(current, sourceVersion(releaseBlob(root, parent, 'package.json'))) !==
 				0
 		) {
+			// Internal builds were never public baselines. Keep walking to the dated release
+			// they follow, while a malformed or tagged release still fails closed.
+			if (unshippedInternalBuild(notes, current)) {
+				if (releaseGit(root, ['tag', '--list', `v${current}`]).trim())
+					throw new Error(
+						`Tagged internal build ${current} cannot be a release baseline.`,
+					);
+				continue;
+			}
 			// Notes may be repaired by a later documentation-only commit at the same version.
-			section(
-				historicalReleaseNotes(root, base),
-				sourceVersion(releaseBlob(root, base, 'package.json')),
-			);
+			section(notes, Bun.semver.order(baseVersion, current) === 0 ? baseVersion : current);
 			return commit;
 		}
 	}
