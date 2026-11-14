@@ -40,9 +40,9 @@ function loadWithNotes(): { rules: string; notes: string[] } {
 }
 
 test('rules exactly at both limits load without a warning', async () => {
-	const rules = fortyLines(10_000);
+	const rules = fortyLines(12_288);
 	expect(rules.split('\n')).toHaveLength(40);
-	expect(rules).toHaveLength(10_000);
+	expect(rules).toHaveLength(12_288);
 	validateTeamRules(rules);
 	await withRules(rules, () => {
 		expect(loadWithNotes()).toEqual({ rules, notes: [] });
@@ -62,28 +62,28 @@ test('one line over the budget warns at start and keeps every rule', async () =>
 });
 
 test('one character over the budget warns at start and keeps every rule', async () => {
-	const rules = fortyLines(10_001);
-	expect(() => validateTeamRules(rules)).toThrow('10001 characters (limit 10000)');
+	const rules = fortyLines(12_289);
+	expect(() => validateTeamRules(rules)).toThrow('12289 characters (limit 12288)');
 	await withRules(rules, () => {
 		const loaded = loadWithNotes();
 		expect(loaded.rules).toBe(rules);
 		expect(loaded.notes).toHaveLength(1);
-		expect(loaded.notes[0]).toContain('10001 characters (limit 10000)');
+		expect(loaded.notes[0]).toContain('12289 characters (limit 12288)');
 	});
 });
 
 test('both limits over are named together', async () => {
-	const rules = `${fortyLines(10_001)}\nOne line too many.`;
-	expect(rules.length).toBeGreaterThan(10_000);
+	const rules = `${fortyLines(12_289)}\nOne line too many.`;
+	expect(rules.length).toBeGreaterThan(12_288);
 	await withRules(rules, () => {
 		expect(loadWithNotes().notes[0]).toContain(
-			`41 lines (limit 40), ${rules.length} characters (limit 10000).`,
+			`41 lines (limit 40), ${rules.length} characters (limit 12288).`,
 		);
 	});
 });
 
 test('every provider gets over-budget rules in full, before notes, with one warning each', async () => {
-	const rules = fortyLines(10_500);
+	const rules = fortyLines(12_500);
 	const warning = spyOn(console, 'warn').mockImplementation(() => {});
 	try {
 		await withRules(rules, (root) => {
@@ -98,14 +98,14 @@ test('every provider gets over-budget rules in full, before notes, with one warn
 			}
 		});
 		expect(warning).toHaveBeenCalledTimes(providers.length);
-		expect(String(warning.mock.calls[0]?.[0])).toContain('10500 characters (limit 10000)');
+		expect(String(warning.mock.calls[0]?.[0])).toContain('12500 characters (limit 12288)');
 	} finally {
 		warning.mockRestore();
 	}
 });
 
 test('an unsourced or entry-free file over the budget still refuses the start', async () => {
-	const unsourced = `${fortyLines(10_100)}\n- No source here.`;
+	const unsourced = `${fortyLines(12_389)}\n- No source here.`;
 	await withRules(unsourced, () => {
 		const notes: string[] = [];
 		expect(() => teamRules((note) => notes.push(note))).toThrow(

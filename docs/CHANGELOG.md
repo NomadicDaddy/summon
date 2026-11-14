@@ -2,6 +2,12 @@
 
 Notable changes to summon are recorded here using Keep a Changelog categories and semantic versions.
 
+## [Unreleased]
+
+### Changed
+
+- The Team rules character limit is 12,288; the 40-line and provenance checks remain in place.
+
 ## [1.1.0] - 2026-11-14
 
 ### Added
