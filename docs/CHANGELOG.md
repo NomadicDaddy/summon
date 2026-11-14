@@ -69,6 +69,7 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Fixed
 
+- The Team Window build footer now names Summon before its version, revision and build details.
 - Updated the MCP SDK's locked transitive `hono` and `@hono/node-server` versions to resolve
   their reported dependency advisories. Summon's MCP channel continues to use stdio.
 - Switching teammates in the Team Window is immediate. The selected pane used to change only after
