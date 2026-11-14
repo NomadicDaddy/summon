@@ -92,6 +92,9 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
   instead of leaving its notifications queued.
 - Atomic store writes on Windows now retry transient replacement denial for up to three seconds
   without falling back to a truncating write.
+- Room history snapshots refuse linked archives and freeze their validated copies before reuse.
+- Named-session commands refuse a replaced launch; `summon --unowned` removes inherited seat
+  variables before starting detached tools.
 - Updated the MCP SDK's locked transitive `hono` and `@hono/node-server` versions to resolve
   their reported dependency advisories. Summon's MCP channel continues to use stdio.
 - Switching teammates in the Team Window is immediate. The selected pane used to change only after
