@@ -6,6 +6,12 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Added
 
+- An operator-only setting can grant a requested head-down period for one named goal and launch.
+  Each grant is recorded in the Team Room; a missing or unaudited setting leaves approval manual.
+- `summon --diagnostics` writes a bounded, redacted snapshot of the caller's own session for startup
+  and delivery investigations. It omits message bodies and private file contents.
+- Weekly Dependabot configuration proposes Bun package and GitHub Actions updates after it reaches
+  GitHub. It groups lint and formatting tools, limits open Bun PRs, and excludes TypeScript updates.
 - The operator can mark themselves Away From Keyboard with a masthead button or Ctrl+Shift+A.
   The team-scoped state survives restarts and never times out. It clears on the first deliberate
   keystroke in a terminal, the operator shell, a Room draft, the notepad, a search field or
@@ -43,6 +49,16 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Changed
 
+- A late scheduled dispatch now keeps the schedule's original interval phase when calculating its
+  next due time.
+- Source line length is advisory in development guidance; fast and full QC no longer run the
+  numeric line-length check.
+- Release candidate validation now checks integrated main and its versioned notes before running
+  the full gate and package dry run.
+- Release validation treats explicitly unshipped internal 1.0.x builds as part of the next public
+  version while still requiring dated notes for public and tagged versions.
+- Pinned dependency updates include the MCP SDK, Zod, Bun and Node type definitions, and lint tools.
+  Electron and node-pty remain at their prior versions.
 - The Team Window build footer now names Summon before its version, revision and build details.
 - Team Window rest checks reuse a validated schedule read while the file version stays unchanged,
   avoiding repeated parsing of retained run history during mention scans. Schedule commands and
@@ -70,6 +86,12 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Fixed
 
+- Windows session process identity now reads the process creation time through CIM before treating
+  a reused PID as the same running session.
+- Invalid or unaudited automatic head-down state returns the affected seat to normal delivery
+  instead of leaving its notifications queued.
+- Atomic store writes on Windows now retry transient replacement denial for up to three seconds
+  without falling back to a truncating write.
 - Updated the MCP SDK's locked transitive `hono` and `@hono/node-server` versions to resolve
   their reported dependency advisories. Summon's MCP channel continues to use stdio.
 - Switching teammates in the Team Window is immediate. The selected pane used to change only after
@@ -107,6 +129,13 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Known limitations
 
+- Finished scheduled runs still accumulate in the active schedule file without a byte cap or
+  automatic pruning. It measured 10,589,345 bytes during the November 14 release review; that is
+  size evidence, not a measured latency or data-loss result. Phillip accepted this open High for
+  v1.1 and moved the unfinished retention fix to v1.2 (#49666).
+- Dependabot's first GitHub PR has not been observed because these local changes have not been
+  pushed. Its exact package pins and Bun lockfile format must be checked when that PR arrives;
+  Electron or node-pty updates also need an installed Team Window check before merge.
 - A native provider turn gate can hold an addressed wake after a turn appears to end. Source tests
   reproduce possible stuck states, but the historical event sequence has not been measured, and
   the fix and live Claude wake acceptance remain open. Phillip moved this work to v1.2 (#49606).
