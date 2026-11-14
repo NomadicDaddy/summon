@@ -74,15 +74,11 @@ test('Away persists with its start time until an explicit clear, with one Room l
 	expect(await awayLines()).toEqual([AWAY, BACK]);
 });
 
-test('input clears only an Away set before it, once, and input never sets Away', async () => {
-	const set = await setOperatorAway(true, 'shortcut');
-	const since = Date.parse(set.view.state === 'away' ? set.view.since : '');
-	// An input already in flight before the Away was confirmed leaves it set.
-	expect((await setOperatorAway(false, 'teammate-terminal', since - 1)).changed).toBe(false);
-	expect((await readOperatorAway()).state).toBe('away');
-	expect((await setOperatorAway(false, 'room-draft', since + 1)).changed).toBe(true);
+test('input clears a confirmed Away once, writes nothing while Here, and never sets Away', async () => {
+	await setOperatorAway(true, 'shortcut');
+	expect((await setOperatorAway(false, 'room-draft')).changed).toBe(true);
 	// Repeated input while Here writes nothing more.
-	expect((await setOperatorAway(false, 'notepad', since + 2)).changed).toBe(false);
+	expect((await setOperatorAway(false, 'notepad')).changed).toBe(false);
 	expect(await awayLines()).toHaveLength(2);
 	await rejected(setOperatorAway(true, 'notepad'), 'Only the Away control sets Away.');
 });
@@ -92,7 +88,7 @@ test('a teammate can read Away but never set or clear it', async () => {
 	process.env.SUMMON_AGENT = 'alpha';
 	expect((await readOperatorAway()).state).toBe('away');
 	await rejected(setOperatorAway(false, 'button'));
-	await rejected(setOperatorAway(false, 'teammate-terminal', Date.now() + 1000));
+	await rejected(setOperatorAway(false, 'teammate-terminal'));
 	delete process.env.SUMMON_AGENT;
 	expect((await readOperatorAway()).state).toBe('away');
 });
@@ -103,7 +99,7 @@ test('malformed state reads unavailable, input leaves it alone, and an explicit 
 	await writeFile(path, '{"version":1,"state":"away"}');
 	const read = await readOperatorAway();
 	expect(read.state).toBe('unavailable');
-	expect((await setOperatorAway(false, 'search', Date.now())).changed).toBe(false);
+	expect((await setOperatorAway(false, 'search')).changed).toBe(false);
 	expect(await optionalText(path)).toBe('{"version":1,"state":"away"}');
 	expect((await setOperatorAway(true, 'button')).changed).toBe(true);
 	const kept = (await readdir(dirname(path))).filter((name) =>
@@ -111,6 +107,21 @@ test('malformed state reads unavailable, input leaves it alone, and an explicit 
 	);
 	expect(kept).toHaveLength(1);
 	expect((await readOperatorAway()).state).toBe('away');
+});
+
+test('an unavailable reason never quotes the file, which teammates would read', async () => {
+	await setOperatorAway(true, 'button');
+	await writeFile(operatorAwayPath(), 'SECRET_SENTINEL');
+	const notJson = await readOperatorAway();
+	expect(notJson).toEqual({
+		state: 'unavailable',
+		error: 'The Away state file is not valid JSON.',
+	});
+	await writeFile(operatorAwayPath(), '{"version":1,"state":"SECRET_SENTINEL"}');
+	const notRecord = await readOperatorAway();
+	expect(JSON.stringify(notRecord)).not.toContain('SECRET_SENTINEL');
+	expect(operatorPresenceLine(notRecord)).not.toContain('SECRET_SENTINEL');
+	expect(awayLabel(notRecord).title).not.toContain('SECRET_SENTINEL');
 });
 
 test('stored state holds only the state, its times and a cause category', async () => {

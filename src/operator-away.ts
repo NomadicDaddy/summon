@@ -63,31 +63,51 @@ function viewOf(stored: Stored): OperatorAwayView {
 		: { state: 'here' };
 }
 
+/**
+ * Why the state is unavailable, as a fixed sentence. Teammates read it, so it never carries the
+ * parser's message, which can quote the file's own bytes (Roger #48243).
+ */
+const UNAVAILABLE = {
+	unreadable: 'The Away state file could not be read.',
+	'not-json': 'The Away state file is not valid JSON.',
+	'not-a-record': 'The Away state file is not a valid Away record.',
+} as const;
+type Unavailable = keyof typeof UNAVAILABLE;
+
 type Loaded =
 	| { kind: 'missing' }
 	| { kind: 'valid'; stored: Stored }
-	| { kind: 'invalid'; raw: string | undefined; error: string };
+	| { kind: 'invalid'; reason: Unavailable };
 
 async function load(): Promise<Loaded> {
 	let raw: string | undefined;
 	try {
 		raw = await optionalText(operatorAwayPath());
-		if (raw === undefined) return { kind: 'missing' };
-		return { kind: 'valid', stored: storedSchema.parse(JSON.parse(raw) as unknown) };
-	} catch (error) {
-		return {
-			kind: 'invalid',
-			raw,
-			error: error instanceof Error ? error.message : String(error),
-		};
+	} catch {
+		return { kind: 'invalid', reason: 'unreadable' };
 	}
+	if (raw === undefined) return { kind: 'missing' };
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw) as unknown;
+	} catch {
+		return { kind: 'invalid', reason: 'not-json' };
+	}
+	const stored = storedSchema.safeParse(parsed);
+	return stored.success
+		? { kind: 'valid', stored: stored.data }
+		: { kind: 'invalid', reason: 'not-a-record' };
 }
 
 function loadedView(loaded: Loaded): OperatorAwayView {
 	if (loaded.kind === 'missing') return { state: 'here' };
 	if (loaded.kind === 'invalid')
-		return { state: 'unavailable', error: `Away state is unreadable: ${loaded.error}` };
+		return { state: 'unavailable', error: UNAVAILABLE[loaded.reason] };
 	return viewOf(loaded.stored);
+}
+
+function isInputCause(cause: AwayCause): cause is InputCause {
+	return cause !== 'button' && cause !== 'shortcut';
 }
 
 /** For the masthead, current-requests and startup context. Never writes, never clears. */
@@ -104,34 +124,30 @@ export function awayRoomText(away: boolean): string {
 }
 
 /**
- * Sets Away or Here. `inputAt` marks a clear caused by operator input at that time (ms since the
- * epoch): it clears only an Away confirmed before that input, so an input event that was already
- * in flight can't undo a later Away. An unchanged state writes nothing and posts nothing. A failed
- * write throws before any Room line, so a transition is reported only once it is stored.
+ * Sets Away or Here. The Away control sets either; operator input only clears, and only a
+ * confirmed Away: it never writes over Here or an unavailable file. The Team Window runs every
+ * change in arrival order, so an input clears exactly the Aways set before it. An unchanged state
+ * writes nothing and posts nothing. A failed write throws before any Room line, so a transition is
+ * reported only once it is stored.
  */
-export async function setOperatorAway(
-	away: boolean,
-	cause: AwayCause,
-	inputAt?: number,
-): Promise<AwayTransition> {
+export async function setOperatorAway(away: boolean, cause: AwayCause): Promise<AwayTransition> {
 	operatorOnly();
 	if (typeof away !== 'boolean' || !AWAY_CAUSES.includes(cause))
 		throw new Error('Invalid Away change.');
-	if (away && cause !== 'button' && cause !== 'shortcut')
-		throw new Error('Only the Away control sets Away.');
+	if (away && isInputCause(cause)) throw new Error('Only the Away control sets Away.');
 	const path = operatorAwayPath();
 	return locked(`${path}.lock`, async () => {
 		const loaded = await load();
 		const current = loadedView(loaded);
-		if (inputAt !== undefined) {
-			// Input clears only a confirmed Away that started before it.
-			if (current.state !== 'away' || Date.parse(current.since) > inputAt)
-				return { changed: false, view: current };
-		}
+		if (isInputCause(cause) && current.state !== 'away')
+			return { changed: false, view: current };
 		if ((current.state === 'away') === away && current.state !== 'unavailable')
 			return { changed: false, view: current };
-		if (loaded.kind === 'invalid' && loaded.raw !== undefined) {
-			// Keep the unreadable bytes beside the file before an explicit change replaces them.
+		if (loaded.kind === 'invalid') {
+			// A file that can't be read can't be kept aside, so it is never replaced (Roger #48243).
+			if (loaded.reason === 'unreadable')
+				throw new Error(`${UNAVAILABLE.unreadable} Away was not changed.`);
+			// Keep the bad bytes beside the file before an explicit change replaces them.
 			await copyFile(path, `${path}.unreadable-${Date.now()}`);
 		}
 		const changedAt = new Date().toISOString();

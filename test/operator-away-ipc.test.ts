@@ -17,7 +17,7 @@ await mock.module('electron', () => ({
 	},
 }));
 const { operatorAwayIpc } = await import('../src/desktop/operator-away.ts');
-const { shouldReportPresence } = await import('../src/desktop/away-control.ts');
+const { isAwayShortcut, shouldReportPresence } = await import('../src/desktop/away-control.ts');
 const { awayRoomText, operatorAwayPath, readOperatorAway, setOperatorAway } =
 	await import('../src/operator-away.ts');
 const { localEvents } = await import('../src/local-room.ts');
@@ -139,18 +139,59 @@ test('each team keeps its own Away', async () => {
 	expect((await readOperatorAway()).state).toBe('away');
 });
 
-test('a failed state write reports no transition and posts no Room line', async () => {
-	// A directory where the file belongs makes the atomic rename fail.
+test('a state file that cannot be read is never replaced: the change fails with no Room line', async () => {
+	// A directory where the file belongs can't be read, so its contents can't be kept aside.
 	await mkdir(operatorAwayPath(), { recursive: true });
-	let failed = false;
+	let message = '';
 	try {
 		await setOperatorAway(true, 'button');
-	} catch {
-		failed = true;
+	} catch (error) {
+		message = String(error);
 	}
-	expect(failed).toBe(true);
+	expect(message).toContain('Away was not changed.');
 	expect((await localEvents()).filter((event) => event.text === awayRoomText(true))).toHaveLength(
 		0,
 	);
 	expect((await readOperatorAway()).state).toBe('unavailable');
+});
+
+// Roger #48243, finding 2: input A, then a toggle, then input B. B came after the toggle, so it
+// clears the Away the toggle set; nothing is dropped while A's clear is in flight.
+test('an input after a queued toggle clears the Away that toggle sets', async () => {
+	const away = await control();
+	await toggle('button');
+	away.input('room-send');
+	const toggled = toggle('shortcut');
+	away.input('room-draft');
+	await toggled;
+	await settled();
+	expect((await readOperatorAway()).state).toBe('here');
+	expect(away.view().state).toBe('here');
+});
+
+// Finding 3: the startup read runs in the same queue, so a toggle made before it lands can't be
+// overwritten by it, and input during startup isn't skipped.
+test('a toggle and an input during startup settle in order over the startup read', async () => {
+	await setOperatorAway(true, 'button');
+	const away = operatorAwayIpc(
+		trusted,
+		() => Promise.resolve(),
+		(error) => errors.push(error),
+	);
+	away.input('teammate-terminal');
+	const toggled = toggle('button');
+	await toggled;
+	await settled();
+	expect((await readOperatorAway()).state).toBe('away');
+	expect(away.view()).toEqual(await readOperatorAway());
+	expect(errors).toEqual([]);
+});
+
+// Finding 4: a dispatched Ctrl+Shift+A isn't trusted and never toggles.
+test('only a trusted Ctrl+Shift+A is the Away shortcut', () => {
+	const press = { altKey: false, code: 'KeyA', ctrlKey: true, metaKey: false, shiftKey: true };
+	expect(isAwayShortcut({ ...press, isTrusted: true })).toBe(true);
+	expect(isAwayShortcut({ ...press, isTrusted: false })).toBe(false);
+	expect(isAwayShortcut({ ...press, isTrusted: true, altKey: true })).toBe(false);
+	expect(isAwayShortcut({ ...press, isTrusted: true, code: 'KeyS' })).toBe(false);
 });

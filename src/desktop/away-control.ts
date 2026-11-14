@@ -36,6 +36,25 @@ export function awayLabel(view: OperatorAwayView | undefined): { text: string; t
 	};
 }
 
+/**
+ * A physical Ctrl+Shift+A. A dispatched event isn't trusted and never toggles Away (Roger #48243).
+ */
+export function isAwayShortcut(
+	event: Pick<
+		KeyboardEvent,
+		'altKey' | 'code' | 'ctrlKey' | 'isTrusted' | 'metaKey' | 'shiftKey'
+	>,
+): boolean {
+	return (
+		event.isTrusted &&
+		event.ctrlKey &&
+		event.shiftKey &&
+		!event.altKey &&
+		!event.metaKey &&
+		event.code === 'KeyA'
+	);
+}
+
 /** At most one presence report each half second while Away shows; a declined report never latches. */
 export const PRESENCE_REPORT_INTERVAL_MS = 500;
 export function shouldReportPresence(
@@ -100,14 +119,7 @@ export function setupAwayControl(onError: (error: unknown) => void): {
 	document.addEventListener(
 		'keydown',
 		(event) => {
-			if (
-				!event.ctrlKey ||
-				!event.shiftKey ||
-				event.altKey ||
-				event.metaKey ||
-				event.code !== 'KeyA'
-			)
-				return;
+			if (!isAwayShortcut(event)) return;
 			// Taken before a focused terminal or field sees it, so the toggle can't clear itself.
 			event.preventDefault();
 			event.stopImmediatePropagation();
