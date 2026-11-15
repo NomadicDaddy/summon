@@ -8,6 +8,7 @@ import { readableError } from './ipc-error.ts';
 import { setupMacroBar } from './macro-bar.ts';
 import { appendRoomActions } from './room-actions.ts';
 import { appendRoomImage, roomAttachments } from './room-attachments.ts';
+import { setupRoomAutoRead } from './room-auto-read.ts';
 import { copyButton } from './room-copy.ts';
 import { highlightRoomMessage } from './room-highlight.ts';
 import { setupRoomHistory } from './room-history-place.ts';
@@ -200,6 +201,7 @@ export function setupRoom(): (snapshot: TeamSnapshot) => void {
 			error.hidden = false;
 		},
 	);
+	setupRoomAutoRead(messages, place, history.isBrowsing);
 	const refresh = async (): Promise<void> => {
 		if (pending) return;
 		pending = true;

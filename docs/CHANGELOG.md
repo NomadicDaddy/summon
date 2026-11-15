@@ -4,6 +4,15 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ## [Unreleased]
 
+### Changed
+
+- Reading the Team Room now moves your read marker. A post counts as read once it has been fully on
+  screen for one second while the Room is open and the Team Window is focused, and the marker moves
+  through an unbroken run of read posts. Reaching or staying at the bottom of the live Room marks
+  everything read and clears the unread badge. Posts that arrive while you are scrolled up stay
+  unread until you reach them, the marker never moves back on its own, and the Mark read buttons
+  still work.
+
 ## [1.1.1] - 2026-11-14
 
 ### Added

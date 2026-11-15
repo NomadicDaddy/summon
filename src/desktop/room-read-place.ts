@@ -33,10 +33,11 @@ export function saveRoomPlace(
 	storage.setItem(roomPlaceKey(team), JSON.stringify(place));
 }
 
-/** A partial message is never evidence of having reached its end. */
-export function lastFullyVisibleMessage(messages: HTMLElement): number | null {
+/** Ids of the messages wholly inside the message area, in display order. A partial message is
+ * never evidence of having reached its end. */
+export function fullyVisibleMessages(messages: HTMLElement): number[] {
 	const viewport = messages.getBoundingClientRect();
-	let last: number | null = null;
+	const ids: number[] = [];
 	for (const item of messages.querySelectorAll<HTMLElement>(
 		'article.room-message[data-room-id]',
 	)) {
@@ -48,9 +49,13 @@ export function lastFullyVisibleMessage(messages: HTMLElement): number | null {
 			bounds.top >= viewport.top &&
 			bounds.bottom <= viewport.bottom
 		)
-			last = id;
+			ids.push(id);
 	}
-	return last;
+	return ids;
+}
+
+export function lastFullyVisibleMessage(messages: HTMLElement): number | null {
+	return fullyVisibleMessages(messages).at(-1) ?? null;
 }
 
 export function setupRoomReadPlace(
@@ -60,6 +65,9 @@ export function setupRoomReadPlace(
 ): {
 	selectTeam: (team: string | undefined) => Promise<void>;
 	mark: (id: number) => Promise<void>;
+	advance: (id: number) => Promise<void>;
+	readThrough: () => number | null;
+	firstUnread: () => number | null;
 	captureLeave: () => void;
 	returnToLeftOff: () => boolean;
 	refresh: () => Promise<void>;
@@ -202,6 +210,13 @@ export function setupRoomReadPlace(
 			await sync();
 		},
 		mark,
+		// Reading moves the marker forward only; the explicit buttons use `mark`, which may not.
+		advance: async (id) => {
+			if (place.readThrough !== null && id <= place.readThrough) return;
+			await mark(id);
+		},
+		readThrough: () => (valid ? place.readThrough : null),
+		firstUnread: () => (valid && known ? firstUnread : null),
 		captureLeave: () => {
 			if (!selected || !valid) return;
 			const id = lastFullyVisibleMessage(messages);

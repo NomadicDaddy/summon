@@ -45,6 +45,8 @@
 		"test/fixtures/response-watchdog-electron.ts",
 		"test/fixtures/response-watchdog-reload.ts",
 		"test/fixtures/response-watchdog-renderer.ts",
+		"test/fixtures/room-auto-read-electron.ts",
+		"test/fixtures/room-auto-read-renderer.ts",
 		"test/fixtures/room-follow-electron.ts",
 		"test/fixtures/room-follow-renderer.ts",
 		"test/fixtures/room-read-place-electron.ts",
