@@ -4,11 +4,7 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ## [Unreleased]
 
-### Changed
-
-- The Team rules character limit is 12,288; the 40-line and provenance checks remain in place.
-
-## [1.1.0] - 2026-11-14
+## [1.1.1] - 2026-11-14
 
 ### Added
 
@@ -55,6 +51,7 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Changed
 
+- The Team rules character limit is 12,288; the 40-line and provenance checks remain in place.
 - Uninstall retries transient locks on empty application folders and warns when the install root remains.
 - A late scheduled dispatch now keeps the schedule's original interval phase when calculating its
   next due time.
@@ -139,11 +136,12 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Known limitations
 
-- The v1.1.0 dependency audit reports one moderate `minimatch` advisory
+- The unshipped 1.1.0 candidate's dependency audit reported one moderate `minimatch` advisory
   (GHSA-g3hv-75wg-m249) through ESLint development tooling, outside the installer payload.
   The reviewed lint paths do not use the vulnerable optimization level, but that review does
   not prove it unreachable in every context. Phillip accepted it for the exact `5d8f765`
-  source and installer candidate (#50238); the dependency update remains open.
+  source and installer candidate (#50238); the 1.1.1 candidate needs its own audit, and the
+  dependency update remains open.
 - Finished scheduled runs still accumulate in the active schedule file without a byte cap or
   automatic pruning. It measured 10,589,345 bytes during the November 14 release review; that is
   size evidence, not a measured latency or data-loss result. Phillip accepted this open High for
@@ -159,21 +157,25 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
   Phillip moved this work to v1.2 (#49608). The earlier v1.0 acceptance of the broad grant is
   not proof of a restricted boundary.
 
-## [1.0.4] - Internal build, unshipped, folded into 1.1.0
+## [1.1.0] - Internal build, unshipped, folded into 1.1.1
+
+The 1.1.0 candidate was superseded before tagging or publication. Its changes are included in 1.1.1.
+
+## [1.0.4] - Internal build, unshipped, folded into 1.1.1
 
 ### Removed
 
 - The old GitHub Pages workflow and standalone `site/` have been removed after the Summon page
   moved to beazley.org. This source change does not switch off Pages in repository settings.
 
-## [1.0.3] - Internal build, unshipped, folded into 1.1.0
+## [1.0.3] - Internal build, unshipped, folded into 1.1.1
 
 ### Changed
 
 - Team rules may now contain up to 10,000 characters while keeping the 40-line and provenance
   checks. Valid rules above that budget still load in full with a startup warning.
 
-## [1.0.2] - Internal build, unshipped, folded into 1.1.0
+## [1.0.2] - Internal build, unshipped, folded into 1.1.1
 
 ### Fixed
 
@@ -182,7 +184,7 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
   names that same directory. Unrelated aliases, links, outside targets and private paths remain
   refused.
 
-## [1.0.1] - Internal build, unshipped, folded into 1.1.0
+## [1.0.1] - Internal build, unshipped, folded into 1.1.1
 
 ### Fixed
 
