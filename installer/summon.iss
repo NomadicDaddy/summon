@@ -377,6 +377,25 @@ begin
   end;
 end;
 
+procedure FinishUninstallRootCleanup();
+var
+  AppDirectory, VersionsDirectory: String;
+  Attempt: Integer;
+begin
+  AppDirectory := ExpandConstant('{app}');
+  VersionsDirectory := AddBackslash(AppDirectory) + 'versions';
+  // Windows can briefly retain an empty directory handle after the engine's
+  // last removal pass. Retry only empty directories and known setup temp files.
+  for Attempt := 1 to 8 do begin
+    TryRemoveInterruptedSetupFiles(VersionsDirectory, True);
+    if DirExists(AppDirectory) then RemoveDir(AppDirectory);
+    if not DirExists(AppDirectory) then exit;
+    if Attempt < 8 then Sleep(250);
+  end;
+  RaiseException('Summon uninstall left the installation folder at ' + AppDirectory +
+    '. Close programs using that folder and remove its remaining contents manually. Team data and settings were retained.');
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then begin
@@ -396,6 +415,7 @@ begin
     // The engine already retried this parent before the orphan directories were pruned.
     RemoveDir(ExpandConstant('{app}'));
   end;
+  if CurUninstallStep = usDone then FinishUninstallRootCleanup();
   if (CurUninstallStep = usDone) and (UninstallReport <> '') then begin
     Log(UninstallReport);
     if not UninstallSilent() then MsgBox(UninstallReport, mbInformation, MB_OK);

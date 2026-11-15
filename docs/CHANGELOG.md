@@ -55,6 +55,7 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Changed
 
+- Uninstall retries transient locks on empty application folders and reports a retained install root as an error.
 - A late scheduled dispatch now keeps the schedule's original interval phase when calculating its
   next due time.
 - Source line length is advisory in development guidance; fast and full QC no longer run the
