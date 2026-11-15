@@ -136,12 +136,12 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Known limitations
 
-- The unshipped 1.1.0 candidate's dependency audit reported one moderate `minimatch` advisory
-  (GHSA-g3hv-75wg-m249) through ESLint development tooling, outside the installer payload.
-  The reviewed lint paths do not use the vulnerable optimization level, but that review does
-  not prove it unreachable in every context. Phillip accepted it for the exact `5d8f765`
-  source and installer candidate (#50238); the 1.1.1 candidate needs its own audit, and the
-  dependency update remains open.
+- The 1.1.1 candidate audit at `6cc5def` reports one moderate `minimatch` advisory
+  (GHSA-g3hv-75wg-m249). Its dependency paths are through ESLint and typescript-eslint
+  development tooling, outside the production installer payload. The reviewed lint paths do not
+  use the vulnerable optimization level, but that review does not prove it unreachable in every
+  context. Team R1 accepts this dev-tool-only advisory for this candidate; the dependency update
+  remains open.
 - Finished scheduled runs still accumulate in the active schedule file without a byte cap or
   automatic pruning. It measured 10,589,345 bytes during the November 14 release review; that is
   size evidence, not a measured latency or data-loss result. Phillip accepted this open High for
