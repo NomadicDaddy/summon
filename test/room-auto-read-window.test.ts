@@ -79,6 +79,8 @@ test('Room reading advances the read marker under its stated conditions', async 
 				scrolledUp: { posted: number; marker: number };
 				reached: number;
 				neverBack: number;
+				noMarker: { firstLoaded: number; marker: number | null };
+				noMarkerBottom: number;
 			};
 			expect(steps.closed).toBe(100);
 			expect(steps.unfocused).toBe(100);
@@ -87,6 +89,9 @@ test('Room reading advances the read marker under its stated conditions', async 
 			expect(steps.scrolledUp).toEqual({ posted: 451, marker: 450 });
 			expect(steps.reached).toBe(451);
 			expect(steps.neverBack).toBe(451);
+			expect(steps.noMarker.firstLoaded).toBeGreaterThan(1);
+			expect(steps.noMarker.marker).toBeNull();
+			expect(steps.noMarkerBottom).toBe(450);
 		} finally {
 			child.kill();
 			await child.exited;

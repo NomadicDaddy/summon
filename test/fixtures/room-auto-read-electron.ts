@@ -167,6 +167,44 @@ void app.whenReady().then(async () => {
 		steps.neverBack = await marker();
 		if (steps.neverBack !== posted)
 			throw new Error(`Reading moved the marker back: ${String(steps.neverBack)}`);
+
+		// 10. No marker yet (Roger #51267): older posts are outside the loaded window, so dwelling
+		// on the first loaded post must not read past them. Only the live bottom may set the first
+		// marker. A stored null marker survives the fixture's own seeding, which runs only when the
+		// key is absent; the reload resets the fixture to its 450 posts. The Room is closed first:
+		// while it is open, the page's blur on unload saves its in-memory place over the null.
+		await run("document.getElementById('room-close').click()");
+		await run('window.roomAttend = false');
+		await run(
+			"localStorage.setItem('room-read-place:default', JSON.stringify({ readThrough: null, leftAt: null }))",
+		);
+		await window.loadFile(join(root, 'index.html'));
+		await until("document.title === 'ROOM_PLACE_READY'", 'renderer reloaded');
+		await until("document.querySelectorAll('#room-messages article').length === 300", 'posts');
+		await run('window.roomAttend = true');
+		await run("document.getElementById('room-toggle').click()");
+		await scrollTo('0');
+		await delay(300);
+		const firstView = await fullyVisible();
+		const firstLoaded = await run<number>(
+			"Number(document.querySelector('#room-messages article[data-room-id]')?.dataset.roomId)",
+		);
+		await delay(1600);
+		steps.noMarker = {
+			firstLoaded,
+			view: [firstView[0], firstView.at(-1)],
+			marker: await marker(),
+		};
+		if (firstLoaded <= 1 || (await marker()) !== null)
+			throw new Error(
+				`No-marker reading passed unloaded posts: ${JSON.stringify(steps.noMarker)}`,
+			);
+		await scrollTo('m.scrollHeight');
+		await until(
+			"JSON.parse(localStorage.getItem('room-read-place:default')).readThrough === 450",
+			'no-marker bottom read',
+		);
+		steps.noMarkerBottom = await marker();
 		await writeFile(join(root, 'result.json'), JSON.stringify(steps));
 	} catch (cause: unknown) {
 		await writeFile(join(root, 'error.txt'), `${String(cause)} ${JSON.stringify(steps)}`);

@@ -56,17 +56,15 @@ export function setupRoomAutoRead(
 		if (!atBottom) bottomSince = null;
 		else if (bottomSince === null) bottomSince = at;
 		else if (at - bottomSince >= DWELL_MS) return ids.at(-1) ?? null;
-		// Walk the unbroken run of seen posts from the Room's first unread one. When that post is
-		// not loaded as a message of its own, nothing on screen proves it was seen, so only the
-		// bottom-of-Room rule above can move the marker. With no marker at all (a first visit) the
-		// walk starts at the first loaded post, so older posts not loaded are counted read with it;
-		// there is no earlier place to protect.
-		let start = 0;
-		if (place.readThrough() !== null) {
-			const first = place.firstUnread();
-			start = first === null ? -1 : ids.indexOf(first);
-			if (start < 0) return null;
-		}
+		// Walk the unbroken run of seen posts from the Room's first unread one. Away from the live
+		// bottom the walk needs that known start: with no marker yet, or with the first unread post
+		// not loaded as a message of its own, older posts outside the window were never on screen,
+		// so only the bottom-of-Room rule above (or an explicit Mark read) can move the marker
+		// (Roger #51267).
+		if (place.readThrough() === null) return null;
+		const first = place.firstUnread();
+		const start = first === null ? -1 : ids.indexOf(first);
+		if (start < 0) return null;
 		let reached: number | null = null;
 		for (let index = start; index < ids.length; index++) {
 			const id = ids[index];
