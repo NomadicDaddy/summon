@@ -64,10 +64,19 @@ test('PATH editing preserves types and avoids writes when nothing changes', () =
 	expect(script).toContain('Part := Copy(Part, 2, Length(Part) - 2);');
 });
 
-test('orphan cleanup and PATH errors do not abort the logged uninstall', () => {
+test('orphan cleanup and PATH errors are reported before the uninstall completion message', () => {
 	expect(script).toMatch(/RemoveInterruptedSetupFiles\(Directory, ScanSubdirs\);\s+except/);
 	expect(script).toMatch(/UpdateUserPath\(False\);\s+except/);
-	expect(script).toContain("(CurUninstallStep = usDone) and (UninstallReport <> '')");
+	const postUninstall = script.indexOf('if CurUninstallStep = usPostUninstall then begin');
+	const finishCleanup = script.indexOf('FinishUninstallRootCleanup();', postUninstall);
+	const showReport = script.indexOf("if UninstallReport <> '' then begin", postUninstall);
+	expect(postUninstall).toBeGreaterThan(0);
+	expect(finishCleanup).toBeGreaterThan(postUninstall);
+	expect(showReport).toBeGreaterThan(finishCleanup);
+	expect(script).toContain('for Attempt := 1 to 8 do begin');
+	expect(script).toContain('if Attempt < 8 then Sleep(250);');
+	expect(script).toContain('UninstalledAll=Summon uninstall finished.');
+	expect(script).not.toContain('if CurUninstallStep = usDone then FinishUninstallRootCleanup();');
 });
 
 test('finished guidance is keyboard-accessible and scrollable instead of clipped label text', () => {

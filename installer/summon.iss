@@ -53,6 +53,10 @@ Source: "prerequisite-sources.json"; Flags: dontcopy
 [Icons]
 Name: "{group}\Summon"; Filename: "{cmd}"; Parameters: "/c """"{app}\summon.cmd"" --team"""; WorkingDir: "{userdocs}"; IconFilename: "{app}\versions\{#BuildId}\app\dist\team\icons\summon.ico"
 
+[Messages]
+; Inno can still report RemovedAll=Yes after a locked empty directory fails to go.
+UninstalledAll=Summon uninstall finished. Check any warnings and verify the installation folder was removed.
+
 [Code]
 var
   RuntimeBlocker: String;
@@ -387,13 +391,17 @@ begin
   // Windows can briefly retain an empty directory handle after the engine's
   // last removal pass. Retry only empty directories and known setup temp files.
   for Attempt := 1 to 8 do begin
-    TryRemoveInterruptedSetupFiles(VersionsDirectory, True);
+    try
+      RemoveInterruptedSetupFiles(VersionsDirectory, True);
+    except
+      Log('Final uninstall cleanup retry failed: ' + GetExceptionMessage);
+    end;
     if DirExists(AppDirectory) then RemoveDir(AppDirectory);
     if not DirExists(AppDirectory) then exit;
     if Attempt < 8 then Sleep(250);
   end;
-  RaiseException('Summon uninstall left the installation folder at ' + AppDirectory +
-    '. Close programs using that folder and remove its remaining contents manually. Team data and settings were retained.');
+  UninstallReport := UninstallReport + ' Summon uninstall is incomplete: the installation folder remains at ' +
+    AppDirectory + '. Close programs using that folder and remove its remaining contents manually. Team data and settings were retained.';
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
@@ -411,14 +419,12 @@ begin
   end;
   if CurUninstallStep = usPostUninstall then begin
     // Recovered installs can contain directories created before Setup logged them.
-    TryRemoveInterruptedSetupFiles(ExpandConstant('{app}\versions'), True);
-    // The engine already retried this parent before the orphan directories were pruned.
-    RemoveDir(ExpandConstant('{app}'));
-  end;
-  if CurUninstallStep = usDone then FinishUninstallRootCleanup();
-  if (CurUninstallStep = usDone) and (UninstallReport <> '') then begin
-    Log(UninstallReport);
-    if not UninstallSilent() then MsgBox(UninstallReport, mbInformation, MB_OK);
+    // This event precedes Inno's completion message; usDone follows it.
+    FinishUninstallRootCleanup();
+    if UninstallReport <> '' then begin
+      Log(UninstallReport);
+      if not UninstallSilent() then MsgBox(UninstallReport, mbError, MB_OK);
+    end;
   end;
 end;
 
