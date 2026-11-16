@@ -17,6 +17,12 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
   at once, even if you switch away straight after. A post you make while a teammate's post is still
   unread stays unread with it.
 
+### Fixed
+
+- Generated teammate instructions now distinguish stopping an agent's own sends from the
+  operator-only shared communication pause. Startup, mailbox handling, history catch-up and
+  rest instructions now follow the bundled skills, including their approval and read-coverage rules.
+
 ## [1.1.1] - 2026-11-14
 
 ### Added
