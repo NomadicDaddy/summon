@@ -93,6 +93,8 @@ export function setupRoomReadPlace(
 	let firstUnread: number | null = null;
 	let known = false;
 	let generation = 0;
+	// Counts team selections only; `generation` also moves with every marker change.
+	let selection = 0;
 	let refreshSerial = 0;
 	const jump = (id: number): void => {
 		messages.dispatchEvent(new CustomEvent('room-place-jump', { detail: id }));
@@ -188,8 +190,14 @@ export function setupRoomReadPlace(
 	// the server's word, not the last sync's: the first unread post must be the first of the
 	// leading run of own posts that just arrived, so nothing older is passed over. A marker move or
 	// team switch while the server answers (generation) makes that answer stale, so it then only
-	// syncs; and it only ever moves the marker forward (Morticia on 99d47b3).
-	const readOwnPostsNow = async (arrived: readonly LocalEvent[]): Promise<void> => {
+	// syncs; and it only ever moves the marker forward (Morticia on 99d47b3). A batch queued under
+	// one team selection is dropped if the selection changed before it ran: its ids belong to the
+	// Room it arrived in, not to the place now selected (Roger on da49866).
+	const readOwnPostsNow = async (
+		arrived: readonly LocalEvent[],
+		queuedSelection: number,
+	): Promise<void> => {
+		if (queuedSelection !== selection) return sync();
 		const from = valid ? place.readThrough : null;
 		if (from === null) return sync();
 		const later = arrived.filter((event) => event.id > from);
@@ -225,6 +233,7 @@ export function setupRoomReadPlace(
 			if (selected && team === name) return;
 			team = name;
 			selected = true;
+			selection++;
 			generation++;
 			known = false;
 			firstUnread = null;
@@ -246,7 +255,8 @@ export function setupRoomReadPlace(
 		},
 		// One poll's arrivals at a time, so a second own post sees the marker the first one moved.
 		readOwnPosts: (arrived) => {
-			ownPosts = ownPosts.then(() => readOwnPostsNow(arrived));
+			const queuedSelection = selection;
+			ownPosts = ownPosts.then(() => readOwnPostsNow(arrived, queuedSelection));
 			return ownPosts;
 		},
 		readThrough: () => (valid ? place.readThrough : null),

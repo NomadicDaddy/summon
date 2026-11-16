@@ -233,6 +233,40 @@ void app.whenReady().then(async () => {
 		await run('window.roomFixtureTeam(undefined)');
 		await progress('team switch held');
 
+		// 9e. Two own-post batches queued under this team, then a switch to a team whose saved
+		// marker sits just below the second batch's id (Roger on da49866): the queued batch must
+		// not run against the newly selected place, so the other team's marker stays where it was.
+		await run(
+			`document.querySelector('[aria-label="Mark Room read through message #${String(switchedOwn)}"]').click()`,
+		);
+		await until(
+			`JSON.parse(localStorage.getItem('room-read-place:default')).readThrough === ${String(switchedOwn)}`,
+			'caught up before queue',
+		);
+		await run('window.unreadDelay = 3000');
+		const queuedFirst = await run<number>('window.roomFixturePost(true)');
+		await until(`!!document.getElementById('room-message-${String(queuedFirst)}')`, 'queue 1');
+		const queuedSecond = await run<number>('window.roomFixturePost(true)');
+		await until(`!!document.getElementById('room-message-${String(queuedSecond)}')`, 'queue 2');
+		await run(
+			`localStorage.setItem('room-read-place:named:other', JSON.stringify({ readThrough: ${String(queuedFirst)}, leftAt: null }))`,
+		);
+		await run("window.roomFixtureTeam('other')");
+		// The first batch's query is still out; later queries answer at once, so the queued batch
+		// runs (or is dropped) within the wait instead of after it.
+		await run('window.unreadDelay = 0');
+		await delay(5000);
+		const queuedOther = await run<string>(
+			"JSON.stringify(JSON.parse(localStorage.getItem('room-read-place:named:other')).readThrough)",
+		);
+		steps.queuedSwitch = { queuedFirst, queuedSecond, otherMarker: Number(queuedOther) };
+		if (Number(queuedOther) !== queuedFirst)
+			throw new Error(
+				`A queued batch read the other team: ${JSON.stringify(steps.queuedSwitch)}`,
+			);
+		await run('window.roomFixtureTeam(undefined)');
+		await progress('queued switch held');
+
 		// 10. No marker yet (Roger #51267): older posts are outside the loaded window, so dwelling
 		// on the first loaded post must not read past them. Only the live bottom may set the first
 		// marker. A stored null marker survives the fixture's own seeding, which runs only when the
