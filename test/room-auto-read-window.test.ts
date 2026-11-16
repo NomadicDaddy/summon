@@ -81,6 +81,8 @@ test('Room reading advances the read marker under its stated conditions', async 
 				reached: number;
 				neverBack: number;
 				ownPost: { ownPost: number; peerPost: number; ownBehind: number; marker: number };
+				ownPair: { firstOwn: number; secondOwn: number; marker: number };
+				teamSwitch: { switchedOwn: number; otherPlace: string | null; marker: number };
 				noMarker: { firstLoaded: number; marker: number | null };
 				noMarkerBottom: number;
 			};
@@ -97,6 +99,8 @@ test('Room reading advances the read marker under its stated conditions', async 
 				ownBehind: 454,
 				marker: 452,
 			});
+			expect(steps.ownPair).toEqual({ firstOwn: 455, secondOwn: 456, marker: 456 });
+			expect(steps.teamSwitch).toEqual({ switchedOwn: 457, otherPlace: null, marker: 456 });
 			expect(steps.noMarker.firstLoaded).toBeGreaterThan(1);
 			expect(steps.noMarker.marker).toBeNull();
 			expect(steps.noMarkerBottom).toBe(450);

@@ -46,12 +46,18 @@ const bridge = {
 			more: prior.length > page.length,
 		});
 	},
-	roomUnread: (after: number) =>
-		Promise.resolve({
+	// With `unreadDelay` set, each unread query answers that late, so the test can land a second
+	// post while the first one's query is still in flight. The answer reflects the moment it lands.
+	roomUnread: async (after: number) => {
+		const control = window as unknown as { unreadDelay?: number };
+		if (control.unreadDelay)
+			await new Promise((resolve) => setTimeout(resolve, control.unreadDelay));
+		return {
 			firstUnread: after < events.length ? after + 1 : null,
 			unread: Math.max(0, events.length - after),
 			known: after <= events.length,
-		}),
+		};
+	},
 	roomSend: () => Promise.resolve(events[0]),
 	onImagePaste: () => undefined,
 	macros: () => Promise.resolve([]),
@@ -72,5 +78,10 @@ const post = (own = false): number => {
 };
 Object.assign(window, { team: bridge, roomFixturePost: post });
 const update = setupRoom();
-update({ agents: [], operator: null, team: undefined } as unknown as TeamSnapshot);
+// Switches the Window to another team's Room place, as a team change in the Window would.
+const selectTeam = (team: string | undefined): void => {
+	update({ agents: [], operator: null, team } as unknown as TeamSnapshot);
+};
+Object.assign(window, { roomFixtureTeam: selectTeam });
+selectTeam(undefined);
 document.title = 'ROOM_PLACE_READY';

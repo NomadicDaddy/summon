@@ -183,6 +183,32 @@ export function setupRoomReadPlace(
 			report(`Room read marker unchanged: ${readableError(cause)}`);
 		}
 	};
+	// The operator's own post is read when it lands on a caught-up Room (Phillip #52435, Yes #52441
+	// on #52439), whichever control sent it: composer, action, answer or Proceed. "Caught up" is
+	// the server's word, not the last sync's: the first unread post must be the first of the
+	// leading run of own posts that just arrived, so nothing older is passed over. A marker move or
+	// team switch while the server answers (generation) makes that answer stale, so it then only
+	// syncs; and it only ever moves the marker forward (Morticia on 99d47b3).
+	const readOwnPostsNow = async (arrived: readonly LocalEvent[]): Promise<void> => {
+		const from = valid ? place.readThrough : null;
+		if (from === null) return sync();
+		const later = arrived.filter((event) => event.id > from);
+		const end = later.findIndex((event) => event.sender.kind !== 'user');
+		const own = end < 0 ? later : later.slice(0, end);
+		const last = own.at(-1);
+		if (last === undefined) return sync();
+		const askedGeneration = generation;
+		let caughtUp = false;
+		try {
+			const result = await window.team.roomUnread(from);
+			caughtUp = result.known && result.firstUnread === own[0]?.id;
+		} catch (cause: unknown) {
+			report(`Room unread count failed: ${readableError(cause)}`);
+		}
+		if (!caughtUp || askedGeneration !== generation) return sync();
+		if (place.readThrough === null || last.id > place.readThrough) await mark(last.id);
+	};
+	let ownPosts: Promise<void> = Promise.resolve();
 	markVisible.addEventListener('click', () => {
 		const id = lastFullyVisibleMessage(messages);
 		if (id === null) report('No whole Room message is visible to mark read.');
@@ -218,26 +244,10 @@ export function setupRoomReadPlace(
 			if (place.readThrough !== null && id <= place.readThrough) return;
 			await mark(id);
 		},
-		// The operator's own post is read when it lands on a caught-up Room (Phillip #52435, Yes
-		// #52441 on #52439), whichever control sent it: composer, action, answer or Proceed.
-		// "Caught up" is the server's word, not the last sync's: the first unread post must be the
-		// first of the leading run of own posts that just arrived, so nothing older is passed over.
-		readOwnPosts: async (arrived: readonly LocalEvent[]) => {
-			const from = valid ? place.readThrough : null;
-			if (from === null) return sync();
-			const later = arrived.filter((event) => event.id > from);
-			const end = later.findIndex((event) => event.sender.kind !== 'user');
-			const own = end < 0 ? later : later.slice(0, end);
-			const last = own.at(-1);
-			if (last === undefined) return sync();
-			let caughtUp = false;
-			try {
-				const result = await window.team.roomUnread(from);
-				caughtUp = result.known && result.firstUnread === own[0]?.id;
-			} catch (cause: unknown) {
-				report(`Room unread count failed: ${readableError(cause)}`);
-			}
-			return caughtUp ? mark(last.id) : sync();
+		// One poll's arrivals at a time, so a second own post sees the marker the first one moved.
+		readOwnPosts: (arrived) => {
+			ownPosts = ownPosts.then(() => readOwnPostsNow(arrived));
+			return ownPosts;
 		},
 		readThrough: () => (valid ? place.readThrough : null),
 		firstUnread: () => (valid && known ? firstUnread : null),

@@ -190,6 +190,49 @@ void app.whenReady().then(async () => {
 			);
 		await progress('own post read');
 
+		// 9c. Two own posts in back-to-back polls, the second landing while the first one's unread
+		// query is still out (Morticia on 99d47b3): both are read, not just the first.
+		await run(
+			`document.querySelector('[aria-label="Mark Room read through message #${String(ownBehind)}"]').click()`,
+		);
+		await until(
+			`JSON.parse(localStorage.getItem('room-read-place:default')).readThrough === ${String(ownBehind)}`,
+			'caught up again',
+		);
+		await run('window.unreadDelay = 1500');
+		const firstOwn = await run<number>('window.roomFixturePost(true)');
+		await delay(1100);
+		const secondOwn = await run<number>('window.roomFixturePost(true)');
+		await until(`!!document.getElementById('room-message-${String(secondOwn)}')`, 'second own');
+		await run('window.unreadDelay = 0');
+		await until(
+			`JSON.parse(localStorage.getItem('room-read-place:default')).readThrough === ${String(secondOwn)}`,
+			'both own posts read',
+		);
+		steps.ownPair = { firstOwn, secondOwn, marker: await marker() };
+		await progress('own pair read');
+
+		// 9d. A team switch while an own post's unread query is out (Roger 5Q-1 on 99d47b3): the
+		// answer belongs to the old team, so the new team's place must not take that post's id.
+		await run('window.unreadDelay = 1500');
+		const switchedOwn = await run<number>('window.roomFixturePost(true)');
+		await until(
+			`!!document.getElementById('room-message-${String(switchedOwn)}')`,
+			'switch post',
+		);
+		await run("window.roomFixtureTeam('other')");
+		await delay(2200);
+		await run('window.unreadDelay = 0');
+		const otherPlace = await run<string | null>(
+			"localStorage.getItem('room-read-place:named:other')",
+		);
+		steps.teamSwitch = { switchedOwn, otherPlace, marker: await marker() };
+		// The other team was never opened, so it has no saved place; any write is the stale read.
+		if (otherPlace !== null)
+			throw new Error(`A team switch carried a read: ${JSON.stringify(steps.teamSwitch)}`);
+		await run('window.roomFixtureTeam(undefined)');
+		await progress('team switch held');
+
 		// 10. No marker yet (Roger #51267): older posts are outside the loaded window, so dwelling
 		// on the first loaded post must not read past them. Only the live bottom may set the first
 		// marker. A stored null marker survives the fixture's own seeding, which runs only when the
