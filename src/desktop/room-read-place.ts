@@ -1,3 +1,5 @@
+import type { LocalEvent } from '../local-room.ts';
+
 import { readableError } from './ipc-error.ts';
 
 export interface RoomReadPlace {
@@ -66,6 +68,7 @@ export function setupRoomReadPlace(
 	selectTeam: (team: string | undefined) => Promise<void>;
 	mark: (id: number) => Promise<void>;
 	advance: (id: number) => Promise<void>;
+	readOwnPosts: (arrived: readonly LocalEvent[]) => Promise<void>;
 	readThrough: () => number | null;
 	firstUnread: () => number | null;
 	captureLeave: () => void;
@@ -214,6 +217,27 @@ export function setupRoomReadPlace(
 		advance: async (id) => {
 			if (place.readThrough !== null && id <= place.readThrough) return;
 			await mark(id);
+		},
+		// The operator's own post is read when it lands on a caught-up Room (Phillip #52435, Yes
+		// #52441 on #52439), whichever control sent it: composer, action, answer or Proceed.
+		// "Caught up" is the server's word, not the last sync's: the first unread post must be the
+		// first of the leading run of own posts that just arrived, so nothing older is passed over.
+		readOwnPosts: async (arrived: readonly LocalEvent[]) => {
+			const from = valid ? place.readThrough : null;
+			if (from === null) return sync();
+			const later = arrived.filter((event) => event.id > from);
+			const end = later.findIndex((event) => event.sender.kind !== 'user');
+			const own = end < 0 ? later : later.slice(0, end);
+			const last = own.at(-1);
+			if (last === undefined) return sync();
+			let caughtUp = false;
+			try {
+				const result = await window.team.roomUnread(from);
+				caughtUp = result.known && result.firstUnread === own[0]?.id;
+			} catch (cause: unknown) {
+				report(`Room unread count failed: ${readableError(cause)}`);
+			}
+			return caughtUp ? mark(last.id) : sync();
 		},
 		readThrough: () => (valid ? place.readThrough : null),
 		firstUnread: () => (valid && known ? firstUnread : null),

@@ -12,6 +12,10 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
   everything read and clears the unread badge. Posts that arrive while you are scrolled up stay
   unread until you reach them, the marker never moves back on its own, and the Mark read buttons
   still work.
+- A post you make while caught up in the Team Room no longer counts as unread. Sending from the
+  message box, a 👍 or ? action, a question's answer or Proceed moves your read marker to that post
+  at once, even if you switch away straight after. A post you make while a teammate's post is still
+  unread stays unread with it.
 
 ## [1.1.1] - 2026-11-14
 

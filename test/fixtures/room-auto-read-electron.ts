@@ -168,6 +168,28 @@ void app.whenReady().then(async () => {
 		if (steps.neverBack !== posted)
 			throw new Error(`Reading moved the marker back: ${String(steps.neverBack)}`);
 
+		// 9b. The operator's own post on a caught-up Room is read at once (Phillip #52435, Yes
+		// #52441), even unattended and scrolled away from the bottom. One sent behind a teammate's
+		// unread post is not: that post was never seen.
+		await run('window.roomAttend = false');
+		const ownPost = await run<number>('window.roomFixturePost(true)');
+		await until(
+			`JSON.parse(localStorage.getItem('room-read-place:default')).readThrough === ${String(ownPost)}`,
+			'own post read',
+		);
+		await until("document.getElementById('room-unread').textContent === ''", 'own badge');
+		const peerPost = await run<number>('window.roomFixturePost()');
+		await until(`!!document.getElementById('room-message-${String(peerPost)}')`, 'peer post');
+		const ownBehind = await run<number>('window.roomFixturePost(true)');
+		await until(`!!document.getElementById('room-message-${String(ownBehind)}')`, 'own behind');
+		await delay(1600);
+		steps.ownPost = { ownPost, peerPost, ownBehind, marker: await marker() };
+		if ((await marker()) !== ownPost)
+			throw new Error(
+				`Own post behind an unread one was read: ${JSON.stringify(steps.ownPost)}`,
+			);
+		await progress('own post read');
+
 		// 10. No marker yet (Roger #51267): older posts are outside the loaded window, so dwelling
 		// on the first loaded post must not read past them. Only the live bottom may set the first
 		// marker. A stored null marker survives the fixture's own seeding, which runs only when the

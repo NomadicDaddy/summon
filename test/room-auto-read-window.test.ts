@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 // Reading moves the Room read marker (Phillip #46659, amended #51167 on #51137): one second fully
 // on screen while the Room is open and the Window attends; an unbroken run only; the bottom of the
-// live Room reads everything; never backwards. The fixture throws on the first case that fails.
+// live Room reads everything; never backwards. The operator's own post on a caught-up Room is read
+// at once (Phillip #52435, Yes #52441). The fixture throws on the first case that fails.
 test('Room reading advances the read marker under its stated conditions', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'summon-room-auto-read-'));
 	const desktop = fileURLToPath(new URL('../src/desktop/', import.meta.url));
@@ -79,6 +80,7 @@ test('Room reading advances the read marker under its stated conditions', async 
 				scrolledUp: { posted: number; marker: number };
 				reached: number;
 				neverBack: number;
+				ownPost: { ownPost: number; peerPost: number; ownBehind: number; marker: number };
 				noMarker: { firstLoaded: number; marker: number | null };
 				noMarkerBottom: number;
 			};
@@ -89,6 +91,12 @@ test('Room reading advances the read marker under its stated conditions', async 
 			expect(steps.scrolledUp).toEqual({ posted: 451, marker: 450 });
 			expect(steps.reached).toBe(451);
 			expect(steps.neverBack).toBe(451);
+			expect(steps.ownPost).toEqual({
+				ownPost: 452,
+				peerPost: 453,
+				ownBehind: 454,
+				marker: 452,
+			});
 			expect(steps.noMarker.firstLoaded).toBeGreaterThan(1);
 			expect(steps.noMarker.marker).toBeNull();
 			expect(steps.noMarkerBottom).toBe(450);

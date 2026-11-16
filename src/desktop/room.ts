@@ -226,7 +226,7 @@ export function setupRoom(): (snapshot: TeamSnapshot) => void {
 				if (get('room-state').textContent !== state) get('room-state').textContent = state;
 				showHalt(page.communication);
 			}
-			if (arrived.length > 0) void place.refresh();
+			if (arrived.length > 0) void place.readOwnPosts(arrived);
 			if (arrived.length > 0 && !history.isBrowsing()) place.redraw();
 			// `following` as it stands now, not as it stood before the reads: a reader who scrolled up
 			// while a read was in flight is not pulled back down (Roger #44445).
