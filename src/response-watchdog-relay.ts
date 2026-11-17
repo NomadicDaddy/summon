@@ -37,6 +37,7 @@ const relaySchema = z
 type Relay = z.infer<typeof relaySchema>;
 
 const labels = {
+	waiting: 'Work waiting, no delivery attempted',
 	'awaiting-read': 'Delivered, awaiting read confirmation',
 	blocked: 'Work waiting, delivery blocked',
 	uncertain: 'Input may have begun, awaiting read confirmation',

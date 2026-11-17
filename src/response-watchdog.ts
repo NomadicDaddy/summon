@@ -61,7 +61,7 @@ export async function evaluateResponseWatchdog(name: string, nonce: string): Pro
 				proof.page > (priorProof?.packageId === proof.packageId ? priorProof.page : 0);
 			observations.push({
 				id,
-				condition: old.get(id)?.condition ?? 'blocked',
+				condition: old.get(id)?.condition ?? 'waiting',
 				progress: (old.get(id)?.progress ?? 0) + (advanced ? 1 : 0),
 			});
 		}

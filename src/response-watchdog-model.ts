@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const timestamp = z.number().nonnegative();
-const condition = z.enum(['blocked', 'awaiting-read', 'uncertain', 'inventory']);
+const condition = z.enum(['waiting', 'blocked', 'awaiting-read', 'uncertain', 'inventory']);
 const expectation = z
 	.object({
 		id: z.string().min(1).max(256),

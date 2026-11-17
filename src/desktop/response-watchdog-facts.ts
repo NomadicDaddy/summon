@@ -2,6 +2,7 @@ import type { TeamAgent } from './types.ts';
 
 export type ResponseView = NonNullable<TeamAgent['responseWatchdog']>;
 const labels = {
+	waiting: 'Work waiting, no delivery attempted',
 	blocked: 'Work waiting, delivery blocked',
 	'awaiting-read': 'Delivered, awaiting read confirmation',
 	uncertain: 'Input may have begun, awaiting read confirmation',

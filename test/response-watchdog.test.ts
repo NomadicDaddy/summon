@@ -67,6 +67,10 @@ test('native gate does not hide unread work; timeout never invokes transport', a
 		{ noticeAllowed: () => Promise.resolve(false) },
 	);
 	await cycle();
+	const held = await responseStatus('alpha', 'watchdog-fixture');
+	expect(held?.expectations).toHaveLength(1);
+	expect(held?.expectations[0]?.condition).toBe('waiting');
+	expect(held?.outcomes).toEqual({});
 	now += 300000;
 	await cycle();
 	expect((await responseStatus('alpha', 'watchdog-fixture'))?.phase).toBe('waiting');
