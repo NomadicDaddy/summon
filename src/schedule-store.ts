@@ -50,8 +50,13 @@ export type PublicScheduleState = { version: 2; schedules: Schedule[]; runs: Sch
 /** Writers' working state inside schedules.ts: the stored map and warning step ride privately. */
 export type State = PublicScheduleState & { prompts: Record<string, string>; warnedStep?: number };
 
+/**
+ * Keyed by the SHA-256 of the prompt's JSON string form. Plain UTF-8 would map every lone
+ * surrogate to the same replacement bytes, giving two different prompts one key; JSON escapes
+ * them (`\ud800`), so the key is one-to-one over every string the schemas accept.
+ */
 export const promptHash = (prompt: string): string =>
-	createHash('sha256').update(prompt, 'utf8').digest('hex');
+	createHash('sha256').update(JSON.stringify(prompt), 'utf8').digest('hex');
 
 export const emptyState = (): State => ({ version: 2, schedules: [], runs: [], prompts: {} });
 

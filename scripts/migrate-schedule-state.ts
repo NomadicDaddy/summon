@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { atomicWrite, locked, optionalText } from '../src/mail-files.ts';
 import { operatorOnly } from '../src/mail-identity.ts';
-import { assertOfflineProcesses } from '../src/offline-processes.ts';
+import { assertOfflineTeam } from '../src/offline-team.ts';
 import { scheduleStateV1ToV2, scheduleStateV2ToV1 } from '../src/schedule-state-migration.ts';
 import { storageRoot } from '../src/store.ts';
 
@@ -20,8 +20,9 @@ if (
 	throw new Error(
 		'Usage: bun scripts/migrate-schedule-state.ts --offline --preflight|--apply|--rollback. Close ALL Summon windows, sessions and receivers first.',
 	);
-await assertOfflineProcesses();
-const path = join(storageRoot(), 'schedules', 'state.json');
+const root = storageRoot();
+const path = join(root, 'schedules', 'state.json');
+await assertOfflineTeam(root, path);
 await locked(`${path}.lock`, async () => {
 	const before = await optionalText(path);
 	if (before === undefined) throw new Error('No schedule state to migrate.');
@@ -38,9 +39,9 @@ await locked(`${path}.lock`, async () => {
 		console.log(JSON.stringify({ ready: true, ...summary }));
 		return;
 	}
-	await assertOfflineProcesses();
+	await assertOfflineTeam(root, path);
 	// The sealed copy is never deleted by Summon; the operator decides when it may go.
-	const backup = join(storageRoot(), 'runtime', 'schedule-migrations', randomUUID());
+	const backup = join(root, 'runtime', 'schedule-migrations', randomUUID());
 	await atomicWrite(join(backup, 'state.json'), before);
 	if ((await optionalText(join(backup, 'state.json'))) !== before)
 		throw new Error('The sealed copy did not read back; migration refused.');

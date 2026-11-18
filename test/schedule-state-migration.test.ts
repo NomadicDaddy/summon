@@ -52,6 +52,16 @@ test('a v1 file converts to v2 and back to the exact same bytes, prompts stored 
 	]);
 });
 
+test('v1 runs whose prompts differ only by an unpaired surrogate migrate to separate entries', () => {
+	const high = `Scope ${String.fromCharCode(0xd800)}`;
+	const low = `Scope ${String.fromCharCode(0xdc00)}`;
+	const raw = v1([run(1, high, 'Done.'), run(2, low, 'Done.')]);
+	const converted = scheduleStateV1ToV2(raw);
+	expect(scheduleStateV2ToV1(converted)).toBe(raw);
+	expect(Object.keys((JSON.parse(converted) as { prompts: object }).prompts)).toHaveLength(2);
+	expect(decodeScheduleState(converted).runs.map((item) => item.prompt)).toEqual([high, low]);
+});
+
 test('a long prompt repeated across runs is stored once, so the file shrinks', () => {
 	const long = `Check the room for stalls. ${'Read every unanswered item. '.repeat(200)}`;
 	const raw = v1(Array.from({ length: 20 }, (_, n) => run(n, long, 'Done.')));

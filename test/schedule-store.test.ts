@@ -104,6 +104,27 @@ test('a stored prompt reads back byte for byte, padding and non-ASCII included',
 	expect(decoded.runs[0]?.prompt).toBe(prompt);
 });
 
+test('prompts that differ only by an unpaired surrogate keep separate entries and texts (Roger)', () => {
+	// UTF-8 maps both lone surrogates to the same replacement bytes; the key must not.
+	const high = `Scope ${String.fromCharCode(0xd800)} end`;
+	const low = `Scope ${String.fromCharCode(0xdc00)} end`;
+	expect(promptHash(high)).not.toBe(promptHash(low));
+	const runs = [high, low].map((prompt, n) => ({
+		id: randomUUID(),
+		scheduleId: randomUUID(),
+		owner: 'alpha',
+		title: `Surrogate ${n}`,
+		prompt,
+		dueAt: 1,
+		updatedAt: 2,
+		status: 'complete' as const,
+	}));
+	const stored = storeScheduleState({ version: 2, schedules: [], runs });
+	expect(Object.keys(stored.prompts)).toHaveLength(2);
+	const decoded = decodeScheduleState(encodeScheduleState(stored));
+	expect(decoded.runs.map((item) => item.prompt)).toEqual([high, low]);
+});
+
 test('a missing entry, an altered prompt, a wrong key or a run with its prompt refuses the file', async () => {
 	await createSchedule({ owner: 'alpha', title: 'A', everyMinutes: 1, prompt: shared });
 	await dispatch(Date.now() + 120000);
