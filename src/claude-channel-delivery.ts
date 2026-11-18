@@ -1,5 +1,5 @@
 import { readActivity } from './agent-activity.ts';
-import { claudeNoticeHold } from './claude-notice-hold.ts';
+import { claudeNoticeHoldDetail } from './claude-notice-hold.ts';
 import { claudeNoticeAllowed, reserveClaudeNotice } from './claude-turn-state.ts';
 import { startMailWatcher } from './mail-watcher.ts';
 import { NotificationNotSentError } from './notification-delivery.ts';
@@ -32,11 +32,13 @@ export function startClaudeChannel(
 		{
 			controlSend: send,
 			readinessReminder: false,
+			noticeCheckWhenPending: true,
 			noticeAllowed: () => claudeNoticeAllowed(name, nonce),
 			// A held live-channel seat says why, as a terminal seat does; only its own launch reports.
-			noticeHold: async () => {
+			noticeHold: async (pending) => {
+				if (!pending) return null;
 				if ((await readActivity(name))?.nonce !== nonce) return undefined;
-				return (await claudeNoticeHold(name, nonce)) ?? null;
+				return (await claudeNoticeHoldDetail(name, nonce)) ?? null;
 			},
 		},
 	);

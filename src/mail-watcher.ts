@@ -35,7 +35,9 @@ export interface WakeReceiverOptions {
 	/** Expensive native observations run only after eligible ordinary work is collected. */
 	noticeCheckWhenPending?: boolean;
 	/** A hold reason, clear (null), or no report. Pending describes this cycle's inventory. */
-	noticeHold?: (pending: boolean) => Promise<string | null | undefined>;
+	noticeHold?: (
+		pending: boolean,
+	) => Promise<string | { kind: 'provider-not-idle'; reason: string } | null | undefined>;
 	controlSend?: (text: string) => Promise<void>;
 	readinessReminder?: boolean;
 	/**
@@ -91,6 +93,7 @@ async function tryStartMailWatcher(
 			...(await deliveryStatus(name, nonce)),
 			state: 'queued-only',
 			reason: "Another session owns this name's receiver.",
+			noticeHold: undefined,
 		});
 		return undefined;
 	}
@@ -144,6 +147,7 @@ async function initializeMailWatcher(
 			...(await deliveryStatus(name, nonce)),
 			state: 'queued-only',
 			reason: 'A receiver cycle failed; inspect own wake errors and delivery outcome.',
+			noticeHold: undefined,
 		});
 		if (retained.changed)
 			console.error(`${name}: receiver cycle failed; inspect own mail status.`);
@@ -211,6 +215,7 @@ async function initializeMailWatcher(
 			...(await deliveryStatus(name, nonce)),
 			state: 'queued-only',
 			reason: 'Session receiver closed; mail remains queued.',
+			noticeHold: undefined,
 		});
 	};
 }

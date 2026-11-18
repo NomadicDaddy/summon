@@ -12,6 +12,7 @@ import { canManageHeadDown } from '../head-down-access.ts';
 import { headDownView } from '../head-down-model.ts';
 import { currentKiloProviderLimit } from '../kilo-provider-limit.ts';
 import { observeGrokSession } from '../launch-phase.ts';
+import { deliveryStatus } from '../mail-session.ts';
 import { memberLabel } from '../member-role.ts';
 import { refreshModelInfo } from '../provider-model-info.ts';
 import { providerTurn } from '../provider-turn.ts';
@@ -185,6 +186,12 @@ export async function teamSnapshot(context: SnapshotContext): Promise<TeamSnapsh
 				}
 			}
 			const progress = await roomProgress(slug);
+			const noticeHold =
+				session?.agent.status === 'running' &&
+				session.agent.provider === 'claude' &&
+				context.sessions.get(slug) === session
+					? (await deliveryStatus(slug, session.launch.nonce)).noticeHold
+					: undefined;
 			agents.push({
 				...(session?.agent.status === 'running'
 					? await responseStatusView(slug, session.launch.nonce)
@@ -218,6 +225,7 @@ export async function teamSnapshot(context: SnapshotContext): Promise<TeamSnapsh
 				canManageHeadDown: await canManageHeadDown(slug),
 				...(modelInfo ? { modelInfo } : {}),
 				...(progress ? { roomProgress: progress } : {}),
+				...(noticeHold ? { noticeHold } : {}),
 				...(rest?.mode === 'ready' && (!session || rest.nonce === session.launch.nonce)
 					? { restConfirmation: rest.id }
 					: {}),

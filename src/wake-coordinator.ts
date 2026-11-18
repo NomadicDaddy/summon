@@ -118,17 +118,27 @@ export function createWakeCoordinator(
 		const hold = await options.noticeHold?.(true);
 		if (hold === undefined) return;
 		const current = await deliveryStatus(name, nonce);
-		if (hold === null && !current.reason.startsWith(noticesHeldPrefix)) return;
+		if (hold === null && !current.reason.startsWith(noticesHeldPrefix) && !current.noticeHold)
+			return;
 		const problem = await retainedProblem(inventoryFailed);
-		if (hold !== null)
+		if (hold !== null) {
+			const reason = typeof hold === 'string' ? hold : hold.reason;
 			await saveDelivery(name, {
 				...current,
 				state: 'queued-only',
-				reason: problem ? `${hold} ${problem}` : hold,
+				reason: problem ? `${reason} ${problem}` : reason,
+				noticeHold:
+					typeof hold === 'string'
+						? undefined
+						: {
+								kind: hold.kind,
+								startedAt: current.noticeHold?.startedAt ?? Date.now(),
+							},
 			});
-		else
+		} else
 			await saveDelivery(name, {
 				...current,
+				noticeHold: undefined,
 				...(problem
 					? { state: 'queued-only', reason: problem }
 					: await settledDelivery(false, false)),
@@ -164,6 +174,15 @@ export function createWakeCoordinator(
 		)
 			return;
 		if (await automaticNoticeSuppressed(name)) return;
+		// A pane draft is a local input hold even without queued work. Claude's native turn check
+		// still waits for inventory, so this early probe accepts only a plain draft reason.
+		if (
+			options.noticeCheckWhenPending &&
+			typeof (await options.noticeHold?.(false)) === 'string'
+		) {
+			await recordNoticeHold(telegramFailed);
+			return;
+		}
 		if (
 			!options.noticeCheckWhenPending &&
 			options.noticeAllowed &&
@@ -190,6 +209,7 @@ export function createWakeCoordinator(
 				...(await deliveryStatus(name, nonce)),
 				state: 'queued-only',
 				reason: 'Active checkpoint inventory is invalid; inspect own wake errors.',
+				noticeHold: undefined,
 			});
 			return;
 		}
@@ -282,7 +302,8 @@ export function createWakeCoordinator(
 		if (!failed && !uncertain) {
 			await recoverWakeError(name, 'receiver cycle');
 			// A hold that stopped this cycle's notice stays the status; the generic outcome can't erase it.
-			if (typeof (await options.noticeHold?.(parts.length > 0)) === 'string') {
+			const currentHold = await options.noticeHold?.(parts.length > 0);
+			if (currentHold && (result !== 'submitted' || typeof currentHold === 'string')) {
 				await recordNoticeHold();
 				return;
 			}
@@ -291,6 +312,7 @@ export function createWakeCoordinator(
 		await saveDelivery(name, {
 			...(await deliveryStatus(name, nonce)),
 			state: settled.state,
+			noticeHold: undefined,
 			reason: roomPolicyFailed
 				? 'Room wake policy is invalid or unreadable; routine notification eligibility is unknown. Inspect own wake errors and delivery outcome.'
 				: inventoryFailed

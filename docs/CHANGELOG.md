@@ -2,6 +2,14 @@
 
 Notable changes to summon are recorded here using Keep a Changelog categories and semantic versions.
 
+## [Unreleased]
+
+### Changed
+
+- A Claude notice held by the native turn gate now records when that hold began. Own
+  `summon --mail status` and the Team Window seat details show the hold, including its age in the
+  Window, while addressed work waits. The hold clears when the gate opens or the receiver ends.
+
 ## [1.1.2] - 2026-11-17
 
 ### Changed

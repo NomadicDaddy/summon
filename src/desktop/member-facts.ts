@@ -10,6 +10,7 @@ export type MemberFactsSource = Pick<
 	| 'claudeConfigInherited'
 	| 'cwd'
 	| 'modelInfo'
+	| 'noticeHold'
 	| 'provider'
 	| 'providerLimit'
 	| 'providerLimitError'
@@ -37,6 +38,13 @@ export function providerLimitFact(
 		: '';
 }
 
+export function noticeHoldFact(agent: Pick<TeamAgent, 'noticeHold'>, now = Date.now()): string {
+	const hold = agent.noticeHold;
+	return hold
+		? `Notice held: provider-not-idle for ${Math.floor(Math.max(0, now - hold.startedAt) / 60000)} min`
+		: '';
+}
+
 /**
  * What the session header, the provider mark's tooltip and a Shift+click copy all say about a
  * teammate, in one order: provider, model, reasoning, context capacity with its exact tokens,
@@ -53,6 +61,7 @@ export function memberFacts(agent: MemberFactsSource): string[] {
 		capacity,
 		claudeAccountLabel(agent),
 		providerLimitFact(agent),
+		noticeHoldFact(agent),
 		agent.responseWatchdogError ?? responseFact(agent.responseWatchdog),
 		agent.cwd,
 	].filter(Boolean);

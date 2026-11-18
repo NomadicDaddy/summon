@@ -154,4 +154,26 @@ test('a live-channel Claude seat held by a busy turn says why, like a terminal s
 	}
 	expect(sent).toHaveLength(0);
 	expect((await deliveryView('alpha')).reason).not.toContain('PRIVATE');
+	const held = await deliveryView('alpha');
+	expect(held.noticeHold?.kind).toBe('provider-not-idle');
+	expect(held.noticeHold?.startedAt).toBeGreaterThan(0);
+	expect(held.noticeHold?.startedAt).toBeLessThanOrEqual(Date.now());
+	const status = await fixture.run(['--mail', 'status'], 'alpha', { SUMMON_NONCE: nonce });
+	expect(status.code).toBe(0);
+	expect(JSON.parse(status.out)).toMatchObject({ noticeHold: held.noticeHold });
+	await observeClaudeTurn('alpha', nonce, 'owned-observer', {
+		session: 'exact-thread',
+		epoch: 1,
+		sequence: sequence + 1,
+		kind: 'complete',
+		turn: 'one',
+		draft: false,
+		completed: true,
+	});
+	for (let attempt = 0; (await deliveryView('alpha')).noticeHold !== undefined; attempt++) {
+		if (attempt > 600) throw new Error('Provider hold did not clear after native completion.');
+		await Bun.sleep(10);
+	}
+	expect(sent.length).toBeGreaterThan(0);
+	expect((await deliveryView('alpha')).noticeHold).toBeUndefined();
 }, 15000);

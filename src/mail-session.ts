@@ -15,6 +15,7 @@ export interface DeliveryState {
 	state: 'queued-only' | 'unconfirmed' | 'live';
 	reason: string;
 	thread: string;
+	noticeHold?: { kind: 'provider-not-idle'; startedAt: number } | undefined;
 }
 
 export const awaitingReadinessReason =
@@ -51,6 +52,14 @@ export async function deliveryStatus(
 		typeof candidate.pid !== 'number' ||
 		typeof candidate.reason !== 'string' ||
 		typeof candidate.thread !== 'string' ||
+		(candidate.noticeHold !== undefined &&
+			(!candidate.noticeHold ||
+				typeof candidate.noticeHold !== 'object' ||
+				(candidate.noticeHold as Record<string, unknown>).kind !== 'provider-not-idle' ||
+				!Number.isSafeInteger(
+					(candidate.noticeHold as Record<string, unknown>).startedAt,
+				) ||
+				Number((candidate.noticeHold as Record<string, unknown>).startedAt) < 0)) ||
 		!['queued-only', 'unconfirmed', 'live'].includes(String(candidate.state))
 	)
 		throw new Error('Invalid delivery status.');

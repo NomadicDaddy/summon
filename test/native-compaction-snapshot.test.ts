@@ -9,8 +9,10 @@ import {
 	invalidateClaudeTurn,
 	observeClaudeTurn,
 } from '../src/claude-turn-state.ts';
+import { memberDetail } from '../src/desktop/member-detail.ts';
 import { memberStateLabel } from '../src/desktop/member-identity.ts';
 import { teamSnapshot } from '../src/desktop/team-snapshot.ts';
+import { saveDelivery } from '../src/mail-session.ts';
 import * as models from '../src/provider-model-info.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
 
@@ -63,6 +65,18 @@ test('authenticated nested compactions enter and leave the exact owned snapshot'
 		await initializeClaudeTurn('alpha', nonce, 'thread', 'observer');
 		await event('attach');
 		await event('start');
+		const startedAt = Date.now() - 2 * 60000;
+		await saveDelivery('alpha', {
+			nonce,
+			thread: 'thread',
+			pid: process.pid,
+			state: 'queued-only',
+			reason: 'Notices held for alpha: native turn busy.',
+			noticeHold: { kind: 'provider-not-idle', startedAt },
+		});
+		const held = await row();
+		expect(held?.noticeHold).toEqual({ kind: 'provider-not-idle', startedAt });
+		expect(memberDetail(held).text).toContain('Notice held: provider-not-idle for 2 min');
 		expect((await row())?.nativeCompacting).toBeUndefined();
 		await event('compact-start');
 		await event('compact-start');

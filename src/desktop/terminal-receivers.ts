@@ -1,7 +1,7 @@
 import type { Team } from './team.ts';
 
 import { readActivity } from '../agent-activity.ts';
-import { claudeInputHold, claudeNoticeHold } from '../claude-notice-hold.ts';
+import { claudeInputHold, claudeNoticeHoldDetail } from '../claude-notice-hold.ts';
 import {
 	claudeNoticeAllowed,
 	initializeClaudeTurn,
@@ -205,6 +205,7 @@ async function syncOwnedReceivers(team: Team): Promise<void> {
 					},
 					{
 						controlSend: send,
+						noticeCheckWhenPending: session.agent.provider === 'claude',
 						readinessReminder: !['claude', 'grok', 'kilo'].includes(
 							session.agent.provider,
 						),
@@ -226,20 +227,27 @@ async function syncOwnedReceivers(team: Team): Promise<void> {
 						// says so. Other providers' pane drafts do not advertise Claude's release keys.
 						...(['kilo', 'claude', 'grok'].includes(session.agent.provider)
 							? {
-									noticeHold: async () => {
+									noticeHold: async (pending) => {
 										if (!running()) return undefined;
 										const draft = terminalDraft(session.pty).draft;
 										if (draft && session.agent.provider !== 'claude')
 											return undefined;
 										if ((await readActivity(slug))?.nonce !== activity.nonce)
 											return undefined;
+										if (!pending && session.agent.provider === 'claude')
+											return draft
+												? claudeInputHold(slug, activity.nonce)
+												: null;
 										if (draft) return claudeInputHold(slug, activity.nonce);
 										const hold =
 											session.agent.provider === 'grok'
 												? await grokNoticeHold(slug, activity.nonce)
 												: session.agent.provider === 'kilo'
 													? await kiloNoticeHold(slug, activity.nonce)
-													: await claudeNoticeHold(slug, activity.nonce);
+													: await claudeNoticeHoldDetail(
+															slug,
+															activity.nonce,
+														);
 										return hold ?? null;
 									},
 								}

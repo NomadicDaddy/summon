@@ -4,6 +4,7 @@ import type { HeadDownView } from '../head-down-model.ts';
 import type { KiloProviderLimit } from '../kilo-provider-limit.ts';
 import type { LaunchPhaseView } from '../launch-phase-model.ts';
 import type { RoomBeforePage, RoomUnreadStats } from '../local-room-read-place.ts';
+import type { DeliveryState } from '../mail-session.ts';
 import type { ModelInfo } from '../model-info.ts';
 import type { NotepadSnapshot } from '../notepad.ts';
 import type { OperatorAwayView } from '../operator-away.ts';
@@ -32,6 +33,8 @@ export interface TeamAgent {
 	providerLimitError?: true;
 	responseWatchdog?: Awaited<ReturnType<typeof responseStatus>>;
 	responseWatchdogError?: string;
+	/** Exact-launch provider gate hold retained by the receiver while work waits. */
+	noticeHold?: DeliveryState['noticeHold'];
 	launch?: LaunchPhaseView;
 	launchEnded?: LaunchPhaseView;
 	claudeConfigDir?: string;
