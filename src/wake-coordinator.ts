@@ -301,9 +301,10 @@ export function createWakeCoordinator(
 		failed ||= retained.failed;
 		if (!failed && !uncertain) {
 			await recoverWakeError(name, 'receiver cycle');
-			// A hold that stopped this cycle's notice stays the status; the generic outcome can't erase it.
+			// A busy provider keeps the launch held even after this cycle's notice was submitted.
+			// The delivery record separately retains the submitted outcome.
 			const currentHold = await options.noticeHold?.(parts.length > 0);
-			if (currentHold && (result !== 'submitted' || typeof currentHold === 'string')) {
+			if (currentHold) {
 				await recordNoticeHold();
 				return;
 			}

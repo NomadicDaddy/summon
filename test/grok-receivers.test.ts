@@ -105,6 +105,8 @@ for (const provider of ['grok', 'claude'] as const) {
 			await waitFor(async () => (await delivery()).latest?.state === 'provider-submitted');
 			await waitFor(async () => (await status()).reason.startsWith('Notices held'));
 			expect((await status()).state).toBe('queued-only');
+			if (provider === 'claude')
+				expect((await status()).noticeHold?.kind).toBe('provider-not-idle');
 			if (provider === 'grok')
 				await observeFixtureGrokIdle('alpha', 'grok-fixture', 'disposable-grok-thread');
 			else await observeFixtureClaudeIdle('alpha', 'grok-fixture');
