@@ -14,8 +14,8 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 - Scheduled-run history stores each prompt once instead of copying it into every run. Each run
   keeps a hash of its prompt, and every read returns the exact text it was dispatched with. No run
-  is deleted, trimmed or moved. On a typical team this cuts the schedule file by about 84%, and it
-  now grows by a few tens of kilobytes a day instead of several hundred.
+  is deleted, trimmed or moved. On the one team measured, the schedule file went from 12,606,906 to
+  2,046,323 bytes, and at its 90 runs a day it would grow about 57 KB a day instead of about 480 KB.
 - Upgrading needs an offline migration of the schedule file, because this version refuses the old
   format. Halt communications, close every Summon window, session and receiver, move to this
   version, run `bun scripts/migrate-schedule-state.ts --offline --preflight`, then `--apply`, and
