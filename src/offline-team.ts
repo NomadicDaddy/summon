@@ -29,6 +29,11 @@ export async function assertOfflineTeam(root: string, target: string): Promise<v
 	]);
 	if (code !== 0) throw new Error('CIM process inspection failed; migration refused.');
 	verifyOfflineSnapshot(output);
+	await assertOfflineTeamFiles(root, target);
+}
+
+/** The file half: no linked path, and no runtime owner, receiver or session lease still live. */
+export async function assertOfflineTeamFiles(root: string, target: string): Promise<void> {
 	await plainMaintenancePath(target);
 	const runtime = join(root, 'runtime');
 	await plainMaintenancePath(runtime);
