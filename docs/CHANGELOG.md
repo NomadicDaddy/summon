@@ -6,6 +6,9 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
 
 ### Changed
 
+- The Team Window and PM watchdog now show "Work waiting, no delivery attempted" until a notice
+  send is tried. "Delivery blocked" means an attempted notice was not sent. A Team Window running
+  an older build needs a restart onto this version to display the new waiting state.
 - A Claude notice held by the native turn gate now records when that hold began. Own
   `summon --mail status` and the Team Window seat details show the hold, including its age in the
   Window, while addressed work waits. The hold clears when the gate opens or the receiver ends.
