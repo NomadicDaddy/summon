@@ -2,7 +2,7 @@
 
 Notable changes to summon are recorded here using Keep a Changelog categories and semantic versions.
 
-## [Unreleased]
+## [1.2.1] - 2026-11-17
 
 ### Changed
 
