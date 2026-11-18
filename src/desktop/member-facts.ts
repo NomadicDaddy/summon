@@ -38,7 +38,7 @@ export function providerLimitFact(
 		: '';
 }
 
-export function noticeHoldFact(agent: Pick<TeamAgent, 'noticeHold'>, now = Date.now()): string {
+function noticeHoldFact(agent: Pick<TeamAgent, 'noticeHold'>, now = Date.now()): string {
 	const hold = agent.noticeHold;
 	return hold
 		? `Notice held: provider-not-idle for ${Math.floor(Math.max(0, now - hold.startedAt) / 60000)} min`
