@@ -2,10 +2,27 @@
 
 Notable changes to summon are recorded here using Keep a Changelog categories and semantic versions.
 
-## [Unreleased]
+## [1.2.2] - 2026-11-18
+
+### Added
+
+- Past each 32 MiB of schedule state, the Team Window tries to record a warning under
+  `summon --faults`. Scheduling carries on and nothing is pruned. The warning is best effort: a
+  crash at the wrong moment can repeat it, and a fault log that keeps failing means none arrives.
 
 ### Changed
 
+- Scheduled-run history stores each prompt once instead of copying it into every run. Each run
+  keeps a hash of its prompt, and every read returns the exact text it was dispatched with. No run
+  is deleted, trimmed or moved. On a typical team this cuts the schedule file by about 84%, and it
+  now grows by a few tens of kilobytes a day instead of several hundred.
+- Upgrading needs an offline migration of the schedule file, because this version refuses the old
+  format. Halt communications, close every Summon window, session and receiver, move to this
+  version, run `bun scripts/migrate-schedule-state.ts --offline --preflight`, then `--apply`, and
+  start the Team Window. The migration refuses unless Summon is provably offline and the converted
+  file turns back into the exact original bytes, and it keeps a sealed copy of the original.
+  `--offline --rollback` restores the old format, newer runs included. When `summon` runs from a
+  source checkout, moving that checkout is the upgrade, so it belongs inside the offline window.
 - Development linting and formatting use ESLint 10.15.0 and Prettier 3.10.1. ESLint's updated
   dependency path uses `minimatch` 11.0.9 and its new `@isaacs/nonrecursive-glob-match` dependency;
   typescript-eslint still uses `minimatch` 10.2.6, so the moderate advisory remains on that path.
