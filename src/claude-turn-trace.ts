@@ -68,7 +68,7 @@ async function traceClaudeTurn(recordPath: string, entry: ClaudeTurnTraceEntry):
 		const size = info?.size ?? 0;
 		const missed = missedWrites.get(path) ?? 0;
 		let line = JSON.stringify(missed ? { ...entry, missed } : entry);
-		if (size + line.length + 1 > claudeTurnTraceCap - capMargin) {
+		if (size + Buffer.byteLength(line, 'utf8') + 1 > claudeTurnTraceCap - capMargin) {
 			// Near the cap: one final line says the trace stopped, and nothing follows it.
 			const tail = await Bun.file(path)
 				.slice(Math.max(0, size - capMargin))
@@ -82,6 +82,10 @@ async function traceClaudeTurn(recordPath: string, entry: ClaudeTurnTraceEntry):
 				verdict: capVerdict,
 				...(missed ? { missed } : {}),
 			});
+			if (size + Buffer.byteLength(line, 'utf8') + 1 > claudeTurnTraceCap) {
+				miss();
+				return;
+			}
 		}
 		await appendFile(path, `${line}\n`, { encoding: 'utf8', flag: 'a' });
 		missedWrites.delete(path);

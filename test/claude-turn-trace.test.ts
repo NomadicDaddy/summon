@@ -11,7 +11,7 @@ import {
 	observeClaudeTurn,
 	reserveClaudeNotice,
 } from '../src/claude-turn-state.ts';
-import { claudeTurnTraceCap } from '../src/claude-turn-trace.ts';
+import { claudeTurnTraceCap, traceEvent } from '../src/claude-turn-trace.ts';
 import { markReady, saveDelivery } from '../src/mail-session.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
 
@@ -149,12 +149,42 @@ test('a refused trace write is counted on the next line written', async () => {
 });
 
 test('the trace stops at its cap with exactly one line saying so', async () => {
-	await Bun.write(tracePath(), `${'x'.repeat(claudeTurnTraceCap - 100)}\n`);
+	await Bun.write(tracePath(), `${'x'.repeat(claudeTurnTraceCap - 2048 - 100)}\n`);
 	await event('attach');
 	await event('idle');
 	await event('start', 'turn-1');
 	const tail = (await Bun.file(tracePath()).text()).split('\n').slice(1).filter(Boolean);
 	expect(tail).toHaveLength(1);
 	expect(tail[0]).toContain('trace cap of');
+	expect(Bun.file(tracePath()).size).toBeLessThanOrEqual(claudeTurnTraceCap);
 	expect(await claudeNoticeAllowed('alpha', nonce)).toBe(false);
+});
+
+test('the trace reserves its cap by UTF-8 bytes for a multibyte turn id', async () => {
+	const recordPath = tracePath().slice(0, -'.trace'.length);
+	const state = {
+		phase: 'busy' as const,
+		turn: null,
+		attached: true,
+		epoch: 1,
+		draft: false,
+		compactions: 0,
+	};
+	const observed = {
+		kind: 'start',
+		epoch: 1,
+		sequence: 1,
+		turn: 'é'.repeat(128),
+		completed: false,
+		draft: false,
+	};
+	await traceEvent(recordPath, observed, state, state, 'ordered');
+	const sample = (await Bun.file(tracePath()).text()).trim().split('\n').at(-1);
+	if (!sample) throw new Error('Trace sample missing.');
+	const size = claudeTurnTraceCap - 2048 - sample.length - 1;
+	await Bun.write(tracePath(), 'x'.repeat(size));
+	await traceEvent(recordPath, observed, state, state, 'ordered');
+	const tail = (await Bun.file(tracePath()).text()).slice(size).trim();
+	expect(tail).toContain('trace cap of');
+	expect(Bun.file(tracePath()).size).toBeLessThanOrEqual(claudeTurnTraceCap);
 });

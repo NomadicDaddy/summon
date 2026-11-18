@@ -190,7 +190,8 @@ export async function teamSnapshot(context: SnapshotContext): Promise<TeamSnapsh
 				session?.agent.status === 'running' &&
 				session.agent.provider === 'claude' &&
 				context.sessions.get(slug) === session
-					? (await deliveryStatus(slug, session.launch.nonce)).noticeHold
+					? (await deliveryStatus(slug, session.launch.nonce).catch(() => undefined))
+							?.noticeHold
 					: undefined;
 			agents.push({
 				...(session?.agent.status === 'running'

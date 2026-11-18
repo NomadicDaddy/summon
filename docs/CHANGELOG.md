@@ -10,6 +10,11 @@ Notable changes to summon are recorded here using Keep a Changelog categories an
   `summon --mail status` and the Team Window seat details show the hold, including its age in the
   Window, while addressed work waits. The hold clears when the gate opens or the receiver ends.
 
+### Fixed
+
+- The per-launch Claude turn trace now applies its 1 MiB limit to UTF-8 bytes, including multibyte
+  turn IDs, and refuses a final cap line if an already oversized trace cannot fit it.
+
 ## [1.1.2] - 2026-11-17
 
 ### Changed

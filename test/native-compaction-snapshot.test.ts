@@ -101,6 +101,10 @@ test('authenticated nested compactions enter and leave the exact owned snapshot'
 		expect(unreadable?.observationUnavailable).toBeUndefined();
 		expect(unreadable?.providerTurn).toBe('unknown');
 		expect(unreadable?.nativeCompacting).toBeUndefined();
+		await Bun.write(join(fixture.records, `runtime/alpha/${nonce}.json`), '{');
+		const damagedDelivery = await row();
+		expect(damagedDelivery?.slug).toBe('alpha');
+		expect(damagedDelivery?.noticeHold).toBeUndefined();
 	} finally {
 		model.mockRestore();
 	}
