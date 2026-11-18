@@ -8,7 +8,7 @@ import { setHibernation } from '../src/hibernation.ts';
 import { sendHuman } from '../src/local-room-access.ts';
 import { sendMessage } from '../src/mailbox.ts';
 import { readRest, refreshRest, restSuppressed, stopForRest } from '../src/rest.ts';
-import { encodeScheduleState } from '../src/schedule-store.ts';
+import { encodeScheduleState, storeScheduleState } from '../src/schedule-store.ts';
 import { createSchedule, dispatchSchedules, listSchedules } from '../src/schedules.ts';
 import { loadAgent, providers, saveAgent } from '../src/store.ts';
 import { bindIdleCodex } from './fixtures/codex-idle.ts';
@@ -122,7 +122,7 @@ for (const provider of providers) {
 				schedule.nextDueAt = 0;
 				await writeFile(
 					join(fixture.records, 'schedules/state.json'),
-					encodeScheduleState(schedules),
+					encodeScheduleState(storeScheduleState(schedules)),
 				);
 			}
 			const before = await fixture.read('runtime/alpha/activity.json');
@@ -155,7 +155,10 @@ test('a deferred due schedule stays queued while an exact human wait rests', asy
 	const schedule = schedules.schedules[0];
 	if (!schedule) throw new Error('Missing fixture schedule');
 	schedule.nextDueAt = 0;
-	await writeFile(join(fixture.records, 'schedules/state.json'), encodeScheduleState(schedules));
+	await writeFile(
+		join(fixture.records, 'schedules/state.json'),
+		encodeScheduleState(storeScheduleState(schedules)),
+	);
 	await dispatchSchedules(
 		() => Promise.resolve('owner-needs-user'),
 		() => Promise.resolve(),
@@ -179,7 +182,7 @@ test('a deferred due schedule stays queued while an exact human wait rests', asy
 	stoppedSchedule.deferred = { reason: 'not-running-here', dueAt: 0, observedAt: 200 };
 	await writeFile(
 		join(fixture.records, 'schedules/state.json'),
-		encodeScheduleState(stoppedSchedules),
+		encodeScheduleState(storeScheduleState(stoppedSchedules)),
 	);
 	expect((await refreshRest('alpha'))?.mode).toBe('stopped');
 	await createSchedule({
@@ -192,7 +195,10 @@ test('a deferred due schedule stays queued while an exact human wait rests', asy
 	const newSchedule = changed.schedules[1];
 	if (!newSchedule) throw new Error('Missing new schedule');
 	newSchedule.nextDueAt = 0;
-	await writeFile(join(fixture.records, 'schedules/state.json'), encodeScheduleState(changed));
+	await writeFile(
+		join(fixture.records, 'schedules/state.json'),
+		encodeScheduleState(storeScheduleState(changed)),
+	);
 	expect((await refreshRest('alpha'))?.mode).toBe('wake-requested');
 });
 
@@ -208,7 +214,10 @@ test('a human wait still refuses rest for delivered and uncertain scheduled runs
 	const schedule = schedules.schedules[0];
 	if (!schedule) throw new Error('Missing fixture schedule');
 	schedule.nextDueAt = 0;
-	await writeFile(join(fixture.records, 'schedules/state.json'), encodeScheduleState(schedules));
+	await writeFile(
+		join(fixture.records, 'schedules/state.json'),
+		encodeScheduleState(storeScheduleState(schedules)),
+	);
 	await dispatchSchedules(
 		() => Promise.resolve(true),
 		() => Promise.resolve(),
@@ -224,7 +233,7 @@ test('a human wait still refuses rest for delivered and uncertain scheduled runs
 		run.status = runStatus;
 		await writeFile(
 			join(fixture.records, 'schedules/state.json'),
-			encodeScheduleState(current),
+			encodeScheduleState(storeScheduleState(current)),
 		);
 		const result = await fixture.run(['--rest', 'ready'], 'alpha');
 		expect(result.code).toBe(1);

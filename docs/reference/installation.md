@@ -400,8 +400,9 @@ into the exact original bytes. It keeps a sealed copy under `runtime/schedule-mi
 which Summon never deletes, and checks the live file again after the swap.
 `--offline --rollback` writes the version 2 state back as version 1 with every prompt restored,
 newer runs included; install the older release with it, in the same offline order. Past each
-32 MiB the Team Window records one best-effort warning under `summon --faults`; dispatch carries
-on and nothing is pruned.
+32 MiB the Team Window tries to record a warning under `summon --faults`; dispatch carries on and
+nothing is pruned. The warning is best effort: a crash between the fault write and the state save
+can repeat it, and a fault journal that keeps failing means none arrives.
 Checkpoints omit repeated own-message text; explicit room reads retain full text. Room notices
 wait for 30 seconds of quiet, with a two-minute ceiling. Human messages, explicit mentions and
 replies to the owner can refresh an outstanding wake after that delay. Routine peer room traffic

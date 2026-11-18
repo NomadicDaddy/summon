@@ -8,7 +8,7 @@ import { tickSchedules } from '../src/desktop/schedules.ts';
 import { Team } from '../src/desktop/team.ts';
 import { terminalDraft } from '../src/desktop/terminal-draft.ts';
 import { pendingMessages } from '../src/mailbox.ts';
-import { encodeScheduleState } from '../src/schedule-store.ts';
+import { encodeScheduleState, storeScheduleState } from '../src/schedule-store.ts';
 import { createSchedule, listSchedules } from '../src/schedules.ts';
 import { newRecord, updateAgentRecord } from '../src/store.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
@@ -61,7 +61,10 @@ async function due() {
 	const schedule = state.schedules[0];
 	if (!schedule) throw new Error('Missing fixture schedule.');
 	schedule.nextDueAt = 0;
-	await writeFile(join(fixture.records, 'schedules/state.json'), encodeScheduleState(state));
+	await writeFile(
+		join(fixture.records, 'schedules/state.json'),
+		encodeScheduleState(storeScheduleState(state)),
+	);
 }
 
 test.each(['claude', 'codex', 'grok', 'kilo'] as const)(

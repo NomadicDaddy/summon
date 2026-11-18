@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 
 import type { ScheduleAvailability } from './schedule-deferral.ts';
-import type { Schedule, ScheduledRun, State } from './schedule-store.ts';
+import type { PublicScheduleState, Schedule, ScheduledRun, State } from './schedule-store.ts';
 
 import { communicationState } from './communication-state.ts';
 import { isHibernated } from './hibernation.ts';
@@ -19,6 +19,7 @@ import {
 	encodeScheduleState,
 	scheduleInput,
 	scheduleText,
+	storeScheduleState,
 } from './schedule-store.ts';
 import { loadAgent, slugFor, storageRoot } from './store.ts';
 
@@ -27,8 +28,14 @@ const read = async (): Promise<State> => {
 	const raw = await optionalText(path());
 	return raw !== undefined ? decodeScheduleState(raw) : emptyState();
 };
-const frozenRestRead = async (): Promise<State> => {
-	const state = await read();
+/** The caller-facing shape: the prompt store and warning step never leave this module. */
+const publicState = (state: State): PublicScheduleState => ({
+	version: state.version,
+	schedules: state.schedules,
+	runs: state.runs,
+});
+const frozenRestRead = async (): Promise<PublicScheduleState> => {
+	const state = publicState(await read());
 	for (const item of state.schedules) {
 		if (item.deferred) Object.freeze(item.deferred);
 		Object.freeze(item);
@@ -40,32 +47,32 @@ const frozenRestRead = async (): Promise<State> => {
 };
 // Rest checks run once per member on each Window scan. Revalidate the file identity on every
 // read, but parse its retained run history only when the durable state has changed.
-const cachedRestRead = roomCache<State>();
-const restRead = (): Promise<State> => cachedRestRead(path(), frozenRestRead);
-/** Saves through the one encoder, so no run is ever written with its prompt; returns the bytes. */
+const cachedRestRead = roomCache<PublicScheduleState>();
+const restRead = (): Promise<PublicScheduleState> => cachedRestRead(path(), frozenRestRead);
+/** Saves through the one encoder, which refuses a run carrying its prompt; returns the bytes. */
 const save = async (state: State): Promise<number> => {
-	const encoded = encodeScheduleState(state);
+	const encoded = encodeScheduleState(storeScheduleState(state));
 	await atomicWrite(path(), encoded);
 	return Buffer.byteLength(encoded);
 };
 const finished = (item: ScheduledRun): boolean => ['complete', 'failed'].includes(item.status);
 
-function visibleSchedules(state: State): State {
+function visibleSchedules(state: PublicScheduleState): PublicScheduleState {
 	if (!process.env.SUMMON_AGENT) return state;
 	const owner = currentAgent();
 	return {
-		...state,
+		version: state.version,
 		schedules: state.schedules.filter((item) => item.owner === owner),
 		runs: state.runs.filter((item) => item.owner === owner),
 	};
 }
 
-export async function listSchedules(): Promise<State> {
-	return visibleSchedules(await read());
+export async function listSchedules(): Promise<PublicScheduleState> {
+	return visibleSchedules(publicState(await read()));
 }
 
 /** Read-only rest evidence; writers and public list callers keep their fresh mutable state. */
-export async function restSchedules(): Promise<State> {
+export async function restSchedules(): Promise<PublicScheduleState> {
 	return visibleSchedules(await restRead());
 }
 
@@ -186,6 +193,7 @@ export async function dispatchSchedules(
 				if (item.enabled && item.nextDueAt <= now)
 					changed = deferSchedule(item, 'communications-paused', now) || changed;
 			if (changed) await save(state);
+			if (warn) await warnScheduleSize(state, path(), warn, save);
 			return;
 		}
 		// The claim is persisted BEFORE delivery. A crash at that boundary is ambiguous, not a

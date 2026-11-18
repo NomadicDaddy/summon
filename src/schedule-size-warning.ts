@@ -6,9 +6,12 @@ export const SCHEDULE_WARNING_BYTES = 32 * 1024 * 1024;
 
 /**
  * Best effort, and never a halt: past each 32 MiB step, ask the window to record one runtime
- * warning, then mark the step in the saved state. The fault journal and the state file are
- * separate writes, so a crash between them can repeat a warning, and a journal that keeps failing
- * means none arrives. Nothing here can fail dispatch, and nothing is pruned.
+ * warning, then mark the step in the saved state. It reads the file's size, not the size of one
+ * save, and the Team Window runs it on every dispatch tick, paused or not, so growth from any
+ * writer (finish, create, update and owner removal included) is caught at the next tick. Agent
+ * CLI writers cannot write the operator-only fault journal, so they never try. The journal and the
+ * state file are separate writes: a crash between them can repeat a warning, and a journal that
+ * keeps failing means none arrives. Nothing here can fail a writer, and nothing is pruned.
  */
 export async function warnScheduleSize(
 	state: State,

@@ -44,24 +44,29 @@ const storedState = z
 
 export type ScheduledRun = Omit<z.infer<typeof storedRun>, 'promptSha256'> & { prompt: string };
 export type Schedule = z.infer<typeof schedule>;
-/** Hydrated working state. The prompt map stays inside this module and never reaches a caller. */
-export type State = {
-	version: 2;
-	schedules: Schedule[];
-	runs: ScheduledRun[];
-	warnedStep?: number;
-};
+export type StoredState = z.infer<typeof storedState>;
+/** What callers see: schedules and hydrated runs, never the prompt store or warning bookkeeping. */
+export type PublicScheduleState = { version: 2; schedules: Schedule[]; runs: ScheduledRun[] };
+/** Writers' working state inside schedules.ts: the stored map and warning step ride privately. */
+export type State = PublicScheduleState & { prompts: Record<string, string>; warnedStep?: number };
 
 export const promptHash = (prompt: string): string =>
 	createHash('sha256').update(prompt, 'utf8').digest('hex');
 
-export const emptyState = (): State => ({ version: 2, schedules: [], runs: [] });
+export const emptyState = (): State => ({ version: 2, schedules: [], runs: [], prompts: {} });
+
+function checkStore(stored: StoredState): void {
+	for (const [key, prompt] of Object.entries(stored.prompts))
+		if (promptHash(prompt) !== key) throw new Error('Schedule prompt store hash mismatch.');
+	for (const run of stored.runs)
+		if (stored.prompts[run.promptSha256] === undefined)
+			throw new Error('Scheduled run refers to a missing prompt.');
+}
 
 /** Parse a version 2 file and put each run's exact prompt back in its schema position. */
 export function decodeScheduleState(raw: string): State {
 	const stored = storedState.parse(JSON.parse(raw) as unknown);
-	for (const [key, prompt] of Object.entries(stored.prompts))
-		if (promptHash(prompt) !== key) throw new Error('Schedule prompt store hash mismatch.');
+	checkStore(stored);
 	// Built directly, not re-parsed: the trimming run schema must never alter a stored prompt.
 	const runs = stored.runs.map(({ promptSha256, ...rest }): ScheduledRun => {
 		const prompt = stored.prompts[promptSha256];
@@ -73,32 +78,33 @@ export function decodeScheduleState(raw: string): State {
 		version: 2,
 		schedules: stored.schedules,
 		runs,
+		prompts: stored.prompts,
 		...(stored.warnedStep === undefined ? {} : { warnedStep: stored.warnedStep }),
 	};
 }
 
-/** The only serializer for saved state: each prompt is stored once and runs keep its hash. */
-export function encodeScheduleState(state: State): string {
-	const prompts: Record<string, string> = {};
-	const runs = state.runs.map((item) => {
-		const out: Record<string, unknown> = {};
-		for (const [key, value] of Object.entries(item)) {
-			if (key !== 'prompt') {
-				out[key] = value;
-				continue;
-			}
-			const hash = promptHash(item.prompt);
-			prompts[hash] = item.prompt;
-			out.promptSha256 = hash;
-		}
-		return out;
+/** Back to the stored shape. The existing prompt map is kept whole and only grows. */
+export function storeScheduleState(
+	state: PublicScheduleState & { prompts?: Record<string, string>; warnedStep?: number },
+): StoredState {
+	const prompts = { ...state.prompts };
+	const runs = state.runs.map(({ prompt, ...rest }) => {
+		const promptSha256 = promptHash(prompt);
+		prompts[promptSha256] = prompt;
+		return { ...rest, promptSha256 };
 	});
-	const stored = storedState.parse({
+	return {
 		version: 2,
 		schedules: state.schedules,
 		prompts,
 		runs,
 		...(state.warnedStep === undefined ? {} : { warnedStep: state.warnedStep }),
-	});
-	return JSON.stringify(stored);
+	};
+}
+
+/** The only serializer for saved state. It refuses a run carrying its prompt or a damaged store. */
+export function encodeScheduleState(stored: StoredState): string {
+	const valid = storedState.parse(stored);
+	checkStore(valid);
+	return JSON.stringify(valid);
 }

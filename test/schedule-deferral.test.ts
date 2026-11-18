@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { setCommunicationPause } from '../src/communication-state.ts';
 import { setHibernation } from '../src/hibernation.ts';
-import { encodeScheduleState } from '../src/schedule-store.ts';
+import { encodeScheduleState, storeScheduleState } from '../src/schedule-store.ts';
 import {
 	createSchedule,
 	dispatchSchedules,
@@ -36,7 +36,10 @@ async function due() {
 	const schedule = state.schedules[0];
 	if (!schedule) throw new Error('Missing schedule');
 	schedule.nextDueAt = 0;
-	await writeFile(join(fixture.records, 'schedules/state.json'), encodeScheduleState(state));
+	await writeFile(
+		join(fixture.records, 'schedules/state.json'),
+		encodeScheduleState(storeScheduleState(state)),
+	);
 	return item.id;
 }
 const noNotify = () => Promise.resolve();

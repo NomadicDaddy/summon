@@ -2,7 +2,11 @@ import { expect, test } from 'bun:test';
 import { randomUUID } from 'node:crypto';
 
 import { scheduleStateV1ToV2, scheduleStateV2ToV1 } from '../src/schedule-state-migration.ts';
-import { decodeScheduleState, encodeScheduleState } from '../src/schedule-store.ts';
+import {
+	decodeScheduleState,
+	encodeScheduleState,
+	storeScheduleState,
+} from '../src/schedule-store.ts';
 
 const scheduleId = randomUUID();
 const schedule = {
@@ -75,7 +79,9 @@ test('rollback restores every prompt into its run and keeps runs made after the 
 	const later = { ...run(2, 'A newer scope.'), status: 'delivered' as const };
 	state.runs.push(later);
 	state.warnedStep = 1;
-	const back = JSON.parse(scheduleStateV2ToV1(encodeScheduleState(state))) as {
+	const back = JSON.parse(
+		scheduleStateV2ToV1(encodeScheduleState(storeScheduleState(state))),
+	) as {
 		version: number;
 		runs: { id: string; prompt: string }[];
 	} & Record<string, unknown>;

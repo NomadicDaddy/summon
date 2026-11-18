@@ -26,6 +26,7 @@ const state = (warnedStep?: number): State => ({
 	version: 2,
 	schedules: [],
 	runs: [],
+	prompts: {},
 	...(warnedStep === undefined ? {} : { warnedStep }),
 });
 /** A fault writer that records each warning. */

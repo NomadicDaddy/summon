@@ -3,7 +3,16 @@ import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { decodeScheduleState, encodeScheduleState, promptHash } from '../src/schedule-store.ts';
+import type { StoredState } from '../src/schedule-store.ts';
+
+import { setCommunicationPause } from '../src/communication-state.ts';
+import { SCHEDULE_WARNING_BYTES } from '../src/schedule-size-warning.ts';
+import {
+	decodeScheduleState,
+	encodeScheduleState,
+	promptHash,
+	storeScheduleState,
+} from '../src/schedule-store.ts';
 import {
 	createSchedule,
 	dispatchSchedules,
@@ -89,7 +98,7 @@ test('a stored prompt reads back byte for byte, padding and non-ASCII included',
 		result: 'Kept.',
 	};
 	const decoded = decodeScheduleState(
-		encodeScheduleState({ version: 2, schedules: [], runs: [run] }),
+		encodeScheduleState(storeScheduleState({ version: 2, schedules: [], runs: [run] })),
 	);
 	expect(decoded.runs).toEqual([run]);
 	expect(decoded.runs[0]?.prompt).toBe(prompt);
@@ -116,11 +125,88 @@ test('a missing entry, an altered prompt, a wrong key or a run with its prompt r
 	}
 });
 
+test('the encoder refuses a run carrying its prompt, a run without its entry and a wrong key', () => {
+	const stored = storeScheduleState({
+		version: 2,
+		schedules: [],
+		runs: [
+			{
+				id: randomUUID(),
+				scheduleId: randomUUID(),
+				owner: 'alpha',
+				title: 'Encoded',
+				prompt: shared,
+				dueAt: 1,
+				updatedAt: 2,
+				status: 'delivered',
+			},
+		],
+	});
+	expect(encodeScheduleState(stored)).not.toContain('"prompt"');
+	const [run] = stored.runs;
+	if (!run) throw new Error('Expected a stored run');
+	// Deliberately the wrong shape: a hydrated run handed to the stored-state encoder.
+	const hydrated = { ...stored, runs: [{ ...run, prompt: shared }] } as unknown as StoredState;
+	expect(() => encodeScheduleState(hydrated)).toThrow();
+	expect(() => encodeScheduleState({ ...stored, prompts: {} })).toThrow('missing prompt');
+	const wrongKey = { [promptHash('other')]: shared, [run.promptSha256]: shared };
+	expect(() => encodeScheduleState({ ...stored, prompts: wrongKey })).toThrow('hash mismatch');
+});
+
+test('dispatch checks the size on every tick, paused or not, and keeps the step private', async () => {
+	await createSchedule({ owner: 'alpha', title: 'A', everyMinutes: 60, prompt: shared });
+	const encoded = encodeScheduleState(storeScheduleState(await listSchedules()));
+	// Trailing whitespace is valid JSON, so the file can cross 32 MiB without 32 MiB of runs.
+	const padded = encoded + ' '.repeat(SCHEDULE_WARNING_BYTES);
+	const file = join(fixture.records, 'schedules/state.json');
+	const warned: string[] = [];
+	const warn = (text: string) => {
+		warned.push(text);
+		return Promise.resolve();
+	};
+	for (const paused of [true, false]) {
+		await writeFile(file, padded);
+		await setCommunicationPause(paused);
+		await dispatchSchedules(
+			() => Promise.resolve(true),
+			() => Promise.resolve(),
+			Date.now(),
+			warn,
+		);
+	}
+	expect(warned).toHaveLength(2);
+	expect(
+		(JSON.parse(await fixture.read('schedules/state.json')) as { warnedStep?: number })
+			.warnedStep,
+	).toBe(1);
+	expect(Object.keys(await listSchedules())).toEqual(['version', 'schedules', 'runs']);
+	// A failing fault writer never fails dispatch.
+	await writeFile(file, padded);
+	await dispatchSchedules(
+		() => Promise.resolve(true),
+		() => Promise.resolve(),
+		Date.now(),
+		() => Promise.reject(new Error('journal locked')),
+	);
+});
+
+test('the prompt store keeps every existing entry when a state is stored again', () => {
+	const kept = 'An older prompt no run refers to any more.';
+	const stored = storeScheduleState({
+		version: 2,
+		schedules: [],
+		runs: [],
+		prompts: { [promptHash(kept)]: kept },
+	});
+	expect(Object.values(stored.prompts)).toEqual([kept]);
+});
+
 test('an agent sees only its own runs and prompts, and no prompt store', async () => {
 	await createSchedule({ owner: 'alpha', title: 'Own', everyMinutes: 1, prompt: 'alpha scope' });
 	await createSchedule({ owner: 'beta', title: 'Other', everyMinutes: 1, prompt: 'beta secret' });
 	await dispatch(Date.now() + 120000);
-	expect(Object.keys(await listSchedules())).not.toContain('prompts');
+	// Public reads carry no prompt store and no warning bookkeeping, for the operator too.
+	expect(Object.keys(await listSchedules())).toEqual(['version', 'schedules', 'runs']);
 	const listed = await fixture.run(['--schedule', 'list'], 'alpha');
 	expect(listed.code).toBe(0);
 	expect(listed.out).toContain('alpha scope');

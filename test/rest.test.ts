@@ -12,7 +12,7 @@ import { sendHuman } from '../src/local-room-access.ts';
 import { pendingMessages, sendMessage } from '../src/mailbox.ts';
 import { readRest, refreshRest, restSuppressed, stopForRest } from '../src/rest.ts';
 import { directlyAddressed } from '../src/room-wake.ts';
-import { encodeScheduleState } from '../src/schedule-store.ts';
+import { encodeScheduleState, storeScheduleState } from '../src/schedule-store.ts';
 import { createSchedule, listSchedules } from '../src/schedules.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
 import { bindIdleTurn } from './fixtures/provider-idle.ts';
@@ -172,7 +172,10 @@ test('a due schedule wakes a Zzz-stopped owner once; hibernation forbids wake', 
 	const schedule = state.schedules[0];
 	if (!schedule) throw Error('Missing schedule');
 	schedule.nextDueAt = 0;
-	await writeFile(join(fixture.records, 'schedules/state.json'), encodeScheduleState(state));
+	await writeFile(
+		join(fixture.records, 'schedules/state.json'),
+		encodeScheduleState(storeScheduleState(state)),
+	);
 	const h = fakeTeam();
 	await tickRest(h.team);
 	await tickRest(h.team);
