@@ -393,13 +393,18 @@ Schedule state version 2 stores each scheduled-run prompt once, keyed by its SHA
 keeps the hash, and every read returns the exact prompt. No run is deleted, trimmed or moved.
 This release refuses a version 1 file, so the existing state needs an operator-approved offline
 migration, in this order: halt communications, close all Summon windows, sessions and receivers,
-install this release, migrate, then start the Team Window. From the validated checkout, use
+install this release, migrate, then start the Team Window. Where the `summon` command runs from a
+source checkout, moving that checkout to this release is the install: every session's commands,
+including `--rest ready` and `--schedule`, would refuse the version 1 file from that moment. So
+the checkout moves inside the offline window, after everything is closed and before the
+preflight, never as an ordinary update ahead of it. From the validated checkout, use
 `bun scripts/migrate-schedule-state.ts --offline --preflight`, then `--offline --apply`. The
 migration reads the raw file, never the schemas, and refuses unless the converted file turns back
 into the exact original bytes. It keeps a sealed copy under `runtime/schedule-migrations/`,
 which Summon never deletes, and checks the live file again after the swap.
 `--offline --rollback` writes the version 2 state back as version 1 with every prompt restored,
-newer runs included; install the older release with it, in the same offline order. Past each
+newer runs included; move the checkout back to the older release with it, in the same offline
+order. Past each
 32 MiB the Team Window tries to record a warning under `summon --faults`; dispatch carries on and
 nothing is pruned. The warning is best effort: a crash between the fault write and the state save
 can repeat it, and a fault journal that keeps failing means none arrives.
