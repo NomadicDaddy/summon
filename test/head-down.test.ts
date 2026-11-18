@@ -21,6 +21,7 @@ import { startMailWatcher } from '../src/mail-watcher.ts';
 import { sendMessage } from '../src/mailbox.ts';
 import { localCursorPath } from '../src/room-cursor.ts';
 import { answerRoom } from '../src/room-question-access.ts';
+import { encodeScheduleState } from '../src/schedule-store.ts';
 import { createSchedule, listSchedules } from '../src/schedules.ts';
 import { newRecord } from '../src/store.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
@@ -242,7 +243,10 @@ test('PTY keeps ordinary mentions and schedules queued while allowing direct inp
 	});
 	const schedules = await listSchedules();
 	for (const item of schedules.schedules) item.nextDueAt = 0;
-	await atomicWrite(join(fixture.records, 'schedules', 'state.json'), JSON.stringify(schedules));
+	await atomicWrite(
+		join(fixture.records, 'schedules', 'state.json'),
+		encodeScheduleState(schedules),
+	);
 	await tickSchedules(team);
 	expect((await listSchedules()).runs).toHaveLength(0);
 	await delegateHeadDown('beta', true);

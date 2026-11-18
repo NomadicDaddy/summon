@@ -41,7 +41,7 @@ const members = [
 test('every schedule is listed under its owner, owners by name, and the rest are named', () => {
 	const view = scheduleView(
 		{
-			version: 1,
+			version: 2,
 			schedules: [schedule(1, 'beta', 5), schedule(2, 'alpha', 5), schedule(3, 'alpha', 1)],
 			runs: [],
 		},
@@ -58,7 +58,7 @@ test('every schedule is listed under its owner, owners by name, and the rest are
 
 test('a schedule whose owner is no longer registered keeps its group under the slug', () => {
 	const view = scheduleView(
-		{ version: 1, schedules: [schedule(1, 'removed', 5)], runs: [] },
+		{ version: 2, schedules: [schedule(1, 'removed', 5)], runs: [] },
 		members,
 		now,
 	);
@@ -70,7 +70,7 @@ test('one condition per schedule: paused, then an unfinished run, then deferred 
 	const deferred = { reason: 'owner-busy' as const, dueAt: now - minute, observedAt: now };
 	const view = scheduleView(
 		{
-			version: 1,
+			version: 2,
 			schedules: [
 				schedule(1, 'alpha', 5),
 				schedule(2, 'alpha', -1),
@@ -150,7 +150,7 @@ test('a run with uncertain delivery stops its schedule and is not shown as in pr
 	const uncertain = { ...run(1, 1, 'delivered', 2), status: 'uncertain' as const };
 	const view = scheduleView(
 		{
-			version: 1,
+			version: 2,
 			schedules: [schedule(1, 'alpha', -5), schedule(2, 'alpha', -5, { enabled: false })],
 			runs: [
 				uncertain,

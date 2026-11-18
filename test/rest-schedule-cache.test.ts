@@ -4,6 +4,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { atomicWrite } from '../src/mail-files.ts';
+import { encodeScheduleState } from '../src/schedule-store.ts';
 import { createSchedule, listSchedules, restSchedules } from '../src/schedules.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
 
@@ -44,7 +45,7 @@ test('rest reads reuse an unchanged validated schedule state and retain finished
 		result: 'Retained fixture evidence',
 	};
 	state.runs.push(finished);
-	await writeFile(join(fixture.records, 'schedules', 'state.json'), JSON.stringify(state));
+	await writeFile(join(fixture.records, 'schedules', 'state.json'), encodeScheduleState(state));
 	const first = await restSchedules();
 	expect(await restSchedules()).toBe(first);
 	expect(first.runs).toEqual([finished]);
@@ -85,7 +86,7 @@ test('rest reads observe schedule writes and a same-size atomic replacement', as
 	first.title = 'Later duty';
 	const file = join(fixture.records, 'schedules', 'state.json');
 	const previous = await fixture.read('schedules/state.json');
-	const replacement = JSON.stringify(edited);
+	const replacement = encodeScheduleState(edited);
 	expect(Buffer.byteLength(replacement)).toBe(Buffer.byteLength(previous));
 	await atomicWrite(file, replacement);
 	const replaced = await restSchedules();

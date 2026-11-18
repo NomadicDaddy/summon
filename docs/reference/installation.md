@@ -388,6 +388,20 @@ read markers or registration. The retained plan names the deferral. Before that 
 checkpoint protocol, the operator must arrange a complete own-batch drain with the retained old
 release and a later offline conversion. Do not discard the old release or unhibernate an owner
 merely to perform the initial cutover. Deferral does not grant launch or migration authority.
+
+Schedule state version 2 stores each scheduled-run prompt once, keyed by its SHA-256; each run
+keeps the hash, and every read returns the exact prompt. No run is deleted, trimmed or moved.
+This release refuses a version 1 file, so the existing state needs an operator-approved offline
+migration, in this order: halt communications, close all Summon windows, sessions and receivers,
+install this release, migrate, then start the Team Window. From the validated checkout, use
+`bun scripts/migrate-schedule-state.ts --offline --preflight`, then `--offline --apply`. The
+migration reads the raw file, never the schemas, and refuses unless the converted file turns back
+into the exact original bytes. It keeps a sealed copy under `runtime/schedule-migrations/`,
+which Summon never deletes, and checks the live file again after the swap.
+`--offline --rollback` writes the version 2 state back as version 1 with every prompt restored,
+newer runs included; install the older release with it, in the same offline order. Past each
+32 MiB the Team Window records one best-effort warning under `summon --faults`; dispatch carries
+on and nothing is pruned.
 Checkpoints omit repeated own-message text; explicit room reads retain full text. Room notices
 wait for 30 seconds of quiet, with a two-minute ceiling. Human messages, explicit mentions and
 replies to the owner can refresh an outstanding wake after that delay. Routine peer room traffic

@@ -8,6 +8,7 @@ import { tickSchedules } from '../src/desktop/schedules.ts';
 import { Team } from '../src/desktop/team.ts';
 import { setHibernation } from '../src/hibernation.ts';
 import { acknowledgeMessage } from '../src/mailbox.ts';
+import { encodeScheduleState } from '../src/schedule-store.ts';
 import {
 	createSchedule,
 	dispatchSchedules,
@@ -188,7 +189,7 @@ test('interrupted claims become uncertain and notification failure never redeliv
 	const state = await listSchedules();
 	expect(state.runs).toHaveLength(1);
 	first(state.runs).status = 'dispatching';
-	await writeFile(join(fixture.records, 'schedules/state.json'), JSON.stringify(state));
+	await writeFile(join(fixture.records, 'schedules/state.json'), encodeScheduleState(state));
 	await rejects(dispatch(schedule.nextDueAt + 600000), 'interrupted delivery');
 	await dispatch(schedule.nextDueAt + 600000);
 	expect(first((await listSchedules()).runs).status).toBe('uncertain');
@@ -228,7 +229,7 @@ test('desktop tick targets the named running idle Kilo terminal, never an adjace
 	await createSchedule(input);
 	const state = await listSchedules();
 	first(state.schedules).nextDueAt = 0;
-	await writeFile(join(fixture.records, 'schedules/state.json'), JSON.stringify(state));
+	await writeFile(join(fixture.records, 'schedules/state.json'), encodeScheduleState(state));
 	await tickSchedules(team);
 	expect(launches).toBe(0);
 	expect(first((await listSchedules()).schedules).deferred?.reason).toBe('not-running-here');

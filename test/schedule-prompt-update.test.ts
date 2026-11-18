@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { initializeActivity } from '../src/agent-activity.ts';
+import { encodeScheduleState } from '../src/schedule-store.ts';
 import {
 	createSchedule,
 	dispatchSchedules,
@@ -111,7 +112,7 @@ test('edits preserve paused deferral and delivered/completed run snapshots; futu
 			observedAt: schedule.nextDueAt,
 		},
 	};
-	await writeFile(join(fixture.records, 'schedules/state.json'), JSON.stringify(before));
+	await writeFile(join(fixture.records, 'schedules/state.json'), encodeScheduleState(before));
 	expect(
 		(await fixture.run(['--schedule', 'update-prompt', schedule.id, edit()], 'alpha')).code,
 	).toBe(0);

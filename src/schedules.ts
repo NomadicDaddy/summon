@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 
 import type { ScheduleAvailability } from './schedule-deferral.ts';
+import type { Schedule, ScheduledRun, State } from './schedule-store.ts';
 
 import { communicationState } from './communication-state.ts';
 import { isHibernated } from './hibernation.ts';
@@ -10,49 +11,21 @@ import { atomicWrite, locked, optionalText } from './mail-files.ts';
 import { currentAgent, operatorOnly } from './mail-identity.ts';
 import { sendMessage } from './mailbox.ts';
 import { roomCache } from './room-cache.ts';
-import { deferSchedule, scheduleDeferral } from './schedule-deferral.ts';
+import { deferSchedule } from './schedule-deferral.ts';
+import { warnScheduleSize } from './schedule-size-warning.ts';
+import {
+	decodeScheduleState,
+	emptyState,
+	encodeScheduleState,
+	scheduleInput,
+	scheduleText,
+} from './schedule-store.ts';
 import { loadAgent, slugFor, storageRoot } from './store.ts';
-
-const text = z.string().trim().min(1).max(8000);
-const scheduleInput = z
-	.object({
-		owner: z.string().min(1),
-		title: z.string().trim().min(1).max(120),
-		everyMinutes: z.number().int().min(1).max(525600),
-		prompt: text,
-	})
-	.strict();
-const schedule = scheduleInput.extend({
-	id: z.uuid(),
-	enabled: z.boolean(),
-	nextDueAt: z.number().int().nonnegative(),
-	deferred: scheduleDeferral.optional(),
-});
-const run = z.object({
-	id: z.uuid(),
-	scheduleId: z.uuid(),
-	owner: z.string(),
-	title: z.string(),
-	prompt: text,
-	dueAt: z.number().int().nonnegative(),
-	updatedAt: z.number().int().nonnegative(),
-	status: z.enum(['dispatching', 'delivered', 'uncertain', 'complete', 'failed']),
-	result: z.string().max(8000).optional(),
-});
-const stateSchema = z.object({
-	version: z.literal(1),
-	schedules: z.array(schedule),
-	runs: z.array(run),
-});
-type State = z.infer<typeof stateSchema>;
-export type ScheduledRun = z.infer<typeof run>;
 
 const path = (): string => join(storageRoot(), 'schedules', 'state.json');
 const read = async (): Promise<State> => {
 	const raw = await optionalText(path());
-	return raw !== undefined
-		? stateSchema.parse(JSON.parse(raw) as unknown)
-		: { version: 1, schedules: [], runs: [] };
+	return raw !== undefined ? decodeScheduleState(raw) : emptyState();
 };
 const frozenRestRead = async (): Promise<State> => {
 	const state = await read();
@@ -69,7 +42,12 @@ const frozenRestRead = async (): Promise<State> => {
 // read, but parse its retained run history only when the durable state has changed.
 const cachedRestRead = roomCache<State>();
 const restRead = (): Promise<State> => cachedRestRead(path(), frozenRestRead);
-const save = (state: State): Promise<void> => atomicWrite(path(), JSON.stringify(state));
+/** Saves through the one encoder, so no run is ever written with its prompt; returns the bytes. */
+const save = async (state: State): Promise<number> => {
+	const encoded = encodeScheduleState(state);
+	await atomicWrite(path(), encoded);
+	return Buffer.byteLength(encoded);
+};
 const finished = (item: ScheduledRun): boolean => ['complete', 'failed'].includes(item.status);
 
 function visibleSchedules(state: State): State {
@@ -91,7 +69,7 @@ export async function restSchedules(): Promise<State> {
 	return visibleSchedules(await restRead());
 }
 
-export async function createSchedule(input: unknown): Promise<z.infer<typeof schedule>> {
+export async function createSchedule(input: unknown): Promise<Schedule> {
 	const value = scheduleInput.parse(input);
 	value.owner = slugFor(value.owner);
 	if (process.env.SUMMON_AGENT && currentAgent() !== value.owner)
@@ -128,7 +106,7 @@ export async function enableSchedule(id: string, enabled: boolean): Promise<void
 /** Change future instructions only; compare and write under the dispatch/state lock. */
 export async function updateSchedulePrompt(id: string, input: unknown): Promise<void> {
 	const value = z
-		.object({ expectedPrompt: z.string().min(1).max(8000), prompt: text })
+		.object({ expectedPrompt: z.string().min(1).max(8000), prompt: scheduleText })
 		.strict()
 		.parse(input);
 	if (value.prompt.includes('\0')) throw new Error('Schedule prompt must not contain NUL.');
@@ -174,7 +152,7 @@ export async function finishScheduledRun(
 	status: 'complete' | 'failed',
 	result: string,
 ): Promise<void> {
-	const evidence = text.parse(result);
+	const evidence = scheduleText.parse(result);
 	await locked(`${path()}.lock`, async () => {
 		const state = await read();
 		const item = state.runs.find((item) => item.id === id);
@@ -197,6 +175,7 @@ export async function dispatchSchedules(
 	available: (owner: string) => Promise<ScheduleAvailability>,
 	notify: (owner: string, runId: string) => Promise<void>,
 	now = Date.now(),
+	warn?: (text: string) => Promise<void>,
 ): Promise<void> {
 	operatorOnly();
 	await locked(`${path()}.lock`, async () => {
@@ -284,6 +263,7 @@ export async function dispatchSchedules(
 			}
 		}
 		if (changed) await save(state);
+		if (warn) await warnScheduleSize(state, path(), warn, save);
 		if (problems.length) throw new Error(problems.join('\n'));
 	});
 }

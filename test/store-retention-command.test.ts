@@ -3,6 +3,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 
+import { encodeScheduleState } from '../src/schedule-store.ts';
+
 const owner = 'fixture-retention';
 const run = (n: number, runOwner = owner) => ({
 	id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
@@ -12,7 +14,7 @@ const run = (n: number, runOwner = owner) => ({
 	prompt: 'fixture',
 	dueAt: 1,
 	updatedAt: 2,
-	status: 'complete',
+	status: 'complete' as const,
 });
 
 async function invoke(root: string, args: string[]) {
@@ -63,11 +65,11 @@ test('real CLI pages owned schedule IDs and guarded own mail without changing st
 		);
 		const path = join(dir, 'state.json');
 		const state = {
-			version: 1,
+			version: 2 as const,
 			schedules: [],
 			runs: [...Array.from({ length: 11 }, (_, n) => run(n + 1)), run(99, 'another-owner')],
 		};
-		const original = JSON.stringify(state);
+		const original = encodeScheduleState(state);
 		await writeFile(path, original);
 		const first = await invoke(root, ['preview']);
 		if (first.code !== 0) throw new Error(first.stderr);
@@ -104,7 +106,7 @@ test('real CLI pages owned schedule IDs and guarded own mail without changing st
 		]);
 		expect(malformed.code).not.toBe(0);
 		expect(malformed.stderr).toContain('Invalid retention cursor');
-		await writeFile(path, JSON.stringify({ ...state, runs: state.runs.slice(1) }));
+		await writeFile(path, encodeScheduleState({ ...state, runs: state.runs.slice(1) }));
 		const stale = await invoke(root, ['preview', '--cursor', page.next ?? '']);
 		expect(stale.code).not.toBe(0);
 		expect(stale.stderr).toContain('Retention inputs changed');

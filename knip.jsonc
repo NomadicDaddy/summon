@@ -12,6 +12,7 @@
 		// Operator commands documented in README.md, outside package scripts/bin.
 		"scripts/backfill-diary.ts",
 		"scripts/migrate-checkpoints.ts",
+		"scripts/migrate-schedule-state.ts",
 		// Installed CMD launcher runs this version guard before importing the CLI.
 		"scripts/installed-launch.ts",
 		// Bundled by setup:updater into a standing command outside the checkout.

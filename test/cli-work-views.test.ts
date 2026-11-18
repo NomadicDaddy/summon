@@ -8,6 +8,7 @@ import { createBoardItem } from '../src/board.ts';
 import { rotateCommittedEvents } from '../src/local-room-storage.ts';
 import { type LocalEvent, localRoomPath } from '../src/local-room.ts';
 import { sendMessage } from '../src/mailbox.ts';
+import { encodeScheduleState } from '../src/schedule-store.ts';
 import { createSchedule, listSchedules } from '../src/schedules.ts';
 import { mailHarness } from './fixtures/mail-harness.ts';
 
@@ -174,7 +175,7 @@ test('schedule summary identifies unfinished and deferred work without changing 
 		updatedAt: Date.now(),
 		status: 'uncertain',
 	});
-	await writeFile(join(fixture.records, 'schedules/state.json'), JSON.stringify(state));
+	await writeFile(join(fixture.records, 'schedules/state.json'), encodeScheduleState(state));
 	await writeFile(join(fixture.records, 'AGENTS.md'), 'Read-only control');
 	const before = await snapshot();
 	const summary = await fixture.run(['--schedule', 'summary'], 'alpha');
@@ -214,7 +215,7 @@ test('compact schedules expose truncation counts, paused and future work', async
 		enabled: index !== 21,
 		nextDueAt: index === 21 ? 0 : Number.MAX_SAFE_INTEGER,
 	}));
-	await writeFile(join(fixture.records, 'schedules/state.json'), JSON.stringify(state));
+	await writeFile(join(fixture.records, 'schedules/state.json'), encodeScheduleState(state));
 	const result = await fixture.run(['--schedule', 'summary'], 'alpha');
 	expect(result.code).toBe(0);
 	const summary = JSON.parse(result.out) as { next: { dueLocal: string }[]; paused: unknown[] };

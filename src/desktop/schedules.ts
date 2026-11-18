@@ -4,6 +4,7 @@ import { readActivity } from '../agent-activity.ts';
 import { automaticNoticeSuppressed } from '../automatic-notice.ts';
 import { headDownActive } from '../head-down-model.ts';
 import { operatorViewing } from '../operator-view.ts';
+import { appendRuntimeFault } from '../runtime-faults.ts';
 import { dispatchSchedules } from '../schedules.ts';
 import { terminalDraft } from './terminal-draft.ts';
 
@@ -25,5 +26,12 @@ export async function tickSchedules(team: Team): Promise<void> {
 		},
 		// The unified receiver observes the durable scheduled mail for every provider.
 		async () => {},
+		Date.now(),
+		async (text) => {
+			await appendRuntimeFault(
+				{ level: 'warning', source: 'schedules.size', text },
+				team.startedAt,
+			);
+		},
 	);
 }

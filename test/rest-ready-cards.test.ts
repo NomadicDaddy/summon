@@ -6,6 +6,7 @@ import { initializeActivity, readActivity } from '../src/agent-activity.ts';
 import { createBoardItem, readBoard, updateBoardItem } from '../src/board.ts';
 import { sendMessage } from '../src/mailbox.ts';
 import { readRest, refreshRest, stopForRest } from '../src/rest.ts';
+import { encodeScheduleState } from '../src/schedule-store.ts';
 import { createSchedule, dispatchSchedules, listSchedules } from '../src/schedules.ts';
 import { loadAgent, providers, saveAgent } from '../src/store.ts';
 import { bindIdleCodex } from './fixtures/codex-idle.ts';
@@ -50,7 +51,7 @@ async function dueSchedule() {
 	const schedule = state.schedules[0];
 	if (!schedule) throw new Error('Missing fixture schedule');
 	schedule.nextDueAt = 0;
-	await writeFile(join(fixture.records, 'schedules/state.json'), JSON.stringify(state));
+	await writeFile(join(fixture.records, 'schedules/state.json'), encodeScheduleState(state));
 }
 
 for (const provider of providers) {
