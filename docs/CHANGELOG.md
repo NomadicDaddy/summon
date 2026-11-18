@@ -2,6 +2,14 @@
 
 Notable changes to summon are recorded here using Keep a Changelog categories and semantic versions.
 
+## [Unreleased]
+
+### Changed
+
+- Development linting and formatting use ESLint 10.15.0 and Prettier 3.10.1. ESLint's updated
+  dependency path uses `minimatch` 11.0.9 and its new `@isaacs/nonrecursive-glob-match` dependency;
+  typescript-eslint still uses `minimatch` 10.2.6, so the moderate advisory remains on that path.
+
 ## [1.2.1] - 2026-11-17
 
 ### Changed
