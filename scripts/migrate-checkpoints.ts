@@ -12,6 +12,7 @@ import { checkpointHash } from '../src/checkpoint-package-model.ts';
 import { ownHolds } from '../src/mail-attention.ts';
 import { atomicWrite, locked, optionalText } from '../src/mail-files.ts';
 import { operatorOnly } from '../src/mail-identity.ts';
+import { assertOfflineProcesses } from '../src/offline-processes.ts';
 import { localCursorPath, roomCursor } from '../src/room-cursor.ts';
 import { listAgentSlugs, loadAgent, slugFor, storageRoot } from '../src/store.ts';
 import { roomCursorPath } from '../src/telegram-live.ts';
@@ -35,25 +36,6 @@ async function verifyDeferred(owners: Deferred[]): Promise<void> {
 			assertDeferredCheckpointState(raw);
 		});
 	}
-}
-
-async function assertOfflineProcesses(): Promise<void> {
-	if (process.platform !== 'win32')
-		throw new Error('This offline migration requires the Windows operator terminal.');
-	const script =
-		'Get-CimInstance Win32_Process -ErrorAction Stop | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match "(?i)(dist[\\/]+team[\\/]+main|summon.*(?:__session|--team)|src[\\/]+cli\\.ts.*__session)" } | ForEach-Object { $_.ProcessId } | ConvertTo-Json -Compress';
-	const child = Bun.spawn({
-		cmd: ['pwsh', '-NoProfile', '-NonInteractive', '-Command', script],
-		stdout: 'pipe',
-		stderr: 'pipe',
-		windowsHide: true,
-	});
-	const [output, code] = await Promise.all([new Response(child.stdout).text(), child.exited]);
-	await new Response(child.stderr).text();
-	if (code !== 0)
-		throw new Error('Could not verify offline process inventory; migration refused.');
-	if (output.trim() && output.trim() !== 'null')
-		throw new Error('A Summon window or session process is still present; migration refused.');
 }
 
 async function preflight(selected: Set<string>): Promise<{ plans: Plan[]; deferred: Deferred[] }> {
